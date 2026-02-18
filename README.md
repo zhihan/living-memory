@@ -1,4 +1,4 @@
-# Agent-Static-CMS
+# Living Memory
 
 A static website generated and managed by an AI agent based on its memory.
 
