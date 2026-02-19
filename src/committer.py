@@ -63,10 +63,10 @@ Respond with a single JSON object (no markdown fences) containing:
 - "update_title": (only if action is "update") the title of the existing memory to overwrite
 - "target": ISO 8601 date string for when the event occurs
 - "expires": ISO 8601 date string for when the memory can be removed (default: 30 days after target)
-- "title": short event name (string or null)
+- "title": short event name in markdown format; use [title](url) to make it a clickable link if a URL is relevant
 - "time": time of day as a string (e.g. "10:00") or null
 - "place": location string or null
-- "content": event description string
+- "content": event description in markdown format (use [text](url) for any links)
 
 Use "update" when the user's message refers to an event that clearly matches an existing memory. Otherwise use "create"."""
 
