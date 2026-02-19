@@ -71,14 +71,36 @@ def test_generate_page_splits_this_week_and_future():
     assert "Brunch" in html
     assert "Conference" in html
     assert "Convention Center" in html
-    # Content/description should NOT appear in the output
-    assert "Thursday standup" not in html
-    assert "March conference" not in html
+    # Content should be rendered as HTML (from markdown)
+    assert "Thursday standup" in html
+    assert "March conference" in html
 
 
 def test_generate_page_no_events():
     html = generate_page([], date(2026, 2, 18))
     assert "No events." in html
+
+
+def test_generate_page_renders_markdown_links():
+    today = date(2026, 2, 18)
+    memories = [
+        Memory(target=date(2026, 2, 19), expires=date(2026, 3, 1),
+               content="Details at [our site](https://example.com)",
+               title="Bible Study"),
+    ]
+    html = generate_page(memories, today)
+    assert '<a href="https://example.com">our site</a>' in html
+
+
+def test_generate_page_renders_links_in_title():
+    today = date(2026, 2, 18)
+    memories = [
+        Memory(target=date(2026, 2, 19), expires=date(2026, 3, 1),
+               content="Join us for worship",
+               title="[Sunday Service](https://example.com/service)"),
+    ]
+    html = generate_page(memories, today)
+    assert '<a href="https://example.com/service">Sunday Service</a>' in html
 
 
 def test_generate_page_event_without_title():

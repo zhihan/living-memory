@@ -7,6 +7,8 @@ from datetime import date, timedelta
 from html import escape
 from pathlib import Path
 
+import markdown
+
 from memory import Memory
 
 _DEFAULT_TEMPLATE = Path(__file__).resolve().parent.parent / "templates" / "page.html"
@@ -24,16 +26,28 @@ def load_memories(directory: Path, today: date) -> list[Memory]:
     return memories
 
 
+def _md_inline(text: str) -> str:
+    """Render markdown but strip the wrapping <p> tag for inline use."""
+    html = markdown.markdown(text)
+    if html.startswith("<p>") and html.endswith("</p>"):
+        html = html[3:-4]
+    return html
+
+
 def _render_event(mem: Memory) -> str:
     """Render a single memory as an HTML list item."""
-    parts = [f"<li><strong>{escape(mem.title or mem.content)}</strong>"]
-    details = []
+    title_html = _md_inline(mem.title or mem.content)
+    parts = [f"<li><strong>{title_html}</strong>"]
+    details = [str(mem.target)]
     if mem.time:
         details.append(escape(mem.time))
     if mem.place:
         details.append(escape(mem.place))
     if details:
         parts.append(f"<br>{' · '.join(details)}")
+    if mem.title and mem.content:
+        content_html = markdown.markdown(mem.content)
+        parts.append(f"<div>{content_html}</div>")
     parts.append("</li>")
     return "\n".join(parts)
 

@@ -17,13 +17,19 @@ from memory import Memory
 load_dotenv()
 
 
-def slugify(title: str | None, target: date) -> str:
+def slugify(title: str | None, target: date, slug: str | None = None) -> str:
     """Generate a filename from the title and target date."""
     prefix = target.isoformat()
+    if slug:
+        clean = re.sub(r"[^a-z0-9]+", "-", slug.lower()).strip("-")
+        if clean:
+            return f"{prefix}-{clean}.md"
     if not title:
         return f"{prefix}.md"
-    slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
-    return f"{prefix}-{slug}.md"
+    clean = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
+    if not clean:
+        return f"{prefix}.md"
+    return f"{prefix}-{clean}.md"
 
 
 def load_memories(memories_dir: Path) -> list[Memory]:
@@ -58,15 +64,19 @@ Existing memories:
 
 User message: {message}
 
+Respond in the same language as the user's message.
+When matching events, treat semantically equivalent events across languages as the same event (e.g. "work lunch" and "工作午餐" refer to the same event).
+
 Respond with a single JSON object (no markdown fences) containing:
 - "action": "create" or "update"
 - "update_title": (only if action is "update") the title of the existing memory to overwrite
 - "target": ISO 8601 date string for when the event occurs
 - "expires": ISO 8601 date string for when the memory can be removed (default: 30 days after target)
-- "title": short event name (string or null)
+- "title": short event name in markdown format; use [title](url) to make it a clickable link if a URL is relevant
+- "slug": ASCII-only short identifier for the filename (e.g. "work-lunch" for "工作午餐")
 - "time": time of day as a string (e.g. "10:00") or null
 - "place": location string or null
-- "content": event description string
+- "content": event description in markdown format (use [text](url) for any links)
 
 Use "update" when the user's message refers to an event that clearly matches an existing memory. Otherwise use "create"."""
 
@@ -122,6 +132,8 @@ def main(argv: list[str] | None = None) -> None:
         place=result.get("place"),
     )
 
+    slug = result.get("slug")
+
     if result["action"] == "update" and result.get("update_title"):
         # Find existing file by matching title
         path = None
@@ -131,9 +143,9 @@ def main(argv: list[str] | None = None) -> None:
                 path = p
                 break
         if path is None:
-            path = memories_dir / slugify(mem.title, target)
+            path = memories_dir / slugify(mem.title, target, slug=slug)
     else:
-        path = memories_dir / slugify(mem.title, target)
+        path = memories_dir / slugify(mem.title, target, slug=slug)
 
     mem.dump(path)
     git_commit_and_push(path, push=not args.no_push)

@@ -21,6 +21,18 @@ def test_slugify_no_title():
     assert slugify(None, date(2026, 3, 1)) == "2026-03-01.md"
 
 
+def test_slugify_with_slug():
+    assert slugify("工作午餐", date(2026, 3, 1), slug="work-lunch") == "2026-03-01-work-lunch.md"
+
+
+def test_slugify_chinese_title_no_slug():
+    assert slugify("工作午餐", date(2026, 3, 1)) == "2026-03-01.md"
+
+
+def test_slugify_slug_preferred_over_title():
+    assert slugify("Team Meeting", date(2026, 3, 1), slug="team-sync") == "2026-03-01-team-sync.md"
+
+
 def test_build_ai_request():
     memories = [
         Memory(target=date(2026, 3, 1), expires=date(2026, 4, 1),
@@ -33,6 +45,7 @@ def test_build_ai_request():
     assert "Standup" in prompt
     assert "10:00" in prompt
     assert "Room A" in prompt
+    assert "slug" in prompt.lower()
 
 
 def test_build_ai_request_no_memories():
