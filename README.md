@@ -20,15 +20,16 @@ python3 -m venv .venv
 
 ### Add a memory
 
-Requires `GEMINI_API_KEY` environment variable.
+Requires `GEMINI_API_KEY`. Set it in a `.env` file at the project root or as an environment variable.
 
 ```bash
-GEMINI_API_KEY=... python -m committer \
-  --memories-dir memories/ \
-  --message "Team meeting next Thursday at 10am in Room A"
+.venv/bin/python -m committer --message "Team meeting next Thursday at 10am in Room A"
 ```
 
-Use `--no-push` to skip the git push. Use `--today 2026-02-18` to override today's date for testing.
+Options:
+- `--memories-dir` — directory for memory files (default: `memories/`)
+- `--no-push` — skip git push
+- `--today 2026-02-18` — override today's date (for testing)
 
 The AI extracts event details from your message and decides whether to create a new memory or update an existing one.
 
