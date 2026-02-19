@@ -9,7 +9,7 @@ from publisher import generate_page, load_memories, main, _DEFAULT_TITLE
 
 def _write_memory(
     path: Path,
-    target: str,
+    target: str | None,
     expires: str,
     content: str,
     title: str | None = None,
@@ -17,7 +17,7 @@ def _write_memory(
     place: str | None = None,
 ) -> None:
     mem = Memory(
-        target=date.fromisoformat(target),
+        target=date.fromisoformat(target) if target else None,
         expires=date.fromisoformat(expires),
         content=content,
         title=title,
@@ -131,3 +131,33 @@ def test_main_end_to_end(tmp_path: Path):
     assert "Spring" in content
     assert "Park" in content
     assert "14:00" in content
+
+
+def test_load_memories_keeps_ongoing(tmp_path: Path):
+    """Ongoing memories (no target) are never filtered out before expiry."""
+    _write_memory(tmp_path / "ongoing.md", None, "2026-03-01", "Weekly event", title="Worship")
+    _write_memory(tmp_path / "expired.md", "2026-01-01", "2026-01-31", "Old event")
+
+    memories = load_memories(tmp_path, date(2026, 2, 18))
+    assert len(memories) == 1
+    assert memories[0].title == "Worship"
+    assert memories[0].target is None
+
+
+def test_generate_page_ongoing_in_this_week():
+    """Ongoing memories appear in the This Week section."""
+    today = date(2026, 2, 18)
+    memories = [
+        Memory(target=None, expires=date(2026, 2, 22),
+               content="Every Sunday", title="Worship", time="10:00"),
+        Memory(target=date(2026, 3, 5), expires=date(2026, 4, 1),
+               content="Future event", title="Conference"),
+    ]
+    html = generate_page(memories, today)
+    # Worship should be in This Week, Conference in Upcoming
+    this_week_pos = html.index("This Week")
+    upcoming_pos = html.index("Upcoming")
+    worship_pos = html.index("Worship")
+    conference_pos = html.index("Conference")
+    assert this_week_pos < worship_pos < upcoming_pos
+    assert upcoming_pos < conference_pos

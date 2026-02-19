@@ -4,8 +4,14 @@ from __future__ import annotations
 
 import frontmatter
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
+
+
+def _next_sunday(d: date) -> date:
+    """Return the coming Sunday (same day if *d* is already Sunday)."""
+    days_ahead = 6 - d.weekday()  # Monday=0, Sunday=6
+    return d + timedelta(days=days_ahead)
 
 
 @dataclass
@@ -14,9 +20,11 @@ class Memory:
 
     Each memory has a target date (when the event occurs) and an
     expiration date (when it can safely be removed from memory).
+    When *target* is ``None`` the memory is **ongoing** — it has no
+    specific event date and expires on the coming Sunday.
     """
 
-    target: date
+    target: date | None
     expires: date
     content: str
     title: str | None = None
@@ -27,8 +35,9 @@ class Memory:
     def load(cls, path: Path) -> Memory:
         """Load a memory from a markdown file with YAML frontmatter."""
         post = frontmatter.load(path)
+        raw_target = post.metadata.get("target")
         return cls(
-            target=_parse_date(post.metadata["target"]),
+            target=_parse_date(raw_target) if raw_target is not None else None,
             expires=_parse_date(post.metadata["expires"]),
             content=post.content,
             title=post.metadata.get("title"),
@@ -38,10 +47,10 @@ class Memory:
 
     def dump(self, path: Path) -> None:
         """Write this memory to a markdown file with YAML frontmatter."""
-        metadata: dict = {
-            "target": self.target.isoformat(),
-            "expires": self.expires.isoformat(),
-        }
+        metadata: dict = {}
+        if self.target is not None:
+            metadata["target"] = self.target.isoformat()
+        metadata["expires"] = self.expires.isoformat()
         if self.title is not None:
             metadata["title"] = self.title
         if self.time is not None:

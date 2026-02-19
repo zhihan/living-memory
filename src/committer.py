@@ -12,14 +12,15 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from memory import Memory
+from memory import Memory, _next_sunday
 
 load_dotenv()
 
 
+
 def slugify(title: str | None, target: date, slug: str | None = None) -> str:
     """Generate a filename from the title and target date."""
-    prefix = target.isoformat()
+    prefix = target.isoformat() if target else "ongoing"
     if slug:
         clean = re.sub(r"[^a-z0-9]+", "-", slug.lower()).strip("-")
         if clean:
@@ -44,7 +45,11 @@ def build_ai_request(message: str, existing_memories: list[Memory], today: date)
     """Build a prompt for the AI from the user message, existing memories, and today's date."""
     memory_summaries = []
     for mem in existing_memories:
-        parts = [f"target={mem.target.isoformat()}"]
+        parts = []
+        if mem.target is not None:
+            parts.append(f"target={mem.target.isoformat()}")
+        else:
+            parts.append("target=ongoing")
         if mem.title:
             parts.append(f"title={mem.title}")
         if mem.time:
@@ -70,8 +75,8 @@ When matching events, treat semantically equivalent events across languages as t
 Respond with a single JSON object (no markdown fences) containing:
 - "action": "create" or "update"
 - "update_title": (only if action is "update") the title of the existing memory to overwrite
-- "target": ISO 8601 date string for when the event occurs
-- "expires": ISO 8601 date string for when the memory can be removed (default: 30 days after target)
+- "target": ISO 8601 date string for when the event occurs, or null for ongoing/recurring events with no specific date
+- "expires": ISO 8601 date string for when the memory can be removed (default: 30 days after target; use the coming Sunday for ongoing events)
 - "title": short event name in markdown format; use [title](url) to make it a clickable link if a URL is relevant
 - "slug": ASCII-only short identifier for the filename (e.g. "work-lunch" for "工作午餐")
 - "time": time of day as a string (e.g. "10:00") or null
@@ -121,8 +126,9 @@ def main(argv: list[str] | None = None) -> None:
     prompt = build_ai_request(args.message, existing_memories, today)
     result = call_ai(prompt)
 
-    target = date.fromisoformat(result["target"])
-    expires = date.fromisoformat(result["expires"])
+    raw_target = result.get("target")
+    target = date.fromisoformat(raw_target) if raw_target else None
+    expires = date.fromisoformat(result["expires"]) if result.get("expires") else _next_sunday(today)
     mem = Memory(
         target=target,
         expires=expires,

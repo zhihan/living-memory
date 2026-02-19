@@ -22,7 +22,8 @@ def load_memories(directory: Path, today: date) -> list[Memory]:
         mem = Memory.load(path)
         if not mem.is_expired(today):
             memories.append(mem)
-    memories.sort(key=lambda m: m.target)
+    # Ongoing memories (no target) sort first so they appear at the top.
+    memories.sort(key=lambda m: (m.target is not None, m.target or date.min))
     return memories
 
 
@@ -38,7 +39,7 @@ def _render_event(mem: Memory) -> str:
     """Render a single memory as an HTML list item."""
     title_html = _md_inline(mem.title or mem.content)
     parts = [f"<li><strong>{title_html}</strong>"]
-    details = [str(mem.target)]
+    details = [str(mem.target)] if mem.target else []
     if mem.time:
         details.append(escape(mem.time))
     if mem.place:
@@ -65,8 +66,8 @@ def generate_page(
 
     week_end = today + timedelta(days=(6 - today.weekday()))
 
-    this_week = [m for m in memories if m.target <= week_end]
-    future = [m for m in memories if m.target > week_end]
+    this_week = [m for m in memories if m.target is None or m.target <= week_end]
+    future = [m for m in memories if m.target is not None and m.target > week_end]
 
     def render_section(title: str, events: list[Memory]) -> str:
         if not events:

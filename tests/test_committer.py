@@ -21,6 +21,13 @@ def test_slugify_no_title():
     assert slugify(None, date(2026, 3, 1)) == "2026-03-01.md"
 
 
+def test_slugify_ongoing():
+    assert slugify("Sunday Worship", None) == "ongoing-sunday-worship.md"
+
+
+def test_slugify_ongoing_no_title():
+    assert slugify(None, None) == "ongoing.md"
+
 def test_slugify_with_slug():
     assert slugify("工作午餐", date(2026, 3, 1), slug="work-lunch") == "2026-03-01-work-lunch.md"
 
@@ -46,6 +53,16 @@ def test_build_ai_request():
     assert "10:00" in prompt
     assert "Room A" in prompt
     assert "slug" in prompt.lower()
+
+
+def test_build_ai_request_ongoing_memory():
+    memories = [
+        Memory(target=None, expires=date(2026, 2, 22),
+               content="Every week", title="Sunday Worship"),
+    ]
+    prompt = build_ai_request("What's happening?", memories, date(2026, 2, 18))
+    assert "target=ongoing" in prompt
+    assert "Sunday Worship" in prompt
 
 
 def test_build_ai_request_no_memories():
@@ -148,4 +165,37 @@ def test_main_update(mock_call_ai, mock_git, tmp_path: Path):
     assert mem.place == "Room B"
     assert mem.content == "Updated: moved to 11am in Room B"
     assert files[0].name == "2026-03-05-team-meeting.md"
+    mock_git.assert_called_once()
+
+
+@patch("committer.git_commit_and_push")
+@patch("committer.call_ai")
+def test_main_create_ongoing(mock_call_ai, mock_git, tmp_path: Path):
+    mem_dir = tmp_path / "memories"
+    mem_dir.mkdir()
+
+    mock_call_ai.return_value = {
+        "action": "create",
+        "target": None,
+        "expires": "2026-02-22",
+        "title": "Sunday Worship",
+        "time": "10:00",
+        "place": "Chapel",
+        "content": "Sunday worship every week",
+    }
+
+    main([
+        "--memories-dir", str(mem_dir),
+        "--message", "Sunday worship every week at 10am in Chapel",
+        "--today", "2026-02-18",
+        "--no-push",
+    ])
+
+    files = list(mem_dir.glob("*.md"))
+    assert len(files) == 1
+    mem = Memory.load(files[0])
+    assert mem.target is None
+    assert mem.expires == date(2026, 2, 22)
+    assert mem.title == "Sunday Worship"
+    assert files[0].name == "ongoing-sunday-worship.md"
     mock_git.assert_called_once()
