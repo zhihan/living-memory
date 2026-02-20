@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 from datetime import date, timedelta
 from html import escape
 from pathlib import Path
@@ -35,9 +36,20 @@ def _attachment_label(url: str) -> str:
     return name or "attachment"
 
 
+_BARE_URL_RE = re.compile(
+    r"(?<![(<\"'])"   # not preceded by ( < " ' (already in a link)
+    r"(https?://\S+)"
+)
+
+
+def _linkify_bare_urls(text: str) -> str:
+    """Wrap bare URLs in angle brackets so markdown renders them as links."""
+    return _BARE_URL_RE.sub(r"<\1>", text)
+
+
 def _md_inline(text: str) -> str:
     """Render markdown but strip the wrapping <p> tag for inline use."""
-    html = markdown.markdown(text)
+    html = markdown.markdown(_linkify_bare_urls(text))
     if html.startswith("<p>") and html.endswith("</p>"):
         html = html[3:-4]
     return html
@@ -67,7 +79,7 @@ def _render_event(mem: Memory) -> str:
     if meta:
         detail_parts.append(f"<p>{' · '.join(meta)}</p>")
     if mem.title and mem.content:
-        content_html = markdown.markdown(mem.content)
+        content_html = markdown.markdown(_linkify_bare_urls(mem.content))
         detail_parts.append(f"<div>{content_html}</div>")
     if mem.attachments:
         links = " ".join(

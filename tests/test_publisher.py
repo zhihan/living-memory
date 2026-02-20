@@ -4,7 +4,7 @@ from datetime import date
 from pathlib import Path
 
 from memory import Memory
-from publisher import generate_page, load_memories, main, _DEFAULT_TITLE, _render_event
+from publisher import generate_page, load_memories, main, _DEFAULT_TITLE, _render_event, _linkify_bare_urls
 
 
 def _write_memory(
@@ -210,3 +210,37 @@ def test_render_event_no_details_no_fold():
     html = _render_event(mem)
     assert "<details>" not in html
     assert "Simple announcement" in html
+
+
+def test_generate_page_linkifies_bare_urls():
+    """Bare URLs (e.g. Zoom links with query params) become clickable <a> links."""
+    today = date(2026, 2, 18)
+    zoom_url = "https://us02web.zoom.us/j/5474967529?pwd=L2V6T0xRUGpwYTV2bUgvU08xalRUUT09"
+    memories = [
+        Memory(
+            target=date(2026, 2, 21),
+            expires=date(2026, 3, 23),
+            content=f"Join Zoom Meeting\n\n{zoom_url}\n\nMeeting ID: 547 496 7529",
+            title="Online Revival",
+            time="8:30",
+            place="Zoom",
+        ),
+    ]
+    html = generate_page(memories, today)
+    assert f'href="{zoom_url}"' in html
+    assert f">{zoom_url}</a>" in html
+
+
+def test_linkify_bare_urls_preserves_markdown_links():
+    """URLs already in markdown link syntax are not double-wrapped."""
+    text = "Visit [our site](https://example.com) for details"
+    result = _linkify_bare_urls(text)
+    assert "](https://example.com)" in result
+    assert "<https://example.com>" not in result
+
+
+def test_linkify_bare_urls_wraps_bare():
+    """A bare URL gets wrapped in angle brackets."""
+    text = "Join at https://zoom.us/j/123?pwd=abc"
+    result = _linkify_bare_urls(text)
+    assert "<https://zoom.us/j/123?pwd=abc>" in result
