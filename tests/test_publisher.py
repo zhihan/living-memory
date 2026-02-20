@@ -4,7 +4,7 @@ from datetime import date
 from pathlib import Path
 
 from memory import Memory
-from publisher import generate_page, load_memories, main, _DEFAULT_TITLE
+from publisher import generate_page, load_memories, main, _DEFAULT_TITLE, _render_event
 
 
 def _write_memory(
@@ -186,3 +186,27 @@ def test_generate_page_no_attachments_no_section():
     ]
     html = generate_page(memories, today)
     assert "Attachments:" not in html
+
+
+def test_render_event_uses_details_element():
+    """Events with details are wrapped in a <details>/<summary> element."""
+    mem = Memory(target=date(2026, 2, 19), expires=date(2026, 3, 1),
+                 content="Come join us", title="Gathering",
+                 time="10:00", place="Room A")
+    html = _render_event(mem)
+    assert "<details>" in html
+    assert "<summary>" in html
+    assert "</details>" in html
+    assert "Gathering" in html
+    assert "10:00" in html
+    assert "Room A" in html
+    assert "Come join us" in html
+
+
+def test_render_event_no_details_no_fold():
+    """Events without extra details render without a <details> element."""
+    mem = Memory(target=None, expires=date(2026, 3, 1),
+                 content="Simple announcement")
+    html = _render_event(mem)
+    assert "<details>" not in html
+    assert "Simple announcement" in html

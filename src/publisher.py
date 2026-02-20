@@ -43,28 +43,48 @@ def _md_inline(text: str) -> str:
     return html
 
 
+def _has_details(mem: Memory) -> bool:
+    """Return True if the memory has detail content beyond the title."""
+    return bool(mem.target or mem.time or mem.place
+                or (mem.title and mem.content) or mem.attachments)
+
+
 def _render_event(mem: Memory) -> str:
-    """Render a single memory as an HTML list item."""
+    """Render a single memory as an HTML list item.
+
+    When the event has extra details (date, time, place, body, or
+    attachments) they are wrapped in a ``<details>`` element so the
+    reader can expand/collapse them.
+    """
     title_html = _md_inline(mem.title or mem.content)
-    parts = [f"<li><strong>{title_html}</strong>"]
-    details = [str(mem.target)] if mem.target else []
+
+    detail_parts: list[str] = []
+    meta = [str(mem.target)] if mem.target else []
     if mem.time:
-        details.append(escape(mem.time))
+        meta.append(escape(mem.time))
     if mem.place:
-        details.append(escape(mem.place))
-    if details:
-        parts.append(f"<br>{' · '.join(details)}")
+        meta.append(escape(mem.place))
+    if meta:
+        detail_parts.append(f"<p>{' · '.join(meta)}</p>")
     if mem.title and mem.content:
         content_html = markdown.markdown(mem.content)
-        parts.append(f"<div>{content_html}</div>")
+        detail_parts.append(f"<div>{content_html}</div>")
     if mem.attachments:
         links = " ".join(
             f'<a href="{escape(url)}">{escape(_attachment_label(url))}</a>'
             for url in mem.attachments
         )
-        parts.append(f'<div class="attachments">Attachments: {links}</div>')
-    parts.append("</li>")
-    return "\n".join(parts)
+        detail_parts.append(f'<div class="attachments">Attachments: {links}</div>')
+
+    if detail_parts:
+        inner = "\n".join(detail_parts)
+        return (
+            f"<li><details>\n"
+            f"<summary><strong>{title_html}</strong></summary>\n"
+            f"{inner}\n"
+            f"</details></li>"
+        )
+    return f"<li><strong>{title_html}</strong></li>"
 
 
 def generate_page(
