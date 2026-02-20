@@ -7,4 +7,4 @@ target: '2026-05-22'
 title: International Memorial Day Conference
 ---
 
-None
+See details in the attachment

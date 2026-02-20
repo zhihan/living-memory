@@ -27,6 +27,7 @@ Requires `GEMINI_API_KEY`. Set it in a `.env` file at the project root or as an 
 ```
 
 Options:
+- `--attach <file>` — attach a file (uploaded to cloud storage); repeatable for multiple files
 - `--memories-dir` — directory for memory files (default: `memories/`)
 - `--no-push` — skip git push
 - `--today 2026-02-18` — override today's date (for testing)
