@@ -26,3 +26,26 @@ def upload_to_gcs(local_path: Path, *, bucket: str | None = None) -> str:
     blob.upload_from_filename(str(local_path))
     blob.make_public()
     return blob.public_url
+
+
+def delete_from_gcs(public_url: str) -> None:
+    """Delete a blob from GCS given its public URL.
+
+    Parses a URL of the form
+    ``https://storage.googleapis.com/<bucket>/<blob_path>`` to extract
+    the bucket name and blob path, then deletes the blob.
+    """
+    from urllib.parse import urlparse
+
+    from google.cloud import storage  # lazy import
+
+    parsed = urlparse(public_url)
+    # Path starts with /<bucket>/<blob_path>
+    parts = parsed.path.lstrip("/").split("/", 1)
+    bucket_name = parts[0]
+    blob_path = parts[1]
+
+    client = storage.Client()
+    bucket = client.bucket(bucket_name)
+    blob = bucket.blob(blob_path)
+    blob.delete()

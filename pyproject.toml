@@ -14,6 +14,7 @@ dependencies = [
 [project.scripts]
 publisher = "publisher:main"
 committer = "committer:main"
+cleanup = "cleanup:main"
 
 [project.optional-dependencies]
 dev = [

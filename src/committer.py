@@ -12,6 +12,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from cleanup import cleanup
 from memory import Memory, _next_sunday
 from storage import upload_to_gcs
 
@@ -173,6 +174,9 @@ def main(argv: list[str] | None = None) -> None:
             path = memories_dir / slugify(mem.title, target, slug=slug)
     else:
         path = memories_dir / slugify(mem.title, target, slug=slug)
+
+    # Remove expired memories before committing the new one.
+    cleanup(memories_dir, today, push=False)
 
     mem.dump(path)
     git_commit_and_push(path, push=not args.no_push)
