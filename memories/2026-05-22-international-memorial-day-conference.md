@@ -5,6 +5,7 @@ expires: '2026-06-21'
 place: Dallas, TX
 target: '2026-05-22'
 title: International Memorial Day Conference
+user_id: cambridge-lexington
 ---
 
 See details in the attachment

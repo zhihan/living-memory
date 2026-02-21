@@ -31,6 +31,7 @@ class Memory:
     time: str | None = None
     place: str | None = None
     attachments: list[str] | None = None
+    user_id: str = "cambridge-lexington"
 
     @classmethod
     def load(cls, path: Path) -> Memory:
@@ -46,6 +47,7 @@ class Memory:
             time=post.metadata.get("time"),
             place=post.metadata.get("place"),
             attachments=list(raw_attachments) if raw_attachments else None,
+            user_id=post.metadata.get("user_id", "cambridge-lexington"),
         )
 
     def dump(self, path: Path) -> None:
@@ -62,6 +64,7 @@ class Memory:
             metadata["place"] = self.place
         if self.attachments:
             metadata["attachments"] = self.attachments
+        metadata["user_id"] = self.user_id
         post = frontmatter.Post(self.content, **metadata)
         path.write_text(frontmatter.dumps(post) + "\n")
 

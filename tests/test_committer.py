@@ -201,6 +201,75 @@ def test_main_create_ongoing(mock_call_ai, mock_git, tmp_path: Path):
     mock_git.assert_called_once()
 
 
+@patch("committer.git_commit_and_push")
+@patch("committer.call_ai")
+def test_main_create_with_user_id(mock_call_ai, mock_git, tmp_path: Path):
+    mem_dir = tmp_path / "memories"
+    mem_dir.mkdir()
+
+    mock_call_ai.return_value = {
+        "action": "create",
+        "target": "2026-03-05",
+        "expires": "2026-04-04",
+        "title": "Alice Meeting",
+        "time": "10:00",
+        "place": "Room A",
+        "content": "Alice's planning session",
+    }
+
+    main([
+        "--memories-dir", str(mem_dir),
+        "--message", "Meeting next Thursday at 10am",
+        "--user-id", "alice",
+        "--today", "2026-02-18",
+        "--no-push",
+    ])
+
+    files = list(mem_dir.glob("*.md"))
+    assert len(files) == 1
+    mem = Memory.load(files[0])
+    assert mem.user_id == "alice"
+    assert mem.title == "Alice Meeting"
+
+
+@patch("committer.git_commit_and_push")
+@patch("committer.call_ai")
+def test_main_filters_memories_by_user_id(mock_call_ai, mock_git, tmp_path: Path):
+    mem_dir = tmp_path / "memories"
+    mem_dir.mkdir()
+
+    # Create memories for different users
+    Memory(target=date(2026, 3, 5), expires=date(2026, 4, 4),
+           content="Alice event", title="Alice Meeting", user_id="alice").dump(
+        mem_dir / "alice.md")
+    Memory(target=date(2026, 3, 6), expires=date(2026, 4, 5),
+           content="Bob event", title="Bob Meeting", user_id="bob").dump(
+        mem_dir / "bob.md")
+
+    mock_call_ai.return_value = {
+        "action": "create",
+        "target": "2026-03-10",
+        "expires": "2026-04-10",
+        "title": "New Alice Event",
+        "time": None,
+        "place": None,
+        "content": "Another alice event",
+    }
+
+    main([
+        "--memories-dir", str(mem_dir),
+        "--message", "New event",
+        "--user-id", "alice",
+        "--today", "2026-02-18",
+        "--no-push",
+    ])
+
+    # The AI prompt should only include alice's memory, not bob's
+    prompt = mock_call_ai.call_args[0][0]
+    assert "Alice Meeting" in prompt
+    assert "Bob Meeting" not in prompt
+
+
 def test_build_ai_request_with_attachments():
     prompt = build_ai_request(
         "Meeting with flyer", [], date(2026, 2, 18),

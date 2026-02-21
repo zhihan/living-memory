@@ -162,6 +162,50 @@ def test_no_attachments_not_in_file(tmp_path: Path):
     assert "attachments" not in raw
 
 
+def test_roundtrip_user_id(tmp_path: Path):
+    """user_id is preserved through dump/load."""
+    mem = Memory(
+        target=date(2026, 3, 15),
+        expires=date(2026, 4, 15),
+        content="Alice's event.",
+        title="Alice Event",
+        user_id="alice",
+    )
+    path = tmp_path / "alice.md"
+    mem.dump(path)
+    loaded = Memory.load(path)
+    assert loaded.user_id == "alice"
+    assert loaded == mem
+
+
+def test_user_id_default(tmp_path: Path):
+    """Memories without explicit user_id default to 'cambridge-lexington'."""
+    mem = Memory(
+        target=date(2026, 3, 15),
+        expires=date(2026, 4, 15),
+        content="Some event.",
+    )
+    assert mem.user_id == "cambridge-lexington"
+    path = tmp_path / "default.md"
+    mem.dump(path)
+    loaded = Memory.load(path)
+    assert loaded.user_id == "cambridge-lexington"
+
+
+def test_user_id_in_file_format(tmp_path: Path):
+    """user_id appears in the YAML frontmatter."""
+    mem = Memory(
+        target=date(2026, 3, 15),
+        expires=date(2026, 4, 15),
+        content="Event.",
+        user_id="bob",
+    )
+    path = tmp_path / "bob.md"
+    mem.dump(path)
+    raw = path.read_text()
+    assert "user_id: bob" in raw
+
+
 def test_next_sunday():
     # Wednesday 2026-02-18 → Sunday 2026-02-22
     assert _next_sunday(date(2026, 2, 18)) == date(2026, 2, 22)

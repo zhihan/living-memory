@@ -35,11 +35,17 @@ def slugify(title: str | None, target: date, slug: str | None = None) -> str:
     return f"{prefix}-{clean}.md"
 
 
-def load_memories(memories_dir: Path) -> list[Memory]:
-    """Load all memories from the directory (no date filtering)."""
+def load_memories(memories_dir: Path, user_id: str | None = None) -> list[Memory]:
+    """Load all memories from the directory (no date filtering).
+
+    If *user_id* is given, only memories belonging to that user are returned.
+    """
     memories = []
     for path in sorted(memories_dir.glob("*.md")):
-        memories.append(Memory.load(path))
+        mem = Memory.load(path)
+        if user_id is not None and mem.user_id != user_id:
+            continue
+        memories.append(mem)
     return memories
 
 
@@ -129,6 +135,8 @@ def main(argv: list[str] | None = None) -> None:
                         help="Override today's date for testing")
     parser.add_argument("--attach", type=Path, action="append", default=[],
                         help="File(s) to upload as attachments (repeatable)")
+    parser.add_argument("--user-id", type=str, default="cambridge-lexington",
+                        help="Owner of the memory (default: 'cambridge-lexington')")
     parser.add_argument("--no-push", action="store_true", help="Skip git push")
     args = parser.parse_args(argv)
 
@@ -141,7 +149,7 @@ def main(argv: list[str] | None = None) -> None:
         url = upload_to_gcs(attach_path)
         attachment_urls.append(url)
 
-    existing_memories = load_memories(memories_dir)
+    existing_memories = load_memories(memories_dir, user_id=args.user_id)
     prompt = build_ai_request(args.message, existing_memories, today,
                               attachment_urls=attachment_urls or None)
     result = call_ai(prompt)
@@ -158,6 +166,7 @@ def main(argv: list[str] | None = None) -> None:
         time=result.get("time"),
         place=result.get("place"),
         attachments=raw_attachments if raw_attachments else None,
+        user_id=args.user_id,
     )
 
     slug = result.get("slug")

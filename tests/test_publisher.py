@@ -244,3 +244,20 @@ def test_linkify_bare_urls_wraps_bare():
     text = "Join at https://zoom.us/j/123?pwd=abc"
     result = _linkify_bare_urls(text)
     assert "<https://zoom.us/j/123?pwd=abc>" in result
+
+
+def test_load_memories_filters_by_user_id(tmp_path: Path):
+    """When user_id is given, only that user's memories are loaded."""
+    Memory(target=date(2026, 3, 1), expires=date(2026, 6, 1),
+           content="Alice event", title="Alice", user_id="alice").dump(
+        tmp_path / "alice.md")
+    Memory(target=date(2026, 3, 2), expires=date(2026, 6, 1),
+           content="Bob event", title="Bob", user_id="bob").dump(
+        tmp_path / "bob.md")
+
+    alice_mems = load_memories(tmp_path, date(2026, 2, 18), user_id="alice")
+    assert len(alice_mems) == 1
+    assert alice_mems[0].title == "Alice"
+
+    all_mems = load_memories(tmp_path, date(2026, 2, 18))
+    assert len(all_mems) == 2
