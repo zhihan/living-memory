@@ -44,35 +44,30 @@ The API is available at `https://living-memories-488001.web.app/api`. All authen
 
 #### Authentication
 
-Authenticated endpoints require a Firebase ID token passed as `Authorization: Bearer <token>`. ID tokens expire after 1 hour, but you can use a long-lived **refresh token** to get fresh ones without re-authenticating.
-
-**One-time setup (requires a browser):**
-
-1. Sign into the web app at https://living-memories-488001.web.app
-2. Open browser DevTools → Console, and run:
-   ```js
-   JSON.parse(Object.entries(localStorage).find(([k]) => k.startsWith('firebase:authUser:'))[1]).spiTokens.refreshToken
-   ```
-3. Save the returned refresh token as a secret (e.g. `FIREBASE_REFRESH_TOKEN` env var)
-
-**Getting an ID token from the refresh token:**
+Authenticated endpoints require a Firebase ID token passed as `Authorization: Bearer <token>`. The easiest way to get a token is with the `login` CLI:
 
 ```bash
-curl -s -X POST \
-  "https://securetoken.googleapis.com/v1/token?key=AIzaSyCRPmK9euOr_rDVcQDBh_BC9OVM2MnJF0s" \
-  -H "Content-Type: application/json" \
-  -d '{"grant_type": "refresh_token", "refresh_token": "'"$FIREBASE_REFRESH_TOKEN"'"}'
-# Returns JSON with "id_token" — use that as your Bearer token.
+login              # opens browser, sign in with Google — stores credentials in system keyring
+login token        # prints a fresh ID token to stdout
+login whoami       # shows the logged-in email
+login logout       # clears stored credentials
 ```
 
-The refresh token does not expire unless the user's account is disabled or the token is explicitly revoked.
+Then use the token in API calls:
+
+```bash
+curl -H "Authorization: Bearer $(login token)" \
+  https://living-memories-488001.web.app/api/users/me
+```
+
+ID tokens expire after 1 hour; `login token` automatically refreshes them using the stored refresh token.
 
 #### Examples
 
 ```bash
-# Add an event (requires Firebase ID token)
+# Add an event
 curl -X POST https://living-memories-488001.web.app/api/pages/my-page/memories \
-  -H "Authorization: Bearer $FIREBASE_ID_TOKEN" \
+  -H "Authorization: Bearer $(login token)" \
   -H "Content-Type: application/json" \
   -d '{"message": "Team meeting next Thursday at 10am in Room A"}'
 
@@ -118,6 +113,7 @@ GEMINI_API_KEY=... \
   - `firestore_storage.py` — Firestore CRUD for memories
   - `page_storage.py` — Firestore CRUD for pages, invites, users
   - `publisher.py` — Static site generator
+  - `login.py` — CLI login: browser OAuth, keyring storage, token refresh
   - `cleanup.py` — Expired memory removal
   - `storage.py` — GCS attachment helpers
 - `tests/` — Pytest suite (Firestore mocked)

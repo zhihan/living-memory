@@ -74,6 +74,21 @@ Remove expired memories from Firestore:
 .venv/bin/python -m cleanup
 ```
 
+## Login (CLI Authentication)
+
+Authenticate with Firebase via browser-based Google OAuth:
+```bash
+login              # opens browser, stores credentials in system keyring
+login whoami       # print the logged-in email
+login token        # print a fresh ID token (for curl)
+login logout       # clear stored credentials
+```
+
+Use the token with the API:
+```bash
+curl -H "Authorization: Bearer $(login token)" https://...
+```
+
 ## HTTP API
 
 Run locally:
@@ -114,6 +129,7 @@ A static HTML page (`client/index.html`) that reads Firestore directly in the br
   - `cleanup.py` — delete expired memories from Firestore and purge GCS attachments
   - `publisher.py` — static site generator (load memories from Firestore → HTML with this-week/upcoming sections)
   - `storage.py` — GCS upload/delete helpers for file attachments
+  - `login.py` — CLI login command: browser OAuth flow, keyring storage, token refresh
   - `page_storage.py` — Firestore CRUD for pages, invites, users, and audit logs
 - `templates/` - HTML template for site layout
 - `tests/` - Pytest test suite (Firestore mocked in tests)
