@@ -5,7 +5,7 @@ from datetime import date
 from unittest.mock import MagicMock, patch
 
 from memory import Memory
-from committer import apply_user_urls, build_ai_request, extract_urls
+from committer import apply_user_urls, build_ai_request, extract_urls, replace_urls_with_placeholders
 
 
 def test_build_ai_request():
@@ -157,6 +157,36 @@ def test_apply_user_urls_unicode_url():
     new_title, new_content = apply_user_urls(title, content, [UNICODE_URL])
     assert new_title == f"[本周晨兴]({UNICODE_URL})"
     assert UNICODE_URL in new_content
+
+
+def test_replace_urls_with_placeholders_basic():
+    text = "Check https://example.com/page for details"
+    sanitised, urls = replace_urls_with_placeholders(text)
+    assert sanitised == "Check [link1] for details"
+    assert urls == ["https://example.com/page"]
+
+
+def test_replace_urls_with_placeholders_multiple():
+    text = "See https://a.com and https://b.com/path"
+    sanitised, urls = replace_urls_with_placeholders(text)
+    assert sanitised == "See [link1] and [link2]"
+    assert urls == ["https://a.com", "https://b.com/path"]
+
+
+def test_replace_urls_with_placeholders_no_urls():
+    text = "No links here"
+    sanitised, urls = replace_urls_with_placeholders(text)
+    assert sanitised == "No links here"
+    assert urls == []
+
+
+def test_replace_urls_with_placeholders_unicode_url():
+    """Complex percent-encoded URLs are replaced with simple placeholders."""
+    sanitised, urls = replace_urls_with_placeholders(ISSUE_74_MESSAGE)
+    assert "[link1]" in sanitised
+    assert UNICODE_URL not in sanitised
+    assert "本周晨兴链接" in sanitised
+    assert urls == [UNICODE_URL]
 
 
 def test_call_ai_retries_on_empty_response():

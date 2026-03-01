@@ -177,9 +177,10 @@ def test_commit_chinese_message_with_unicode_url(mock_call_ai, mock_load, mock_s
     # Content should include the URL
     assert UNICODE_URL in result.memory.content
 
-    # Verify the prompt sent to AI contains the full URL
+    # Verify the prompt sent to AI has the URL replaced with a placeholder
     prompt = mock_call_ai.call_args[0][0]
-    assert UNICODE_URL in prompt
+    assert UNICODE_URL not in prompt
+    assert "[link1]" in prompt
     assert "本周晨兴链接" in prompt
 
 

@@ -33,6 +33,23 @@ def extract_urls(text: str) -> list[str]:
     return _URL_RE.findall(text)
 
 
+def replace_urls_with_placeholders(text: str) -> tuple[str, list[str]]:
+    """Replace URLs in *text* with numbered placeholders.
+
+    Returns ``(sanitised_text, urls)`` where each URL in the original is
+    replaced by ``[link1]``, ``[link2]``, etc.  The caller can later use
+    ``apply_user_urls`` to inject the real URLs back into the AI output.
+    """
+    urls: list[str] = []
+
+    def _sub(m: re.Match) -> str:
+        urls.append(m.group(0))
+        return f"[link{len(urls)}]"
+
+    sanitised = _URL_RE.sub(_sub, text)
+    return sanitised, urls
+
+
 def apply_user_urls(title: str | None, content: str, user_urls: list[str]) -> tuple[str, str]:
     """Post-process AI result to prefer user-provided URLs.
 
@@ -191,7 +208,10 @@ def commit_memory_firestore(
         pairs = firestore_storage.load_memories(user_id, today)
     existing_memories = [mem for _, mem in pairs]
 
-    prompt = build_ai_request(message, existing_memories, today,
+    # Replace complex URLs with placeholders so Gemini sees clean input.
+    sanitised_message, user_urls = replace_urls_with_placeholders(message)
+
+    prompt = build_ai_request(sanitised_message, existing_memories, today,
                               attachment_urls=attachment_urls or None)
     result = call_ai(prompt)
 
@@ -208,8 +228,7 @@ def commit_memory_firestore(
     expires = date.fromisoformat(raw_expires) if raw_expires else _next_sunday(today)
     raw_attachments = result.get("attachments")
 
-    # Prefer user-provided URLs over AI-generated ones
-    user_urls = extract_urls(message)
+    # Restore real URLs into AI output
     ai_title = result.get("title") or ""
     ai_content = result["content"]
     if user_urls:
