@@ -125,6 +125,12 @@ def test_apply_user_urls_no_urls_is_noop():
     assert content == "Content"
 
 
+def test_apply_user_urls_none_content():
+    """apply_user_urls handles None content without raising."""
+    title, content = apply_user_urls("Title", None, ["https://example.com"])
+    assert "https://example.com" in content
+
+
 # --- Unicode / complex URL tests (issue #74) ---
 
 UNICODE_URL = (

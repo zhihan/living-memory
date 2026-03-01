@@ -72,6 +72,7 @@ def apply_user_urls(title: str | None, content: str, user_urls: list[str]) -> tu
             title = f"[{title}]({first_url})"
 
     # --- content: ensure every user URL is present ---
+    content = content or ""
     missing = [u for u in user_urls if u not in content]
     if missing:
         links_section = "\n\nLinks:\n" + "\n".join(f"- {u}" for u in missing)
