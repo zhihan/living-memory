@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from datetime import date
 
+from dates import today as _today
 from memory import Memory
 
 COLLECTION = "memories"
@@ -48,7 +49,7 @@ def _load_memories_where(
 ) -> list[tuple[str, Memory]]:
     """Load non-expired memories matching a single field filter."""
     if today is None:
-        today = date.today()
+        today = _today()
     db = _get_client()
     docs = db.collection(COLLECTION).where(field, "==", value).stream()
     results: list[tuple[str, Memory]] = []
@@ -95,7 +96,7 @@ def delete_expired(today: date | None = None) -> list[tuple[str, Memory]]:
     (so callers can purge attachments, etc.).
     """
     if today is None:
-        today = date.today()
+        today = _today()
     db = _get_client()
     all_docs = db.collection(COLLECTION).stream()
     deleted: list[tuple[str, Memory]] = []

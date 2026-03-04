@@ -261,10 +261,13 @@ class TestPageMemories:
                            json={"message": "Team meeting"}, headers=AUTH)
         assert resp.status_code == 200
         assert resp.json()["id"] == "m1"
-        mock_commit.assert_called_once_with(
-            message="Team meeting", user_id=OWNER_UID,
-            attachment_urls=None, page_id="public-page",
-        )
+        mock_commit.assert_called_once()
+        call_kwargs = mock_commit.call_args[1]
+        assert call_kwargs["message"] == "Team meeting"
+        assert call_kwargs["user_id"] == OWNER_UID
+        assert call_kwargs["attachment_urls"] is None
+        assert call_kwargs["page_id"] == "public-page"
+        assert "today" in call_kwargs, "API must pass today= explicitly"
 
     @patch("api.page_storage.get_page")
     def test_create_memory_non_owner_returns_403(self, mock_get, other_client):
@@ -445,5 +448,102 @@ class TestRestorePage:
         mock_get.return_value = PUBLIC_PAGE
         resp = other_client.post("/pages/public-page/restore", headers=AUTH)
         assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Per-page timezone support
+# ---------------------------------------------------------------------------
+
+PAGE_WITH_TZ = Page(
+    slug="tz-page", title="TZ Page", visibility="public",
+    owner_uids=[OWNER_UID], timezone="America/Chicago",
+)
+
+
+class TestPageTimezone:
+    @patch("api.page_storage.create_page")
+    def test_create_page_with_timezone(self, mock_create, client):
+        mock_create.return_value = PAGE_WITH_TZ
+        resp = client.post("/pages", json={
+            "slug": "tz-page", "title": "TZ Page",
+            "timezone": "America/Chicago",
+        }, headers=AUTH)
+        assert resp.status_code == 200
+        assert resp.json()["page"]["timezone"] == "America/Chicago"
+
+    def test_create_page_invalid_timezone_returns_400(self, client):
+        resp = client.post("/pages", json={
+            "slug": "bad-tz", "title": "Bad TZ",
+            "timezone": "Not/A/Timezone",
+        }, headers=AUTH)
+        assert resp.status_code == 400
+        assert "Invalid timezone" in resp.json()["detail"]
+
+    @patch("api.page_storage.write_audit_log")
+    @patch("api.page_storage.update_page")
+    @patch("api.page_storage.get_page")
+    def test_update_page_timezone(self, mock_get, mock_update, mock_audit, client):
+        mock_get.return_value = PUBLIC_PAGE
+        updated = Page(
+            slug="public-page", title="Public", visibility="public",
+            owner_uids=[OWNER_UID], timezone="Europe/London",
+        )
+        mock_update.return_value = updated
+        resp = client.patch("/pages/public-page",
+                            json={"timezone": "Europe/London"}, headers=AUTH)
+        assert resp.status_code == 200
+        assert resp.json()["page"]["timezone"] == "Europe/London"
+
+    @patch("api.page_storage.get_page")
+    def test_update_page_invalid_timezone_returns_400(self, mock_get, client):
+        mock_get.return_value = PUBLIC_PAGE
+        resp = client.patch("/pages/public-page",
+                            json={"timezone": "Fake/Zone"}, headers=AUTH)
+        assert resp.status_code == 400
+        assert "Invalid timezone" in resp.json()["detail"]
+
+    @patch("api.commit_memory_firestore")
+    @patch("api.page_storage.get_page")
+    def test_create_memory_uses_page_timezone(self, mock_get, mock_commit, client):
+        """POST /pages/{slug}/memories should resolve today using the page's timezone."""
+        mock_get.return_value = PAGE_WITH_TZ
+        mem = Memory(
+            target=date(2026, 3, 5), expires=date(2026, 4, 4),
+            content="Test", title="Meeting", user_id=OWNER_UID, page_id="tz-page",
+        )
+        mock_commit.return_value = CommitResult(action="created", doc_id="m1", memory=mem)
+        resp = client.post("/pages/tz-page/memories",
+                           json={"message": "Meeting"}, headers=AUTH)
+        assert resp.status_code == 200
+        call_kwargs = mock_commit.call_args[1]
+        assert "today" in call_kwargs
+
+    @patch("api.firestore_storage.load_memories_by_page")
+    @patch("api.page_storage.get_page")
+    def test_list_memories_uses_page_timezone(self, mock_get, mock_load):
+        """GET /pages/{slug}/memories should resolve today using the page's timezone."""
+        mock_get.return_value = PAGE_WITH_TZ
+        mock_load.return_value = []
+        from api import app
+        c = TestClient(app)
+        resp = c.get("/pages/tz-page/memories")
+        assert resp.status_code == 200
+        mock_load.assert_called_once()
+
+    @patch("api.commit_memory_firestore")
+    @patch("api.page_storage.get_page")
+    def test_create_memory_no_timezone_uses_legacy(self, mock_get, mock_commit, client):
+        """Page without timezone should fall back to America/New_York via resolve_tz."""
+        mock_get.return_value = PUBLIC_PAGE  # timezone=None
+        mem = Memory(
+            target=date(2026, 3, 5), expires=date(2026, 4, 4),
+            content="Test", title="Event", user_id=OWNER_UID, page_id="public-page",
+        )
+        mock_commit.return_value = CommitResult(action="created", doc_id="m1", memory=mem)
+        resp = client.post("/pages/public-page/memories",
+                           json={"message": "Event"}, headers=AUTH)
+        assert resp.status_code == 200
+        call_kwargs = mock_commit.call_args[1]
+        assert "today" in call_kwargs
 
 

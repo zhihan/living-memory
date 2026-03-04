@@ -34,6 +34,7 @@ class Page:
     updated_at: datetime | None = None
     description: str | None = None
     delete_after: datetime | None = None
+    timezone: str | None = None
 
     def to_dict(self) -> dict:
         now = _utcnow()
@@ -45,6 +46,7 @@ class Page:
             "created_at": self.created_at or now,
             "updated_at": self.updated_at or now,
             "delete_after": self.delete_after,
+            "timezone": self.timezone,
         }
 
     @classmethod
@@ -58,6 +60,7 @@ class Page:
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),
             delete_after=data.get("delete_after"),
+            timezone=data.get("timezone"),
         )
 
 

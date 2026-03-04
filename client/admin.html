@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin — Event Ledger</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; }
+  h1 { border-bottom: 2px solid #333; padding-bottom: 0.5rem; }
+  h2 { color: #555; }
+  .authbar { display: flex; gap: 0.5rem; align-items: center; margin: 0.75rem 0 1rem; }
+  .authbar button { padding: 0.4rem 0.7rem; border-radius: 6px; border: 1px solid #ccc; background: white; cursor: pointer; }
+  .authbar button:hover { background: #f2f2f2; }
+  .authbar .who { color: #666; font-size: 0.95rem; }
+  .auth-error { color: #c00; background: #fff0f0; border: 1px solid #fcc; border-radius: 6px; padding: 0.5rem 0.75rem; margin: 0.5rem 0; font-size: 0.9rem; }
+  .loading { color: #888; font-style: italic; }
+  .error { color: #c00; }
+  .page-card { margin-bottom: 1rem; padding: 0.75rem; background: #f8f8f8; border-radius: 6px; }
+  .page-card h3 { margin: 0 0 0.25rem; }
+  .page-meta { color: #666; font-size: 0.9rem; margin-bottom: 0.5rem; }
+  .badge { display: inline-block; font-size: 0.75rem; padding: 0.1rem 0.4rem; border-radius: 4px; background: #e0e0e0; color: #444; }
+  .badge.personal { background: #fff3cd; color: #856404; }
+  .badge.deleted { background: #f8d7da; color: #721c24; }
+  .edit-row { display: flex; gap: 0.5rem; align-items: center; margin-top: 0.5rem; }
+  .edit-row select { flex: 1; }
+  form { margin-bottom: 2rem; padding: 1rem; background: #f8f8f8; border-radius: 6px; }
+  form h2 { margin-top: 0; }
+  label { display: block; margin: 0.75rem 0 0.25rem; font-weight: 600; font-size: 0.9rem; }
+  input[type="text"], select { width: 100%; padding: 0.4rem 0.5rem; border: 1px solid #ccc; border-radius: 4px; font-size: 0.95rem; box-sizing: border-box; }
+  .radio-group { display: flex; gap: 1rem; margin-top: 0.25rem; }
+  .radio-group label { display: inline; font-weight: normal; }
+  button { padding: 0.4rem 0.7rem; border-radius: 6px; border: 1px solid #ccc; background: white; cursor: pointer; }
+  button:hover { background: #f2f2f2; }
+  button.primary { background: #333; color: white; border-color: #333; }
+  button.primary:hover { background: #555; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .msg { padding: 0.5rem 0.75rem; border-radius: 6px; margin: 0.5rem 0; font-size: 0.9rem; }
+  .msg.ok { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+  .msg.err { background: #fff0f0; color: #c00; border: 1px solid #fcc; }
+</style>
+</head>
+<body>
+<h1>Admin — Event Ledger</h1>
+<div class="authbar">
+  <button id="signin" type="button">Sign in with Google</button>
+  <button id="signin-redirect" type="button" style="display:none">Sign in (redirect)</button>
+  <button id="signout" type="button" style="display:none">Sign out</button>
+  <span id="who" class="who"></span>
+</div>
+<div id="auth-error"></div>
+<div id="app"><p class="loading">Please sign in to manage pages&hellip;</p></div>
+
+<script type="module">
+// --- Config ---
+const API_BASE = "";
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCRPmK9euOr_rDVcQDBh_BC9OVM2MnJF0s",
+  authDomain: "living-memories-488001.firebaseapp.com",
+  projectId: "living-memories-488001",
+  appId: "1:404986156809:web:47877e11168d63a32965d8",
+};
+
+// --- Firebase SDK (CDN, modular) ---
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged }
+  from "https://www.gstatic.com/firebasejs/11.4.0/firebase-auth.js";
+
+const app = initializeApp(FIREBASE_CONFIG);
+const auth = getAuth(app);
+const provider = new GoogleAuthProvider();
+
+// --- Auth UI ---
+const signInBtn = document.getElementById("signin");
+const signInRedirectBtn = document.getElementById("signin-redirect");
+const signOutBtn = document.getElementById("signout");
+const whoEl = document.getElementById("who");
+const authErrorEl = document.getElementById("auth-error");
+
+function escapeHtml(s) {
+  const el = document.createElement("span");
+  el.textContent = s;
+  return el.innerHTML;
+}
+
+function showAuthError(msg) {
+  authErrorEl.innerHTML = `<p class="auth-error">${escapeHtml(msg)}</p>`;
+}
+
+function clearAuthError() {
+  authErrorEl.innerHTML = "";
+}
+
+signInBtn.addEventListener("click", async () => {
+  clearAuthError();
+  try {
+    await signInWithPopup(auth, provider);
+  } catch (err) {
+    console.error("Popup sign-in failed:", err);
+    showAuthError(`Popup sign-in failed: ${err.message}. Try the "Sign in (redirect)" button instead.`);
+    signInRedirectBtn.style.display = "";
+  }
+});
+
+signInRedirectBtn.addEventListener("click", async () => {
+  clearAuthError();
+  try {
+    await signInWithRedirect(auth, provider);
+  } catch (err) {
+    console.error("Redirect sign-in failed:", err);
+    showAuthError(`Redirect sign-in failed: ${err.message}`);
+  }
+});
+
+signOutBtn.addEventListener("click", async () => {
+  clearAuthError();
+  await signOut(auth);
+});
+
+getRedirectResult(auth).catch((err) => {
+  if (err.code === "auth/credential-already-in-use") return;
+  console.error("Redirect result error:", err);
+  showAuthError(`Sign-in error: ${err.message}`);
+});
+
+// --- API helper ---
+async function apiFetch(path, init = {}) {
+  const token = await auth.currentUser.getIdToken();
+  let resp = await fetch(API_BASE + path, {
+    ...init,
+    headers: { "Authorization": `Bearer ${token}`, ...init.headers },
+  });
+  if (resp.status === 401) {
+    const fresh = await auth.currentUser.getIdToken(true);
+    resp = await fetch(API_BASE + path, {
+      ...init,
+      headers: { "Authorization": `Bearer ${fresh}`, ...init.headers },
+    });
+  }
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => ({ detail: resp.statusText }));
+    throw new Error(body.detail || resp.statusText);
+  }
+  return resp.json();
+}
+
+// --- Timezone helpers ---
+const COMMON_TIMEZONES = [
+  "America/New_York",
+  "America/Chicago",
+  "America/Denver",
+  "America/Los_Angeles",
+  "America/Anchorage",
+  "Pacific/Honolulu",
+  "UTC",
+];
+
+function buildTimezoneOptions() {
+  let allZones;
+  try {
+    allZones = Intl.supportedValuesOf("timeZone");
+  } catch {
+    allZones = COMMON_TIMEZONES;
+  }
+  // Deduplicate: common zones first, then the rest
+  const commonSet = new Set(COMMON_TIMEZONES);
+  const rest = allZones.filter(tz => !commonSet.has(tz));
+  return { common: COMMON_TIMEZONES, rest };
+}
+
+function populateTimezoneSelect(select, selectedValue) {
+  select.innerHTML = "";
+  const { common, rest } = buildTimezoneOptions();
+  const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const defaultVal = selectedValue || browserTz || "UTC";
+
+  const commonGroup = document.createElement("optgroup");
+  commonGroup.label = "Common";
+  for (const tz of common) {
+    const opt = document.createElement("option");
+    opt.value = tz;
+    opt.textContent = tz.replace(/_/g, " ");
+    commonGroup.appendChild(opt);
+  }
+  select.appendChild(commonGroup);
+
+  const allGroup = document.createElement("optgroup");
+  allGroup.label = "All Timezones";
+  for (const tz of rest) {
+    const opt = document.createElement("option");
+    opt.value = tz;
+    opt.textContent = tz.replace(/_/g, " ");
+    allGroup.appendChild(opt);
+  }
+  select.appendChild(allGroup);
+
+  select.value = defaultVal;
+  // If the default wasn't found in options, select first
+  if (!select.value) select.value = "UTC";
+}
+
+// --- Slug generation ---
+function slugify(text) {
+  return text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+// --- Render ---
+function renderApp(pages) {
+  const appEl = document.getElementById("app");
+
+  // Create page form
+  let html = `<form id="create-form">
+<h2>Create Page</h2>
+<label for="cf-title">Title</label>
+<input type="text" id="cf-title" required>
+<label for="cf-slug">Slug</label>
+<input type="text" id="cf-slug" required>
+<label>Visibility</label>
+<div class="radio-group">
+  <label><input type="radio" name="cf-vis" value="public" checked> Public</label>
+  <label><input type="radio" name="cf-vis" value="personal"> Personal</label>
+</div>
+<label for="cf-tz">Timezone</label>
+<select id="cf-tz"></select>
+<div id="create-msg"></div>
+<button type="submit" class="primary" style="margin-top:0.75rem">Create Page</button>
+</form>`;
+
+  // Pages list
+  html += `<h2>My Pages</h2>`;
+  if (!pages.length) {
+    html += `<p>No pages yet.</p>`;
+  } else {
+    html += pages.map((p, i) => {
+      const visBadge = p.visibility === "personal"
+        ? `<span class="badge personal">personal</span>`
+        : `<span class="badge">public</span>`;
+      const deletedBadge = p.delete_after
+        ? ` <span class="badge deleted">deleted</span>`
+        : "";
+      const tz = p.timezone || "UTC";
+      return `<div class="page-card" data-idx="${i}">
+<h3>${escapeHtml(p.title || p.slug)} ${visBadge}${deletedBadge}</h3>
+<div class="page-meta">/${escapeHtml(p.slug)} &middot; Timezone: <span class="tz-label">${escapeHtml(tz)}</span></div>
+<button class="edit-tz-btn" type="button">Edit Timezone</button>
+<div class="edit-tz-panel" style="display:none">
+  <div class="edit-row">
+    <select class="tz-select"></select>
+    <button class="save-tz-btn" type="button">Save</button>
+    <button class="cancel-tz-btn" type="button">Cancel</button>
+  </div>
+  <div class="tz-msg"></div>
+</div>
+</div>`;
+    }).join("\n");
+  }
+
+  appEl.innerHTML = html;
+
+  // Populate create form timezone select
+  populateTimezoneSelect(document.getElementById("cf-tz"));
+
+  // Auto-slug from title
+  const titleInput = document.getElementById("cf-title");
+  const slugInput = document.getElementById("cf-slug");
+  let slugManuallyEdited = false;
+  slugInput.addEventListener("input", () => { slugManuallyEdited = true; });
+  titleInput.addEventListener("input", () => {
+    if (!slugManuallyEdited) slugInput.value = slugify(titleInput.value);
+  });
+
+  // Create form submit
+  document.getElementById("create-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const msgEl = document.getElementById("create-msg");
+    msgEl.innerHTML = "";
+    const btn = e.target.querySelector("button[type=submit]");
+    btn.disabled = true;
+    try {
+      const vis = document.querySelector('input[name="cf-vis"]:checked').value;
+      await apiFetch("/pages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: titleInput.value.trim(),
+          slug: slugInput.value.trim(),
+          visibility: vis,
+          timezone: document.getElementById("cf-tz").value,
+        }),
+      });
+      msgEl.innerHTML = `<div class="msg ok">Page created.</div>`;
+      // Reload pages
+      await loadPages();
+    } catch (err) {
+      msgEl.innerHTML = `<div class="msg err">${escapeHtml(err.message)}</div>`;
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // Edit timezone buttons
+  document.querySelectorAll(".page-card").forEach((card) => {
+    const idx = Number(card.dataset.idx);
+    const page = pages[idx];
+    const panel = card.querySelector(".edit-tz-panel");
+    const select = card.querySelector(".tz-select");
+    const label = card.querySelector(".tz-label");
+
+    card.querySelector(".edit-tz-btn").addEventListener("click", () => {
+      populateTimezoneSelect(select, page.timezone || "UTC");
+      panel.style.display = "";
+    });
+
+    card.querySelector(".cancel-tz-btn").addEventListener("click", () => {
+      panel.style.display = "none";
+      card.querySelector(".tz-msg").innerHTML = "";
+    });
+
+    card.querySelector(".save-tz-btn").addEventListener("click", async () => {
+      const msgEl = card.querySelector(".tz-msg");
+      msgEl.innerHTML = "";
+      const saveBtn = card.querySelector(".save-tz-btn");
+      saveBtn.disabled = true;
+      try {
+        await apiFetch(`/pages/${encodeURIComponent(page.slug)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ timezone: select.value }),
+        });
+        page.timezone = select.value;
+        label.textContent = select.value;
+        panel.style.display = "none";
+        msgEl.innerHTML = "";
+      } catch (err) {
+        msgEl.innerHTML = `<div class="msg err">${escapeHtml(err.message)}</div>`;
+      } finally {
+        saveBtn.disabled = false;
+      }
+    });
+  });
+}
+
+// --- Load pages ---
+let currentPages = [];
+
+async function loadPages() {
+  const appEl = document.getElementById("app");
+  appEl.innerHTML = `<p class="loading">Loading pages&hellip;</p>`;
+  const data = await apiFetch("/users/me/pages");
+  currentPages = data.pages || [];
+  renderApp(currentPages);
+}
+
+// --- Auth state ---
+function setSignedOutUi() {
+  signInBtn.style.display = "";
+  signInRedirectBtn.style.display = "none";
+  signOutBtn.style.display = "none";
+  whoEl.textContent = "";
+  document.getElementById("app").innerHTML = `<p class="loading">Please sign in to manage pages&hellip;</p>`;
+}
+
+function setSignedInUi(user) {
+  signInBtn.style.display = "none";
+  signInRedirectBtn.style.display = "none";
+  signOutBtn.style.display = "";
+  whoEl.textContent = user.email || user.displayName || "Signed in";
+  clearAuthError();
+}
+
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    setSignedOutUi();
+    return;
+  }
+  setSignedInUi(user);
+  try {
+    await loadPages();
+  } catch (err) {
+    console.error("API error:", err);
+    document.getElementById("app").innerHTML = `<p class="error">Failed to load pages: ${escapeHtml(err.message)}</p>`;
+  }
+});
+</script>
+</body>
+</html>

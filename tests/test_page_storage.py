@@ -53,6 +53,28 @@ class TestPageModel:
         assert page.owner_uids == ["u1", "u2"]
         assert page.description == "A test page"
 
+    def test_to_dict_includes_timezone(self):
+        page = Page(slug="t", title="T", visibility="public", owner_uids=["u1"],
+                    timezone="America/Chicago")
+        d = page.to_dict()
+        assert d["timezone"] == "America/Chicago"
+
+    def test_to_dict_timezone_none_by_default(self):
+        page = Page(slug="t", title="T", visibility="public", owner_uids=["u1"])
+        d = page.to_dict()
+        assert d["timezone"] is None
+
+    def test_from_dict_with_timezone(self):
+        data = {"title": "T", "visibility": "public", "owner_uids": ["u1"],
+                "timezone": "Europe/London"}
+        page = Page.from_dict("t", data)
+        assert page.timezone == "Europe/London"
+
+    def test_from_dict_without_timezone_backwards_compat(self):
+        data = {"title": "T", "visibility": "public", "owner_uids": ["u1"]}
+        page = Page.from_dict("t", data)
+        assert page.timezone is None
+
 
 # ---------------------------------------------------------------------------
 # Page CRUD
