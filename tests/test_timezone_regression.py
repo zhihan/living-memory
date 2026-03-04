@@ -6,6 +6,10 @@ The root cause: ``date.today()`` on a UTC server returns tomorrow's date
 for an Eastern-time user in the evening (after 7/8 PM ET).  This caused
 memories expiring "today" (user's perspective) to be filtered out, so the
 AI never saw them and created duplicates instead of updating.
+
+After the per-page timezone fix, the API resolves each page's timezone
+via ``resolve_tz()`` and passes the correct ``today`` to the committer.
+Pages without a timezone fall back to America/New_York (LEGACY_TZ).
 """
 
 from datetime import date, datetime, timezone
@@ -14,6 +18,7 @@ from zoneinfo import ZoneInfo
 
 from memory import Memory
 from committer import commit_memory_firestore
+from dates import resolve_tz, LEGACY_TZ
 
 
 # ---------------------------------------------------------------------------
@@ -74,11 +79,10 @@ def test_update_not_blocked_by_utc_expiry(
 
 @patch("firestore_storage.delete_expired")
 @patch("firestore_storage.save_memory")
-@patch("firestore_storage.find_memory_by_title_on_page")
 @patch("firestore_storage.load_memories_by_page")
 @patch("committer.call_ai")
 def test_today_passed_to_ai_prompt_matches_eastern(
-    mock_call_ai, mock_load, mock_find, mock_save, mock_delete,
+    mock_call_ai, mock_load, mock_save, mock_delete,
 ):
     """The 'today' date in the AI prompt must match Eastern time, not UTC."""
     eastern_today = date(2026, 3, 3)  # March 3 in Eastern
@@ -110,23 +114,25 @@ def test_today_passed_to_ai_prompt_matches_eastern(
     )
 
 
-def test_is_expired_uses_eastern_today():
-    """Memory.is_expired() without explicit today should use Eastern time."""
+def test_is_expired_uses_default_tz():
+    """Memory.is_expired() without explicit today uses DEFAULT_TZ (UTC).
+    The API is responsible for passing page-aware today; is_expired() uses
+    the service default."""
     mem = Memory(
         target=date(2026, 3, 3),
         expires=date(2026, 3, 3),
         content="Test",
     )
-    # Simulate 2026-03-04 00:30 UTC = 2026-03-03 19:30 ET
+    # Simulate 2026-03-04 00:30 UTC — in UTC this is March 4, so March 3
+    # is expired.  The API layer resolves the page timezone and passes the
+    # correct today when it matters.
     fake_utc = datetime(2026, 3, 4, 0, 30, tzinfo=timezone.utc)
-    eastern = ZoneInfo("America/New_York")
-    eastern_time = fake_utc.astimezone(eastern)
 
     with patch("dates.datetime") as mock_dt:
-        mock_dt.now.return_value = eastern_time
-        assert not mem.is_expired(), (
-            "At 00:30 UTC (19:30 ET on March 3), a memory expiring March 3 "
-            "should NOT be expired"
+        mock_dt.now.return_value = fake_utc
+        assert mem.is_expired(), (
+            "At 00:30 UTC on March 4, a memory expiring March 3 "
+            "should be expired under UTC default"
         )
 
 
@@ -134,10 +140,13 @@ def test_is_expired_uses_eastern_today():
 @patch("firestore_storage.save_memory")
 @patch("firestore_storage.load_memories_by_page")
 @patch("committer.call_ai")
-def test_commit_defaults_to_eastern_today(
+def test_commit_defaults_to_legacy_tz_via_resolve(
     mock_call_ai, mock_load, mock_save, mock_delete,
 ):
-    """commit_memory_firestore() with no explicit today= should use Eastern."""
+    """resolve_tz(None) returns LEGACY_TZ so pages without a timezone
+    still get Eastern behaviour."""
+    assert resolve_tz(None) == LEGACY_TZ
+
     mock_load.return_value = []
     mock_save.return_value = "new-id"
     mock_delete.return_value = []
@@ -162,3 +171,12 @@ def test_commit_defaults_to_eastern_today(
 
     prompt = mock_call_ai.call_args[0][0]
     assert "2026-03-03" in prompt
+
+
+def test_resolve_tz_per_page():
+    """resolve_tz correctly resolves page-level timezones."""
+    # Page with explicit timezone
+    assert resolve_tz("America/Chicago") == ZoneInfo("America/Chicago")
+    assert resolve_tz("Europe/London") == ZoneInfo("Europe/London")
+    # Page without timezone (legacy) falls back to Eastern
+    assert resolve_tz(None) == ZoneInfo("America/New_York")

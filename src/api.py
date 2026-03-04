@@ -13,10 +13,12 @@ import time
 from fastapi import Depends, FastAPI, HTTPException, Header, Request, Response
 from pydantic import BaseModel
 
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
 import firestore_storage
 import page_storage
 from committer import commit_memory_firestore
-from dates import today as _today
+from dates import today as _today, resolve_tz
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -142,11 +144,13 @@ class CreatePageRequest(BaseModel):
     title: str
     visibility: str = "public"
     description: str | None = None
+    timezone: str | None = None
 
 
 class UpdatePageRequest(BaseModel):
     title: str | None = None
     description: str | None = None
+    timezone: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -186,12 +190,18 @@ def list_my_pages(uid: str = Depends(_get_uid)):
 
 @app.post("/pages")
 def create_page(body: CreatePageRequest, uid: str = Depends(_get_uid)):
+    if body.timezone is not None:
+        try:
+            ZoneInfo(body.timezone)
+        except (KeyError, ZoneInfoNotFoundError):
+            raise HTTPException(status_code=400, detail=f"Invalid timezone: {body.timezone}")
     page = page_storage.Page(
         slug=body.slug,
         title=body.title,
         visibility=body.visibility,
         owner_uids=[uid],
         description=body.description,
+        timezone=body.timezone,
     )
     try:
         created = page_storage.create_page(page)
@@ -234,6 +244,11 @@ def update_page(slug: str, body: UpdatePageRequest, uid: str = Depends(_get_uid)
     updates = body.model_dump(exclude_none=True)
     if not updates:
         raise HTTPException(status_code=400, detail="No fields to update")
+    if "timezone" in updates:
+        try:
+            ZoneInfo(updates["timezone"])
+        except (KeyError, ZoneInfoNotFoundError):
+            raise HTTPException(status_code=400, detail=f"Invalid timezone: {updates['timezone']}")
     try:
         updated = page_storage.update_page(slug, updates)
     except ValueError as exc:
@@ -320,12 +335,13 @@ def accept_invite(invite_id: str, uid: str = Depends(_get_uid)):
 
 @app.post("/pages/{slug}/memories")
 def create_page_memory(slug: str, body: CreateMemoryRequest, uid: str = Depends(_get_uid)):
-    _require_page_owner(slug, uid)
+    page = _require_page_owner(slug, uid)
+    page_tz = resolve_tz(page.timezone)
     try:
         result = commit_memory_firestore(
             message=body.message,
             user_id=uid,
-            today=_today(),
+            today=_today(tz=page_tz),
             attachment_urls=body.attachments,
             page_id=slug,
         )
@@ -356,7 +372,8 @@ def list_page_memories(slug: str, authorization: str = Header(default=None)):
         if token["uid"] not in page.owner_uids:
             raise HTTPException(status_code=403, detail="Not an owner of this page")
 
-    pairs = firestore_storage.load_memories_by_page(slug, _today())
+    page_tz = resolve_tz(page.timezone)
+    pairs = firestore_storage.load_memories_by_page(slug, _today(tz=page_tz))
     return {
         "memories": [
             {"id": doc_id, **mem.to_dict()}
