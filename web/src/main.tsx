@@ -7,6 +7,7 @@ import { Landing } from "./routes/Landing";
 import { SignIn } from "./routes/SignIn";
 import { Dashboard } from "./routes/Dashboard";
 import { PageView } from "./routes/PageView";
+import { PageSettings } from "./routes/PageSettings";
 import "./styles.css";
 
 createRoot(document.getElementById("root")!).render(
@@ -30,6 +31,14 @@ createRoot(document.getElementById("root")!).render(
               element={
                 <RequireAuth>
                   <PageView />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/p/:slug/settings"
+              element={
+                <RequireAuth>
+                  <PageSettings />
                 </RequireAuth>
               }
             />

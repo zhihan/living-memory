@@ -355,3 +355,58 @@ h2 {
   display: flex;
   gap: 0.5rem;
 }
+
+/* Page header top row (back + settings links) */
+.page-header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Page card timezone meta */
+.page-meta-tz {
+  margin: 0.25rem 0 0;
+  color: #999;
+  font-size: 0.8rem;
+}
+
+/* Page settings */
+.page-settings .page-header h1 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 2px solid #333;
+  padding-bottom: 0.5rem;
+}
+
+.settings-page-title {
+  font-size: 0.9rem;
+  font-weight: normal;
+  color: #888;
+}
+
+.settings-section {
+  margin-top: 1.5rem;
+}
+
+.settings-hint {
+  color: #666;
+  font-size: 0.9rem;
+  margin: 0 0 0.75rem;
+}
+
+.settings-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.settings-row .form-input {
+  flex: 1;
+}
+
+.settings-ok {
+  color: #2e7d32;
+  font-size: 0.9rem;
+  margin: 0.5rem 0 0;
+}

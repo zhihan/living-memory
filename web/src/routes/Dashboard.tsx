@@ -11,6 +11,7 @@ import { auth } from "../firebase";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { PageCard } from "../components/PageCard";
+import { TimezoneSelect } from "../components/TimezoneSelect";
 
 function slugify(text: string): string {
   return text
@@ -37,6 +38,9 @@ export function Dashboard() {
   const [formSlugTouched, setFormSlugTouched] = useState(false);
   const [formVisibility, setFormVisibility] = useState<"public" | "personal">(
     "public",
+  );
+  const [formTimezone, setFormTimezone] = useState(
+    () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
   );
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -86,7 +90,7 @@ export function Dashboard() {
     setFormSubmitting(true);
     setFormError(null);
     try {
-      await createPage(formSlug, formTitle, formVisibility);
+      await createPage(formSlug, formTitle, formVisibility, undefined, formTimezone);
       setShowCreateForm(false);
       setFormTitle("");
       setFormSlug("");
@@ -191,6 +195,14 @@ export function Dashboard() {
                   Personal
                 </button>
               </div>
+            </div>
+            <div className="form-field">
+              <label htmlFor="page-timezone">Timezone</label>
+              <TimezoneSelect
+                id="page-timezone"
+                value={formTimezone}
+                onChange={setFormTimezone}
+              />
             </div>
             {formError && <p className="form-error">{formError}</p>}
             <div className="form-actions">

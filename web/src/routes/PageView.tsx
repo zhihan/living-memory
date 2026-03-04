@@ -48,9 +48,16 @@ export function PageView() {
   return (
     <div className="page-view">
       <div className="page-header">
-        <Link to="/dashboard" className="back-link">
-          &larr; Dashboard
-        </Link>
+        <div className="page-header-top">
+          <Link to="/dashboard" className="back-link">
+            &larr; Dashboard
+          </Link>
+          {slug && user && page?.owner_uids.includes(user.uid) && (
+            <Link to={`/p/${slug}/settings`} className="back-link">
+              Settings
+            </Link>
+          )}
+        </div>
         <h1>
           {page?.title}
           <span className={`badge badge-${page?.visibility}`}>

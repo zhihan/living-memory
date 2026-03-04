@@ -56,6 +56,7 @@ export interface PageSummary {
   visibility: string;
   owner_uids: string[];
   description: string | null;
+  timezone: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -100,11 +101,25 @@ export async function createPage(
   title: string,
   visibility: string,
   description?: string,
+  timezone?: string,
 ): Promise<PageSummary> {
   const resp = await apiFetch("/api/pages", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ slug, title, visibility, description }),
+    body: JSON.stringify({ slug, title, visibility, description, timezone }),
+  });
+  const data = await resp.json();
+  return data.page;
+}
+
+export async function patchPage(
+  slug: string,
+  updates: { title?: string; description?: string; timezone?: string },
+): Promise<PageSummary> {
+  const resp = await apiFetch(`/api/pages/${encodeURIComponent(slug)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(updates),
   });
   const data = await resp.json();
   return data.page;

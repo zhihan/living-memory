@@ -11,6 +11,7 @@ export function PageCard({ page }: { page: PageSummary }) {
         </span>
       </Link>
       {page.description && <p className="page-desc">{page.description}</p>}
+      <p className="page-meta-tz">{page.timezone || "UTC"}</p>
     </li>
   );
 }
