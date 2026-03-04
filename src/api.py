@@ -16,6 +16,7 @@ from pydantic import BaseModel
 import firestore_storage
 import page_storage
 from committer import commit_memory_firestore
+from dates import today as _today
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -324,6 +325,7 @@ def create_page_memory(slug: str, body: CreateMemoryRequest, uid: str = Depends(
         result = commit_memory_firestore(
             message=body.message,
             user_id=uid,
+            today=_today(),
             attachment_urls=body.attachments,
             page_id=slug,
         )
@@ -354,7 +356,7 @@ def list_page_memories(slug: str, authorization: str = Header(default=None)):
         if token["uid"] not in page.owner_uids:
             raise HTTPException(status_code=403, detail="Not an owner of this page")
 
-    pairs = firestore_storage.load_memories_by_page(slug)
+    pairs = firestore_storage.load_memories_by_page(slug, _today())
     return {
         "memories": [
             {"id": doc_id, **mem.to_dict()}

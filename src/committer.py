@@ -13,6 +13,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from dates import today as _today
 from memory import Memory, _next_sunday
 from storage import upload_to_gcs
 
@@ -201,7 +202,7 @@ def commit_memory_firestore(
     import firestore_storage
 
     if today is None:
-        today = date.today()
+        today = _today()
 
     if page_id:
         pairs = firestore_storage.load_memories_by_page(page_id, today)
@@ -276,7 +277,7 @@ def main(argv: list[str] | None = None) -> None:
                         help="Owner of the memory (default: 'cambridge-lexington')")
     args = parser.parse_args(argv)
 
-    today = args.today or date.today()
+    today = args.today or _today()
 
     # Upload attachments to GCS
     attachment_urls: list[str] = []

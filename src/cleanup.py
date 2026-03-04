@@ -7,6 +7,7 @@ import logging
 import sys
 from datetime import date, datetime
 
+from dates import today as _today
 from memory import Memory
 from storage import delete_from_gcs
 
@@ -32,7 +33,7 @@ def cleanup_firestore(today: date | None = None) -> list[str]:
     import firestore_storage
 
     if today is None:
-        today = date.today()
+        today = _today()
 
     deleted_pairs = firestore_storage.delete_expired(today)
     for _, mem in deleted_pairs:
@@ -77,7 +78,7 @@ def main(argv: list[str] | None = None) -> None:
         help="Override today's date for testing",
     )
     args = parser.parse_args(argv)
-    today = args.today or date.today()
+    today = args.today or _today()
 
     try:
         logger.info("Starting memory cleanup (today=%s)...", today)

@@ -261,10 +261,13 @@ class TestPageMemories:
                            json={"message": "Team meeting"}, headers=AUTH)
         assert resp.status_code == 200
         assert resp.json()["id"] == "m1"
-        mock_commit.assert_called_once_with(
-            message="Team meeting", user_id=OWNER_UID,
-            attachment_urls=None, page_id="public-page",
-        )
+        mock_commit.assert_called_once()
+        call_kwargs = mock_commit.call_args[1]
+        assert call_kwargs["message"] == "Team meeting"
+        assert call_kwargs["user_id"] == OWNER_UID
+        assert call_kwargs["attachment_urls"] is None
+        assert call_kwargs["page_id"] == "public-page"
+        assert "today" in call_kwargs, "API must pass today= explicitly"
 
     @patch("api.page_storage.get_page")
     def test_create_memory_non_owner_returns_403(self, mock_get, other_client):

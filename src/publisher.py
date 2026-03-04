@@ -10,6 +10,7 @@ from pathlib import Path
 
 import markdown
 
+from dates import today as _today
 from memory import Memory
 
 _DEFAULT_TEMPLATE = Path(__file__).resolve().parent.parent / "templates" / "page.html"
@@ -165,7 +166,7 @@ def main(argv: list[str] | None = None) -> None:
 
     template_text = args.template.read_text() if args.template else None
 
-    today = date.today()
+    today = _today()
     memories = load_memories_from_firestore(today, user_id=args.user_id)
 
     html = generate_page(memories, today, template=template_text, site_title=args.title)

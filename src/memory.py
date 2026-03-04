@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, timedelta
 
+from dates import today as _today
+
 
 def _next_sunday(d: date) -> date:
     """Return the coming Sunday (same day if *d* is already Sunday)."""
@@ -67,7 +69,7 @@ class Memory:
     def is_expired(self, today: date | None = None) -> bool:
         """Check whether this memory has passed its expiration date."""
         if today is None:
-            today = date.today()
+            today = _today()
         return today > self.expires
 
 
