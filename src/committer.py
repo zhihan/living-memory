@@ -22,6 +22,7 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 _MAX_AI_RETRIES = 2
+_DEFAULT_MODEL = "gemini-2.5-flash"
 
 # Regex to find URLs in plain text (not inside markdown link syntax)
 _URL_RE = re.compile(r'https?://[^\s)\]>]+')
@@ -146,12 +147,13 @@ def call_ai(prompt: str) -> dict:
     from google.genai import types  # noqa: E402
 
     api_key = os.environ["GEMINI_API_KEY"]
+    model = os.environ.get("GEMINI_MODEL", _DEFAULT_MODEL)
     client = genai.Client(api_key=api_key)
 
     last_exc: Exception | None = None
     for attempt in range(_MAX_AI_RETRIES):
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model=model,
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
