@@ -19,6 +19,7 @@ from page_storage import Page, Invite, User, AuditLogEntry
 
 OWNER_UID = "owner-uid-123"
 OTHER_UID = "other-uid-456"
+MEMBER_UID = "member-uid-789"
 
 
 def _fake_verify(uid: str):
@@ -46,6 +47,15 @@ def other_client():
     app.dependency_overrides.clear()
 
 
+@pytest.fixture
+def member_client():
+    """Test client with Firebase auth mocked to return MEMBER_UID (member, not owner)."""
+    from api import app, _verify_firebase_token
+    app.dependency_overrides[_verify_firebase_token] = _fake_verify(MEMBER_UID)
+    yield TestClient(app)
+    app.dependency_overrides.clear()
+
+
 AUTH = {"Authorization": "Bearer fake-firebase-token"}
 PUBLIC_PAGE = Page(
     slug="public-page", title="Public", visibility="public",
@@ -54,6 +64,14 @@ PUBLIC_PAGE = Page(
 PERSONAL_PAGE = Page(
     slug="personal-page", title="Personal", visibility="personal",
     owner_uids=[OWNER_UID],
+)
+PUBLIC_PAGE_WITH_MEMBER = Page(
+    slug="public-page", title="Public", visibility="public",
+    owner_uids=[OWNER_UID], member_uids=[MEMBER_UID],
+)
+PERSONAL_PAGE_WITH_MEMBER = Page(
+    slug="personal-page", title="Personal", visibility="personal",
+    owner_uids=[OWNER_UID], member_uids=[MEMBER_UID],
 )
 
 
@@ -607,5 +625,166 @@ class TestPageTimezone:
         assert resp.status_code == 200
         call_kwargs = mock_commit.call_args[1]
         assert "today" in call_kwargs
+
+
+# ---------------------------------------------------------------------------
+# Member role — list memories
+# ---------------------------------------------------------------------------
+
+class TestMemberRole:
+    @patch("api.firestore_storage.load_memories_by_page")
+    @patch("api._verify_firebase_token")
+    @patch("api.page_storage.get_page")
+    def test_member_sees_public_and_members_events_on_public_page(
+        self, mock_get, mock_verify, mock_load
+    ):
+        """Members can see public and members-only events on public pages."""
+        mock_get.return_value = PUBLIC_PAGE_WITH_MEMBER
+        mock_verify.return_value = {"uid": MEMBER_UID}
+        public_mem = Memory(
+            target=date(2026, 3, 5), expires=date(2026, 4, 4),
+            content="Public event", page_id="public-page", visibility="public",
+        )
+        members_mem = Memory(
+            target=date(2026, 3, 6), expires=date(2026, 4, 5),
+            content="Members event", page_id="public-page", visibility="members",
+        )
+        mock_load.return_value = [("m1", public_mem), ("m2", members_mem)]
+        from api import app
+        c = TestClient(app)
+        resp = c.get("/pages/public-page/memories", headers=AUTH)
+        assert resp.status_code == 200
+        memories = resp.json()["memories"]
+        assert len(memories) == 2
+        ids = {m["id"] for m in memories}
+        assert ids == {"m1", "m2"}
+
+    @patch("api.firestore_storage.load_memories_by_page")
+    @patch("api._verify_firebase_token")
+    @patch("api.page_storage.get_page")
+    def test_non_member_still_hidden_from_members_events(
+        self, mock_get, mock_verify, mock_load
+    ):
+        """Non-members only see public events, even when authenticated."""
+        mock_get.return_value = PUBLIC_PAGE_WITH_MEMBER
+        mock_verify.return_value = {"uid": OTHER_UID}
+        public_mem = Memory(
+            target=date(2026, 3, 5), expires=date(2026, 4, 4),
+            content="Public event", page_id="public-page", visibility="public",
+        )
+        members_mem = Memory(
+            target=date(2026, 3, 6), expires=date(2026, 4, 5),
+            content="Members event", page_id="public-page", visibility="members",
+        )
+        mock_load.return_value = [("m1", public_mem), ("m2", members_mem)]
+        from api import app
+        c = TestClient(app)
+        resp = c.get("/pages/public-page/memories", headers=AUTH)
+        assert resp.status_code == 200
+        memories = resp.json()["memories"]
+        assert len(memories) == 1
+        assert memories[0]["id"] == "m1"
+
+    @patch("api.firestore_storage.load_memories_by_page")
+    @patch("api._verify_firebase_token")
+    @patch("api.page_storage.get_page")
+    def test_member_can_read_personal_page_memories(
+        self, mock_get, mock_verify, mock_load
+    ):
+        """Members can read personal page memories (public + members-only)."""
+        mock_get.return_value = PERSONAL_PAGE_WITH_MEMBER
+        mock_verify.return_value = {"uid": MEMBER_UID}
+        public_mem = Memory(
+            target=date(2026, 3, 5), expires=date(2026, 4, 4),
+            content="Public event", page_id="personal-page", visibility="public",
+        )
+        members_mem = Memory(
+            target=date(2026, 3, 6), expires=date(2026, 4, 5),
+            content="Members event", page_id="personal-page", visibility="members",
+        )
+        mock_load.return_value = [("m1", public_mem), ("m2", members_mem)]
+        from api import app
+        c = TestClient(app)
+        resp = c.get("/pages/personal-page/memories", headers=AUTH)
+        assert resp.status_code == 200
+        memories = resp.json()["memories"]
+        assert len(memories) == 2
+
+    @patch("api._verify_firebase_token")
+    @patch("api.page_storage.get_page")
+    def test_non_member_cannot_read_personal_page_memories(
+        self, mock_get, mock_verify
+    ):
+        """Non-members cannot access personal page memories."""
+        mock_get.return_value = PERSONAL_PAGE_WITH_MEMBER
+        mock_verify.return_value = {"uid": OTHER_UID}
+        from api import app
+        c = TestClient(app)
+        resp = c.get("/pages/personal-page/memories", headers=AUTH)
+        assert resp.status_code == 403
+
+    @patch("api._verify_firebase_token")
+    @patch("api.page_storage.get_page")
+    def test_member_can_get_personal_page_metadata(self, mock_get, mock_verify):
+        """Members can read personal page metadata."""
+        mock_get.return_value = PERSONAL_PAGE_WITH_MEMBER
+        mock_verify.return_value = {"uid": MEMBER_UID}
+        from api import app
+        c = TestClient(app)
+        resp = c.get("/pages/personal-page", headers=AUTH)
+        assert resp.status_code == 200
+
+    @patch("api.page_storage.get_page")
+    def test_member_cannot_create_memory(self, mock_get, member_client):
+        """Members cannot create memories (owner-only)."""
+        mock_get.return_value = PUBLIC_PAGE_WITH_MEMBER
+        resp = member_client.post("/pages/public-page/memories",
+                                  json={"message": "test"}, headers=AUTH)
+        assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Member invite flow
+# ---------------------------------------------------------------------------
+
+class TestMemberInvite:
+    @patch("api.page_storage.write_audit_log")
+    @patch("api.page_storage.create_invite")
+    @patch("api.page_storage.get_page")
+    def test_owner_can_create_member_invite(self, mock_get, mock_create, mock_audit, client):
+        mock_get.return_value = PUBLIC_PAGE
+        mock_create.return_value = Invite(
+            invite_id="inv-member", page_slug="public-page",
+            created_by=OWNER_UID, role="member",
+        )
+        resp = client.post("/pages/public-page/invites",
+                           json={"role": "member"}, headers=AUTH)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["invite"]["invite_id"] == "inv-member"
+        assert data["invite"]["role"] == "member"
+        mock_create.assert_called_once_with("public-page", OWNER_UID, role="member")
+
+    @patch("api.page_storage.write_audit_log")
+    @patch("api.page_storage.create_invite")
+    @patch("api.page_storage.get_page")
+    def test_create_invite_default_role_is_owner(self, mock_get, mock_create, mock_audit, client):
+        mock_get.return_value = PUBLIC_PAGE
+        mock_create.return_value = Invite(
+            invite_id="inv-owner", page_slug="public-page",
+            created_by=OWNER_UID, role="owner",
+        )
+        resp = client.post("/pages/public-page/invites", headers=AUTH)
+        assert resp.status_code == 200
+        mock_create.assert_called_once_with("public-page", OWNER_UID, role="owner")
+
+    @patch("api.page_storage.create_invite")
+    @patch("api.page_storage.get_page")
+    def test_create_invite_invalid_role_returns_400(self, mock_get, mock_create, client):
+        mock_get.return_value = PUBLIC_PAGE
+        mock_create.side_effect = ValueError("role must be 'owner' or 'member'")
+        resp = client.post("/pages/public-page/invites",
+                           json={"role": "admin"}, headers=AUTH)
+        assert resp.status_code == 400
 
 

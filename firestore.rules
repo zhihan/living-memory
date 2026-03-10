@@ -20,8 +20,14 @@ service cloud.firestore {
       return isSignedIn() && (uid() in pageData(slug).owner_uids);
     }
 
+    function isMember(slug) {
+      return isSignedIn()
+        && "member_uids" in pageData(slug)
+        && uid() in pageData(slug).member_uids;
+    }
+
     function canReadPage(slug) {
-      return pageData(slug).visibility == "public" || isOwner(slug);
+      return pageData(slug).visibility == "public" || isOwner(slug) || isMember(slug);
     }
 
     // --- Users ---
@@ -35,7 +41,10 @@ service cloud.firestore {
     // --- Pages ---
     match /pages/{slug} {
       allow read: if resource.data.visibility == "public"
-                  || (isSignedIn() && uid() in resource.data.owner_uids);
+                  || (isSignedIn() && uid() in resource.data.owner_uids)
+                  || (isSignedIn()
+                      && "member_uids" in resource.data
+                      && uid() in resource.data.member_uids);
       allow create: if isSignedIn()
                     && request.resource.data.owner_uids.size() >= 1
                     && uid() in request.resource.data.owner_uids;
@@ -62,6 +71,7 @@ service cloud.firestore {
                     !("visibility" in resource.data)
                     || resource.data.visibility != "members"
                     || isOwner(resource.data.page_id)
+                    || isMember(resource.data.page_id)
                   );
       // Legacy: allow read if user_id matches (for backward compat)
       allow read: if isSignedIn() && resource.data.user_id == uid();

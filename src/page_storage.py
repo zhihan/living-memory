@@ -35,6 +35,7 @@ class Page:
     description: str | None = None
     delete_after: datetime | None = None
     timezone: str | None = None
+    member_uids: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         now = _utcnow()
@@ -43,6 +44,7 @@ class Page:
             "description": self.description,
             "visibility": self.visibility,
             "owner_uids": self.owner_uids,
+            "member_uids": self.member_uids,
             "created_at": self.created_at or now,
             "updated_at": self.updated_at or now,
             "delete_after": self.delete_after,
@@ -57,6 +59,7 @@ class Page:
             description=data.get("description"),
             visibility=data["visibility"],
             owner_uids=list(data.get("owner_uids", [])),
+            member_uids=list(data.get("member_uids", [])),
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),
             delete_after=data.get("delete_after"),
@@ -72,6 +75,7 @@ class Invite:
     created_at: datetime | None = None
     expires_at: datetime | None = None
     accepted_by: str | None = None
+    role: str = "owner"  # "owner" or "member"
 
     def to_dict(self) -> dict:
         now = _utcnow()
@@ -81,6 +85,7 @@ class Invite:
             "created_at": self.created_at or now,
             "expires_at": self.expires_at or (now + timedelta(days=7)),
             "accepted_by": self.accepted_by,
+            "role": self.role,
         }
 
     @classmethod
@@ -92,6 +97,7 @@ class Invite:
             created_at=data.get("created_at"),
             expires_at=data.get("expires_at"),
             accepted_by=data.get("accepted_by"),
+            role=data.get("role", "owner"),
         )
 
 
@@ -300,17 +306,38 @@ def remove_owner(slug: str, uid: str) -> Page:
     return get_page(slug)
 
 
+def add_member(slug: str, uid: str) -> Page:
+    """Add a member (read-only) to a page."""
+    from google.cloud.firestore import ArrayUnion
+    db = _get_client()
+    ref = db.collection(PAGES_COLLECTION).document(slug)
+    ref.update({
+        "member_uids": ArrayUnion([uid]),
+        "updated_at": _utcnow(),
+    })
+    return get_page(slug)
+
+
 # ---------------------------------------------------------------------------
 # Invite CRUD
 # ---------------------------------------------------------------------------
 
-def create_invite(page_slug: str, created_by: str) -> Invite:
-    """Create a share-link invite for a page."""
+def create_invite(page_slug: str, created_by: str, role: str = "owner") -> Invite:
+    """Create a share-link invite for a page.
+
+    Args:
+        page_slug: The page to invite to.
+        created_by: UID of the user creating the invite.
+        role: "owner" grants co-owner access; "member" grants read-only access to members-only events.
+    """
+    if role not in ("owner", "member"):
+        raise ValueError("role must be 'owner' or 'member'")
     invite_id = secrets.token_urlsafe(16)
     invite = Invite(
         invite_id=invite_id,
         page_slug=page_slug,
         created_by=created_by,
+        role=role,
     )
     db = _get_client()
     (db.collection(PAGES_COLLECTION)
@@ -366,8 +393,11 @@ def accept_invite(invite_id: str, accepting_uid: str) -> Invite:
     if invite.expires_at and invite.expires_at.replace(tzinfo=timezone.utc) < now:
         raise ValueError("Invite has expired")
 
-    # Add accepting user as owner
-    add_owner(invite.page_slug, accepting_uid)
+    # Add accepting user with the appropriate role
+    if invite.role == "member":
+        add_member(invite.page_slug, accepting_uid)
+    else:
+        add_owner(invite.page_slug, accepting_uid)
 
     # Mark invite as accepted
     db = _get_client()
@@ -385,7 +415,7 @@ def accept_invite(invite_id: str, accepting_uid: str) -> Invite:
         action="invite_accepted",
         actor_uid=accepting_uid,
         target_uid=accepting_uid,
-        metadata={"invite_id": invite_id, "created_by": invite.created_by},
+        metadata={"invite_id": invite_id, "created_by": invite.created_by, "role": invite.role},
     )
 
     return invite

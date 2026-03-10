@@ -154,6 +154,10 @@ class UpdatePageRequest(BaseModel):
     timezone: str | None = None
 
 
+class CreateInviteRequest(BaseModel):
+    role: str = "owner"  # "owner" grants co-owner access; "member" grants read-only access
+
+
 # ---------------------------------------------------------------------------
 # Health check
 # ---------------------------------------------------------------------------
@@ -234,7 +238,8 @@ def get_page(slug: str, authorization: str = Header(default=None)):
     if not authorization:
         raise HTTPException(status_code=401, detail="Authentication required")
     token = _verify_firebase_token(authorization)
-    if token["uid"] not in page.owner_uids:
+    uid = token["uid"]
+    if uid not in page.owner_uids and uid not in page.member_uids:
         raise HTTPException(status_code=403, detail="Not an owner of this page")
     return {"page": _page_response(page)}
 
@@ -307,16 +312,19 @@ def remove_page_owner(slug: str, target_uid: str, uid: str = Depends(_get_uid)):
 # ---------------------------------------------------------------------------
 
 @app.post("/pages/{slug}/invites")
-def create_invite(slug: str, uid: str = Depends(_get_uid)):
+def create_invite(slug: str, body: CreateInviteRequest = CreateInviteRequest(), uid: str = Depends(_get_uid)):
     _require_page_owner(slug, uid)
-    invite = page_storage.create_invite(slug, uid)
+    try:
+        invite = page_storage.create_invite(slug, uid, role=body.role)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     page_storage.write_audit_log(
         page_slug=slug,
         action="invite_created",
         actor_uid=uid,
-        metadata={"invite_id": invite.invite_id},
+        metadata={"invite_id": invite.invite_id, "role": invite.role},
     )
-    logger.info("create_invite slug=%s uid=%s invite_id=%s", slug, uid, invite.invite_id)
+    logger.info("create_invite slug=%s uid=%s invite_id=%s role=%s", slug, uid, invite.invite_id, invite.role)
     return {"invite": invite.to_dict(), "page_slug": slug}
 
 
@@ -372,24 +380,37 @@ def list_page_memories(slug: str, authorization: str = Header(default=None)):
         raise HTTPException(status_code=404, detail="Page not found")
 
     is_owner = False
+    is_member = False
     if page.visibility == "personal":
         if not authorization:
             raise HTTPException(status_code=401, detail="Authentication required")
         token = _verify_firebase_token(authorization)
-        if token["uid"] not in page.owner_uids:
+        uid = token["uid"]
+        if uid in page.owner_uids:
+            is_owner = True
+        elif uid in page.member_uids:
+            is_member = True
+        else:
             raise HTTPException(status_code=403, detail="Not an owner of this page")
-        is_owner = True
     elif authorization:
         try:
             token = _verify_firebase_token(authorization)
-            is_owner = token["uid"] in page.owner_uids
+            uid = token["uid"]
+            if uid in page.owner_uids:
+                is_owner = True
+            elif uid in page.member_uids:
+                is_member = True
         except HTTPException:
-            is_owner = False
+            pass
 
     page_tz = resolve_tz(page.timezone)
     pairs = firestore_storage.load_memories_by_page(slug, _today(tz=page_tz))
 
-    if not is_owner:
+    if is_owner:
+        pass  # owners see all memories
+    elif is_member:
+        pairs = [(doc_id, mem) for doc_id, mem in pairs if mem.visibility in ("public", "members")]
+    else:
         pairs = [(doc_id, mem) for doc_id, mem in pairs if mem.visibility == "public"]
 
     return {
