@@ -8,13 +8,19 @@ import logging
 import os
 import re
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
+
+def _week_end(d: date) -> date:
+    """Return the Saturday ending the current Sunday-to-Saturday week."""
+    days_since_sunday = d.isoweekday() % 7  # Sun→0, Mon→1, …, Sat→6
+    week_start = d - timedelta(days=days_since_sunday)
+    return week_start + timedelta(days=6)  # Saturday
 from pathlib import Path
 
 from dotenv import load_dotenv
 
 from dates import today as _today
-from memory import Memory, _next_sunday
+from memory import Memory
 from storage import upload_to_gcs
 
 load_dotenv()
@@ -88,10 +94,7 @@ def build_ai_request(message: str, existing_memories: list[Memory], today: date,
     memory_summaries = []
     for mem in existing_memories:
         parts = []
-        if mem.target is not None:
-            parts.append(f"target={mem.target.isoformat()}")
-        else:
-            parts.append("target=ongoing")
+        parts.append(f"target={mem.target.isoformat()}")
         if mem.title:
             parts.append(f"title={mem.title}")
         if mem.time:
@@ -125,8 +128,8 @@ When matching events, treat semantically equivalent events across languages as t
 Respond with a JSON array (no markdown fences) of event objects, one per event in the message. For a single event, use a one-element array. Each object contains:
 - "action": "create" or "update"
 - "update_title": (only if action is "update") the title of the existing memory to overwrite
-- "target": ISO 8601 date string for when the event occurs, or null for ongoing/recurring events with no specific date
-- "expires": ISO 8601 date string for when the memory can be removed (default: 30 days after target; use the coming Sunday for ongoing events)
+- "target": ISO 8601 date string for when the event occurs; if no specific date is known, use the Saturday of the current week
+- "expires": ISO 8601 date string for when the memory can be removed (default: 30 days after target; for weekly events with no specific date, use the target Saturday itself)
 - "title": short event name in markdown format; use [title](url) to make it a clickable link if a URL is relevant
 - "slug": ASCII-only short identifier for the filename (e.g. "work-lunch" for "工作午餐")
 - "time": time of day as a string (e.g. "10:00") or null
@@ -201,7 +204,6 @@ class CommitResult:
 
 def commit_memory_firestore(
     message: str,
-    user_id: str,
     today: date | None = None,
     attachment_urls: list[str] | None = None,
     page_id: str | None = None,
@@ -219,7 +221,7 @@ def commit_memory_firestore(
     if page_id:
         pairs = firestore_storage.load_memories_by_page(page_id, today)
     else:
-        pairs = firestore_storage.load_memories(user_id, today)
+        pairs = []
     existing_memories = [mem for _, mem in pairs]
 
     # Replace complex URLs with placeholders so Gemini sees clean input.
@@ -236,12 +238,12 @@ def commit_memory_firestore(
         raw_target = result.get("target")
         if isinstance(raw_target, str) and raw_target.strip().lower() in _NONE_STRINGS:
             raw_target = None
-        target = date.fromisoformat(raw_target) if raw_target else None
+        target = date.fromisoformat(raw_target) if raw_target else _week_end(today)
 
         raw_expires = result.get("expires")
         if isinstance(raw_expires, str) and raw_expires.strip().lower() in _NONE_STRINGS:
             raw_expires = None
-        expires = date.fromisoformat(raw_expires) if raw_expires else _next_sunday(today)
+        expires = date.fromisoformat(raw_expires) if raw_expires else target + timedelta(days=30)
         raw_attachments = result.get("attachments")
 
         # Restore real URLs into AI output
@@ -258,21 +260,15 @@ def commit_memory_firestore(
             time=result.get("time"),
             place=result.get("place"),
             attachments=raw_attachments if raw_attachments else None,
-            user_id=user_id,
             page_id=page_id,
             visibility=visibility,
         )
 
         doc_id = None
-        if result["action"] == "update" and result.get("update_title"):
-            if page_id:
-                found = firestore_storage.find_memory_by_title_on_page(
-                    page_id, result["update_title"], today,
-                )
-            else:
-                found = firestore_storage.find_memory_by_title(
-                    user_id, result["update_title"], today,
-                )
+        if result["action"] == "update" and result.get("update_title") and page_id:
+            found = firestore_storage.find_memory_by_title_on_page(
+                page_id, result["update_title"], today,
+            )
             if found:
                 doc_id = found[0]
         saved_id = firestore_storage.save_memory(mem, doc_id=doc_id)
@@ -289,8 +285,8 @@ def main(argv: list[str] | None = None) -> None:
                         help="Override today's date for testing")
     parser.add_argument("--attach", type=Path, action="append", default=[],
                         help="File(s) to upload as attachments (repeatable)")
-    parser.add_argument("--user-id", type=str, default="cambridge-lexington",
-                        help="Owner of the memory (default: 'cambridge-lexington')")
+    parser.add_argument("--page-id", type=str, default=None,
+                        help="Page to commit the memory to")
     args = parser.parse_args(argv)
 
     today = args.today or _today()
@@ -303,9 +299,9 @@ def main(argv: list[str] | None = None) -> None:
 
     commit_memory_firestore(
         message=args.message,
-        user_id=args.user_id,
         today=today,
         attachment_urls=attachment_urls or None,
+        page_id=args.page_id,
     )
 
 

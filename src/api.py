@@ -349,7 +349,6 @@ def create_page_memory(slug: str, body: CreateMemoryRequest, uid: str = Depends(
     try:
         result = commit_memory_firestore(
             message=body.message,
-            user_id=uid,
             today=_today(tz=page_tz),
             attachment_urls=body.attachments,
             page_id=slug,

@@ -13,7 +13,6 @@ def _make_memory(**kwargs) -> Memory:
         expires=date(2026, 2, 15),
         content="old event",
         title="Old",
-        user_id="alice",
     )
     defaults.update(kwargs)
     return Memory(**defaults)

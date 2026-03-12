@@ -23,15 +23,6 @@ def test_build_ai_request():
     assert "slug" in prompt.lower()
 
 
-def test_build_ai_request_ongoing_memory():
-    memories = [
-        Memory(target=None, expires=date(2026, 2, 22),
-               content="Every week", title="Sunday Worship"),
-    ]
-    prompt = build_ai_request("What's happening?", memories, date(2026, 2, 18))
-    assert "target=ongoing" in prompt
-    assert "Sunday Worship" in prompt
-
 
 def test_build_ai_request_no_memories():
     prompt = build_ai_request("New event Friday", [], date(2026, 2, 18))

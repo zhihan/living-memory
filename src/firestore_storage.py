@@ -60,15 +60,6 @@ def _load_memories_where(
     return results
 
 
-def load_memories(user_id: str, today: date | None = None) -> list[tuple[str, Memory]]:
-    """Load non-expired memories for a given user.
-
-    Returns a list of ``(doc_id, Memory)`` tuples.
-    Expiry is checked client-side to match ``Memory.is_expired`` semantics
-    (expired when ``today > expires``, so ``today == expires`` is still valid).
-    """
-    return _load_memories_where("user_id", user_id, today)
-
 
 def load_all_memories() -> list[tuple[str, Memory]]:
     """Load every memory document (admin/migration use).
@@ -116,16 +107,6 @@ def _find_memory_by_title_where(
         if mem.title == title:
             return doc_id, mem
     return None
-
-
-def find_memory_by_title(
-    user_id: str, title: str, today: date | None = None,
-) -> tuple[str, Memory] | None:
-    """Find a non-expired memory matching *title* for *user_id*.
-
-    Returns ``(doc_id, Memory)`` or ``None``.
-    """
-    return _find_memory_by_title_where("user_id", user_id, title, today)
 
 
 # ---------------------------------------------------------------------------

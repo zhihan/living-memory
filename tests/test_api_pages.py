@@ -272,7 +272,7 @@ class TestPageMemories:
         mock_get.return_value = PUBLIC_PAGE
         mem = Memory(
             target=date(2026, 3, 5), expires=date(2026, 4, 4),
-            content="Test", title="Meeting", user_id=OWNER_UID, page_id="public-page",
+            content="Test", title="Meeting", page_id="public-page",
         )
         mock_commit.return_value = [CommitResult(action="created", doc_id="m1", memory=mem)]
         resp = client.post("/pages/public-page/memories",
@@ -282,7 +282,6 @@ class TestPageMemories:
         mock_commit.assert_called_once()
         call_kwargs = mock_commit.call_args[1]
         assert call_kwargs["message"] == "Team meeting"
-        assert call_kwargs["user_id"] == OWNER_UID
         assert call_kwargs["attachment_urls"] is None
         assert call_kwargs["page_id"] == "public-page"
         assert "today" in call_kwargs, "API must pass today= explicitly"
@@ -589,7 +588,7 @@ class TestPageTimezone:
         mock_get.return_value = PAGE_WITH_TZ
         mem = Memory(
             target=date(2026, 3, 5), expires=date(2026, 4, 4),
-            content="Test", title="Meeting", user_id=OWNER_UID, page_id="tz-page",
+            content="Test", title="Meeting", page_id="tz-page",
         )
         mock_commit.return_value = [CommitResult(action="created", doc_id="m1", memory=mem)]
         resp = client.post("/pages/tz-page/memories",
@@ -617,7 +616,7 @@ class TestPageTimezone:
         mock_get.return_value = PUBLIC_PAGE  # timezone=None
         mem = Memory(
             target=date(2026, 3, 5), expires=date(2026, 4, 4),
-            content="Test", title="Event", user_id=OWNER_UID, page_id="public-page",
+            content="Test", title="Event", page_id="public-page",
         )
         mock_commit.return_value = [CommitResult(action="created", doc_id="m1", memory=mem)]
         resp = client.post("/pages/public-page/memories",

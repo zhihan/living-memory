@@ -15,7 +15,6 @@ def _make_memory(**kwargs) -> Memory:
         expires=date(2026, 4, 15),
         content="Test event.",
         title="Test",
-        user_id="alice",
     )
     defaults.update(kwargs)
     return Memory(**defaults)
@@ -59,27 +58,6 @@ class TestSaveMemory:
         )
 
 
-class TestLoadMemories:
-    @patch("firestore_storage._get_client")
-    def test_filters_by_user_and_expiry(self, mock_get_client):
-        mock_db = MagicMock()
-        mock_get_client.return_value = mock_db
-
-        valid = _make_memory(expires=date(2026, 4, 15))
-        expired = _make_memory(expires=date(2026, 2, 1), title="Old")
-
-        docs = [
-            _mock_doc("doc1", valid.to_dict()),
-            _mock_doc("doc2", expired.to_dict()),
-        ]
-        mock_db.collection.return_value.where.return_value.stream.return_value = docs
-
-        results = firestore_storage.load_memories("alice", today=date(2026, 3, 1))
-
-        assert len(results) == 1
-        assert results[0][0] == "doc1"
-        assert results[0][1].title == "Test"
-
 
 class TestLoadAllMemories:
     @patch("firestore_storage._get_client")
@@ -88,7 +66,7 @@ class TestLoadAllMemories:
         mock_get_client.return_value = mock_db
 
         mem1 = _make_memory(title="A")
-        mem2 = _make_memory(title="B", user_id="bob")
+        mem2 = _make_memory(title="B")
 
         docs = [
             _mock_doc("d1", mem1.to_dict()),
@@ -132,30 +110,6 @@ class TestDeleteExpired:
         expired_doc.reference.delete.assert_called_once()
         valid_doc.reference.delete.assert_not_called()
 
-
-class TestFindMemoryByTitle:
-    @patch("firestore_storage._get_client")
-    def test_finds_matching(self, mock_get_client):
-        mock_db = MagicMock()
-        mock_get_client.return_value = mock_db
-
-        mem = _make_memory(title="Team Meeting")
-        doc = _mock_doc("d1", mem.to_dict())
-        mock_db.collection.return_value.where.return_value.stream.return_value = [doc]
-
-        result = firestore_storage.find_memory_by_title("alice", "Team Meeting", today=date(2026, 3, 1))
-        assert result is not None
-        assert result[0] == "d1"
-        assert result[1].title == "Team Meeting"
-
-    @patch("firestore_storage._get_client")
-    def test_returns_none_when_not_found(self, mock_get_client):
-        mock_db = MagicMock()
-        mock_get_client.return_value = mock_db
-        mock_db.collection.return_value.where.return_value.stream.return_value = []
-
-        result = firestore_storage.find_memory_by_title("alice", "Nonexistent", today=date(2026, 3, 1))
-        assert result is None
 
 
 class TestGetClient:

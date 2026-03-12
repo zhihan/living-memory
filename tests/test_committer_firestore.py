@@ -9,10 +9,8 @@ from committer import commit_memory_firestore, main
 
 @patch("firestore_storage.delete_expired")
 @patch("firestore_storage.save_memory")
-@patch("firestore_storage.load_memories")
 @patch("committer.call_ai")
-def test_main_firestore_create(mock_call_ai, mock_load, mock_save, mock_delete):
-    mock_load.return_value = []
+def test_main_firestore_create(mock_call_ai, mock_save, mock_delete):
     mock_save.return_value = "new-doc-id"
     mock_delete.return_value = []
 
@@ -31,7 +29,6 @@ def test_main_firestore_create(mock_call_ai, mock_load, mock_save, mock_delete):
         "--today", "2026-02-18",
     ])
 
-    mock_load.assert_called_once_with("cambridge-lexington", date(2026, 2, 18))
     mock_save.assert_called_once()
     saved_mem = mock_save.call_args[0][0]
     assert saved_mem.title == "Team Meeting"
@@ -41,13 +38,13 @@ def test_main_firestore_create(mock_call_ai, mock_load, mock_save, mock_delete):
 
 @patch("firestore_storage.delete_expired")
 @patch("firestore_storage.save_memory")
-@patch("firestore_storage.find_memory_by_title")
-@patch("firestore_storage.load_memories")
+@patch("firestore_storage.find_memory_by_title_on_page")
+@patch("firestore_storage.load_memories_by_page")
 @patch("committer.call_ai")
 def test_main_firestore_update(mock_call_ai, mock_load, mock_find, mock_save, mock_delete):
     existing = Memory(
         target=date(2026, 3, 5), expires=date(2026, 4, 4),
-        content="Old content", title="Team Meeting", user_id="alice",
+        content="Old content", title="Team Meeting",
     )
     mock_load.return_value = [("doc-123", existing)]
     mock_find.return_value = ("doc-123", existing)
@@ -67,7 +64,7 @@ def test_main_firestore_update(mock_call_ai, mock_load, mock_find, mock_save, mo
 
     main([
         "--message", "Move team meeting to 11am",
-        "--user-id", "alice",
+        "--page-id", "test-page",
         "--today", "2026-02-18",
     ])
 
@@ -124,7 +121,6 @@ def test_commit_long_chinese_message(mock_call_ai, mock_load, mock_save, mock_de
 
     result = commit_memory_firestore(
         message=LONG_CHINESE_MESSAGE,
-        user_id="owner-uid",
         today=date(2026, 3, 1),
         page_id="cambridge-lexington",
     )
@@ -153,7 +149,7 @@ def test_commit_chinese_message_with_unicode_url(mock_call_ai, mock_load, mock_s
 
     mock_call_ai.return_value = [{
         "action": "create",
-        "target": None,
+        "target": "2026-03-02",
         "expires": "2026-03-08",
         "title": "本周晨兴",
         "time": None,
@@ -164,7 +160,6 @@ def test_commit_chinese_message_with_unicode_url(mock_call_ai, mock_load, mock_s
 
     result = commit_memory_firestore(
         message=ISSUE_74_MESSAGE,
-        user_id="owner-uid",
         today=date(2026, 3, 1),
         page_id="test-page",
     )
@@ -215,7 +210,7 @@ def test_commit_retries_on_empty_ai_response(mock_call_ai, mock_load, mock_save,
     mock_call_ai.side_effect = None
     mock_call_ai.return_value = [{
         "action": "create",
-        "target": None,
+        "target": "2026-03-07",
         "expires": "2026-03-08",
         "title": "Test",
         "time": None,
@@ -226,7 +221,6 @@ def test_commit_retries_on_empty_ai_response(mock_call_ai, mock_load, mock_save,
 
     result = commit_memory_firestore(
         message="test message",
-        user_id="owner-uid",
         today=date(2026, 3, 1),
         page_id="test-page",
     )
@@ -269,7 +263,6 @@ def test_commit_multiple_events(mock_call_ai, mock_load, mock_save, mock_delete)
 
     results = commit_memory_firestore(
         message="Middle schoolers meet at Chen's, high schoolers at Tien's",
-        user_id="owner-uid",
         today=date(2026, 3, 1),
         page_id="test-page",
     )

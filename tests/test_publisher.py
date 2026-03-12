@@ -72,24 +72,6 @@ def test_generate_page_event_without_title():
     assert "Quick sync" in html
 
 
-def test_generate_page_ongoing_in_this_week():
-    """Ongoing memories appear in the This Week section."""
-    today = date(2026, 2, 18)
-    memories = [
-        Memory(target=None, expires=date(2026, 2, 22),
-               content="Every Sunday", title="Worship", time="10:00"),
-        Memory(target=date(2026, 3, 5), expires=date(2026, 4, 1),
-               content="Future event", title="Conference"),
-    ]
-    html = generate_page(memories, today)
-    # Worship should be in This Week, Conference in Upcoming
-    this_week_pos = html.index("This Week")
-    upcoming_pos = html.index("Upcoming")
-    worship_pos = html.index("Worship")
-    conference_pos = html.index("Conference")
-    assert this_week_pos < worship_pos < upcoming_pos
-    assert upcoming_pos < conference_pos
-
 
 def test_generate_page_renders_attachments():
     """Attachments are rendered as links."""
@@ -131,13 +113,13 @@ def test_render_event_uses_details_element():
     assert "Come join us" in html
 
 
-def test_render_event_no_details_no_fold():
-    """Events without extra details render without a <details> element."""
-    mem = Memory(target=None, expires=date(2026, 3, 1),
+def test_render_event_content_only():
+    """Events with only content and target always render with a date in details."""
+    mem = Memory(target=date(2026, 2, 19), expires=date(2026, 3, 1),
                  content="Simple announcement")
     html = _render_event(mem)
-    assert "<details>" not in html
     assert "Simple announcement" in html
+    assert "2026-02-19" in html
 
 
 def test_generate_page_linkifies_bare_urls():

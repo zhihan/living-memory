@@ -13,7 +13,30 @@ import markdown
 from dates import today as _today
 from memory import Memory
 
-_DEFAULT_TEMPLATE = Path(__file__).resolve().parent.parent / "templates" / "page.html"
+_DEFAULT_TEMPLATE = """\
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ site_title }}</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; }
+  h1 { border-bottom: 2px solid #333; padding-bottom: 0.5rem; }
+  h2 { color: #555; }
+  ul { list-style: none; padding: 0; }
+  li { margin-bottom: 1rem; padding: 0.75rem; background: #f8f8f8; border-radius: 6px; }
+  details summary { cursor: pointer; }
+  details summary strong { display: inline; }
+</style>
+</head>
+<body>
+<h1>{{ site_title }}</h1>
+{{ this_week }}
+{{ upcoming }}
+</body>
+</html>
+"""
 _DEFAULT_TITLE = "Our Church Events"
 
 
@@ -46,8 +69,7 @@ def _md_inline(text: str) -> str:
 
 def _has_details(mem: Memory) -> bool:
     """Return True if the memory has detail content beyond the title."""
-    return bool(mem.target or mem.time or mem.place
-                or (mem.title and mem.content) or mem.attachments)
+    return bool(mem.time or mem.place or (mem.title and mem.content) or mem.attachments)
 
 
 def _render_event(mem: Memory) -> str:
@@ -110,12 +132,12 @@ def generate_page(
 ) -> str:
     """Generate a complete HTML page with this-week and future sections."""
     if template is None:
-        template = _DEFAULT_TEMPLATE.read_text()
+        template = _DEFAULT_TEMPLATE
 
     week_start, week_end = week_bounds(today)
 
-    this_week = [m for m in memories if m.target is None or (week_start <= m.target <= week_end)]
-    future = [m for m in memories if m.target is not None and m.target > week_end]
+    this_week = [m for m in memories if week_start <= m.target <= week_end]
+    future = [m for m in memories if m.target > week_end]
 
     def render_section(title: str, events: list[Memory]) -> str:
         if not events:
@@ -134,24 +156,17 @@ def generate_page(
     )
 
 
-def load_memories_from_firestore(today: date, user_id: str | None = None) -> list[Memory]:
-    """Load non-expired memories from Firestore, sorted by target date.
-
-    If *user_id* is given, only memories belonging to that user are returned.
-    Otherwise loads all non-expired memories.
-    """
+def load_memories_from_firestore(today: date) -> list[Memory]:
+    """Load non-expired memories from Firestore, sorted by target date."""
     import firestore_storage
 
-    if user_id:
-        pairs = firestore_storage.load_memories(user_id, today)
-    else:
-        pairs = [
-            (did, mem) for did, mem in firestore_storage.load_all_memories()
-            if not mem.is_expired(today)
-        ]
+    pairs = [
+        (did, mem) for did, mem in firestore_storage.load_all_memories()
+        if not mem.is_expired(today)
+    ]
 
     memories = [mem for _, mem in pairs]
-    memories.sort(key=lambda m: (m.target is not None, m.target or date.min))
+    memories.sort(key=lambda m: m.target)
     return memories
 
 
@@ -160,14 +175,12 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--template", type=Path, default=None)
     parser.add_argument("--title", type=str, default=_DEFAULT_TITLE)
-    parser.add_argument("--user-id", type=str, default=None,
-                        help="Only render memories for this user (default: all)")
     args = parser.parse_args(argv)
 
     template_text = args.template.read_text() if args.template else None
 
     today = _today()
-    memories = load_memories_from_firestore(today, user_id=args.user_id)
+    memories = load_memories_from_firestore(today)
 
     html = generate_page(memories, today, template=template_text, site_title=args.title)
 

@@ -65,8 +65,7 @@ def test_update_not_blocked_by_utc_expiry(
 
     result = commit_memory_firestore(
         message="Move bible study to 7:30pm",
-        user_id="owner-uid",
-        today=eastern_today,
+                today=eastern_today,
         page_id="test-page",
     )
 
@@ -103,8 +102,7 @@ def test_today_passed_to_ai_prompt_matches_eastern(
 
     commit_memory_firestore(
         message="Test event on Thursday",
-        user_id="owner-uid",
-        today=eastern_today,
+                today=eastern_today,
         page_id="test-page",
     )
 
@@ -165,8 +163,7 @@ def test_commit_defaults_to_legacy_tz_via_resolve(
     with patch("committer._today", return_value=eastern_march3):
         result = commit_memory_firestore(
             message="Test",
-            user_id="owner-uid",
-            page_id="test-page",
+                        page_id="test-page",
         )
 
     prompt = mock_call_ai.call_args[0][0]
