@@ -126,6 +126,15 @@ export async function patchPage(
   return data.page;
 }
 
+export async function deleteMemory(
+  slug: string,
+  memoryId: string,
+): Promise<void> {
+  await apiFetch(`/api/pages/${encodeURIComponent(slug)}/memories/${encodeURIComponent(memoryId)}`, {
+    method: "DELETE",
+  });
+}
+
 export async function createMemory(
   slug: string,
   message: string,

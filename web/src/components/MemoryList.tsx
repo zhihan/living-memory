@@ -32,9 +32,11 @@ function isExpired(expiresStr: string | null, t: Date): boolean {
 function Section({
   title,
   memories,
+  onDelete,
 }: {
   title: string;
   memories: MemoryItem[];
+  onDelete?: (id: string) => void;
 }) {
   return (
     <section>
@@ -44,7 +46,7 @@ function Section({
       ) : (
         <ul className="memory-list">
           {memories.map((m) => (
-            <MemoryCard key={m.id} memory={m} />
+            <MemoryCard key={m.id} memory={m} onDelete={onDelete} />
           ))}
         </ul>
       )}
@@ -52,7 +54,13 @@ function Section({
   );
 }
 
-export function MemoryList({ memories }: { memories: MemoryItem[] }) {
+export function MemoryList({
+  memories,
+  onDelete,
+}: {
+  memories: MemoryItem[];
+  onDelete?: (id: string) => void;
+}) {
   const t = today();
   const wStart = weekStart(t);
   const wEnd = weekEnd(t);
@@ -78,8 +86,8 @@ export function MemoryList({ memories }: { memories: MemoryItem[] }) {
 
   return (
     <>
-      <Section title="This Week" memories={thisWeek} />
-      <Section title="Upcoming" memories={upcoming} />
+      <Section title="This Week" memories={thisWeek} onDelete={onDelete} />
+      <Section title="Upcoming" memories={upcoming} onDelete={onDelete} />
     </>
   );
 }

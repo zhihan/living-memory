@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import {
   getPage,
   getPageMemories,
+  deleteMemory,
   type PageSummary,
   type MemoryItem,
 } from "../api";
@@ -67,7 +68,17 @@ export function PageView() {
       </div>
 
       {memories && memories.length > 0 ? (
-        <MemoryList memories={memories} />
+        <MemoryList
+          memories={memories}
+          onDelete={
+            slug && user && page?.owner_uids.includes(user.uid)
+              ? async (id) => {
+                  await deleteMemory(slug, id);
+                  setMemories((prev) => prev?.filter((m) => m.id !== id) ?? null);
+                }
+              : undefined
+          }
+        />
       ) : (
         <p className="placeholder">No upcoming events on this page.</p>
       )}

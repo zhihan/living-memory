@@ -61,7 +61,13 @@ const IconChevron = () => (
   </svg>
 );
 
-export function MemoryCard({ memory }: { memory: MemoryItem }) {
+export function MemoryCard({
+  memory,
+  onDelete,
+}: {
+  memory: MemoryItem;
+  onDelete?: (id: string) => void;
+}) {
   const title = memory.title || memory.content;
   const meta: string[] = [];
   if (memory.target) meta.push(formatDate(memory.target));
@@ -95,6 +101,19 @@ export function MemoryCard({ memory }: { memory: MemoryItem }) {
             )}
           </div>
           {hasDetails && <IconChevron />}
+          {onDelete && (
+            <button
+              className="memory-delete-btn"
+              title="Delete memory"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (confirm(`Delete "${title}"?`)) onDelete(memory.id);
+              }}
+            >
+              ×
+            </button>
+          )}
         </summary>
         {hasDetails && (
           <div className="detail-body">
