@@ -130,7 +130,7 @@ Existing memories:
 User message: {message}
 {attachments_block}
 Respond in the same language as the user's message.
-When matching events, treat semantically equivalent events across languages as the same event (e.g. "work lunch" and "工作午餐" refer to the same event).
+When matching events to existing memories, treat semantically equivalent events across languages as the same event (e.g. "work lunch" and "工作午餐" refer to the same event).
 
 Respond with a JSON array (no markdown fences) of event objects, one per event in the message. For a single event, use a one-element array. Each object contains:
 - "action": "create" or "update"
@@ -144,7 +144,9 @@ Respond with a JSON array (no markdown fences) of event objects, one per event i
 - "content": event description in markdown format (use [text](url) for any links)
 - "attachments": list of attachment URLs to store with this memory (include any uploaded file URLs that are relevant), or null if none
 
-Use "update" when the user's message refers to an event that clearly matches an existing memory. Otherwise use "create"."""
+Important rules:
+- If the user's message mentions multiple events, always emit a separate object for each one, even if their names are similar. Never merge or collapse events from the same message.
+- Use "update" only when an event clearly matches an entry in the existing memories list above. Never use "update" to match one event in the message against another event in the same message."""
 
 
 def call_ai(prompt: str) -> list[dict]:

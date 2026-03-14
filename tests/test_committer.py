@@ -31,6 +31,19 @@ def test_build_ai_request_no_memories():
     assert "New event Friday" in prompt
 
 
+def test_build_ai_request_instructs_no_merging_of_similar_events():
+    """Prompt must tell the AI not to merge similar events from the same message."""
+    prompt = build_ai_request("L2小排 and L1小排在我们家", [], date(2026, 2, 18))
+    assert "Never merge" in prompt or "never merge" in prompt or "separate object for each" in prompt
+
+
+def test_build_ai_request_instructs_update_only_against_existing_memories():
+    """Prompt must restrict 'update' to existing memories, not other events in the message."""
+    prompt = build_ai_request("L2小排 and L1小排在我们家", [], date(2026, 2, 18))
+    assert "existing memories" in prompt.lower()
+    assert "same message" in prompt.lower() or "another event in the same" in prompt.lower()
+
+
 def test_call_ai():
     mock_response = MagicMock()
     mock_response.text = '{"action": "create", "target": "2026-03-01", "expires": "2026-03-31", "title": "Meeting", "time": null, "place": null, "content": "Team sync"}'
