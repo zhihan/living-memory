@@ -304,6 +304,50 @@ class TestPageMemories:
         assert resp.status_code == 502
         assert "AI backend" in resp.json()["detail"]
 
+    @patch("api.commit_memory_firestore_stream")
+    @patch("api.page_storage.get_page")
+    def test_stream_endpoint_yields_sse_events(self, mock_get, mock_stream, client):
+        """Streaming endpoint yields SSE events including a final done event."""
+        mock_get.return_value = PUBLIC_PAGE
+        mem = Memory(
+            target=date(2026, 3, 5), expires=date(2026, 4, 4),
+            content="Test", title="Meeting", page_id="public-page",
+        )
+        mock_stream.return_value = iter([
+            {"type": "status", "message": "Loading existing memories…"},
+            {"type": "extracted", "count": 1, "message": "Extracted 1 event(s)"},
+            {"type": "saving", "action": "create", "title": "Meeting", "date": "2026-03-05", "message": 'Saving "Meeting" for 2026-03-05'},
+            {"type": "done", "results": [CommitResult(action="create", doc_id="m1", memory=mem)]},
+        ])
+        resp = client.post("/pages/public-page/memories/stream",
+                           json={"message": "Team meeting"}, headers=AUTH)
+        assert resp.status_code == 200
+        assert resp.headers["content-type"].startswith("text/event-stream")
+        lines = [l for l in resp.text.splitlines() if l.startswith("data: ")]
+        import json
+        events = [json.loads(l[6:]) for l in lines]
+        types = [e["type"] for e in events]
+        assert types == ["status", "extracted", "saving", "done"]
+        done = events[-1]
+        assert done["memories"][0]["id"] == "m1"
+
+    @patch("api.commit_memory_firestore_stream")
+    @patch("api.page_storage.get_page")
+    def test_stream_endpoint_error_yields_error_event(self, mock_get, mock_stream, client):
+        """When the stream raises, an error SSE event is returned instead of HTTP 5xx."""
+        mock_get.return_value = PUBLIC_PAGE
+        def _raise():
+            raise RuntimeError("AI failure")
+            yield  # make it a generator
+        mock_stream.return_value = _raise()
+        resp = client.post("/pages/public-page/memories/stream",
+                           json={"message": "test"}, headers=AUTH)
+        assert resp.status_code == 200
+        import json
+        lines = [l for l in resp.text.splitlines() if l.startswith("data: ")]
+        events = [json.loads(l[6:]) for l in lines]
+        assert events[-1]["type"] == "error"
+
     @patch("api.firestore_storage.load_memories_by_page")
     @patch("api.page_storage.get_page")
     def test_list_public_page_memories_no_auth(self, mock_get, mock_load):

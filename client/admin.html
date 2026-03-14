@@ -23,6 +23,10 @@
   .badge.deleted { background: #f8d7da; color: #721c24; }
   .edit-row { display: flex; gap: 0.5rem; align-items: center; margin-top: 0.5rem; }
   .edit-row select { flex: 1; }
+  .add-mem-panel { margin-top: 0.75rem; }
+  .add-mem-panel textarea { width: 100%; padding: 0.4rem 0.5rem; border: 1px solid #ccc; border-radius: 4px; font-size: 0.95rem; font-family: inherit; box-sizing: border-box; resize: vertical; }
+  .mem-status { margin-top: 0.4rem; font-size: 0.85rem; color: #555; }
+  .mem-status-line::before { content: "▸ "; color: #999; }
   form { margin-bottom: 2rem; padding: 1rem; background: #f8f8f8; border-radius: 6px; }
   form h2 { margin-top: 0; }
   label { display: block; margin: 0.75rem 0 0.25rem; font-weight: 600; font-size: 0.9rem; }
@@ -250,6 +254,12 @@ function renderApp(pages) {
   </div>
   <div class="tz-msg"></div>
 </div>
+<button class="add-mem-btn" type="button" style="margin-top:0.5rem">Add Memory</button>
+<div class="add-mem-panel" style="display:none">
+  <textarea class="mem-input" rows="3" placeholder="Describe an event, e.g. &quot;Team lunch Thursday noon at Café A&quot;"></textarea>
+  <button class="mem-submit-btn primary" type="button">Submit</button>
+  <div class="mem-status"></div>
+</div>
 </div>`;
     }).join("\n");
   }
@@ -334,6 +344,72 @@ function renderApp(pages) {
         msgEl.innerHTML = `<div class="msg err">${escapeHtml(err.message)}</div>`;
       } finally {
         saveBtn.disabled = false;
+      }
+    });
+
+    // Add Memory panel
+    card.querySelector(".add-mem-btn").addEventListener("click", () => {
+      const memPanel = card.querySelector(".add-mem-panel");
+      const isHidden = memPanel.style.display === "none";
+      memPanel.style.display = isHidden ? "" : "none";
+      if (isHidden) card.querySelector(".mem-input").focus();
+    });
+
+    card.querySelector(".mem-submit-btn").addEventListener("click", async () => {
+      const input = card.querySelector(".mem-input");
+      const statusEl = card.querySelector(".mem-status");
+      const submitBtn = card.querySelector(".mem-submit-btn");
+      const message = input.value.trim();
+      if (!message) return;
+
+      submitBtn.disabled = true;
+      statusEl.innerHTML = "";
+
+      try {
+        const token = await auth.currentUser.getIdToken();
+        const resp = await fetch(`${API_BASE}/pages/${encodeURIComponent(page.slug)}/memories/stream`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ message }),
+        });
+
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+          throw new Error(err.detail || resp.statusText);
+        }
+
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop();
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            let event;
+            try { event = JSON.parse(line.slice(6)); } catch { continue; }
+            if (event.type === "status" || event.type === "extracted" || event.type === "saving") {
+              statusEl.innerHTML += `<div class="mem-status-line">${escapeHtml(event.message)}</div>`;
+            } else if (event.type === "done") {
+              const n = event.memories.length;
+              statusEl.innerHTML += `<div class="msg ok">Saved ${n} memor${n !== 1 ? "ies" : "y"}.</div>`;
+              input.value = "";
+            } else if (event.type === "error") {
+              statusEl.innerHTML += `<div class="msg err">${escapeHtml(event.message)}</div>`;
+            }
+          }
+        }
+      } catch (err) {
+        statusEl.innerHTML = `<div class="msg err">${escapeHtml(err.message)}</div>`;
+      } finally {
+        submitBtn.disabled = false;
       }
     });
   });

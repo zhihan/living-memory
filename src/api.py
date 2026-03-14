@@ -7,17 +7,19 @@ page ownership and invites.
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 
 from fastapi import Depends, FastAPI, HTTPException, Header, Request, Response
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import firestore_storage
 import page_storage
-from committer import commit_memory_firestore
+from committer import commit_memory_firestore, commit_memory_firestore_stream
 from dates import today as _today, resolve_tz
 
 logging.basicConfig(level=logging.INFO)
@@ -366,6 +368,41 @@ def create_page_memory(slug: str, body: CreateMemoryRequest, uid: str = Depends(
             for r in result
         ],
     }
+
+
+@app.post("/pages/{slug}/memories/stream")
+def create_page_memory_stream(slug: str, body: CreateMemoryRequest, uid: str = Depends(_get_uid)):
+    """Like POST /memories but streams SSE status events while the AI processes the message.
+
+    Each event is a JSON line prefixed with ``data: ``.  The final event has
+    ``type == "done"`` and includes the committed memories.
+    """
+    page = _require_page_owner(slug, uid)
+    page_tz = resolve_tz(page.timezone)
+
+    def generate():
+        try:
+            for event in commit_memory_firestore_stream(
+                message=body.message,
+                today=_today(tz=page_tz),
+                attachment_urls=body.attachments,
+                page_id=slug,
+                visibility=body.visibility,
+            ):
+                if event["type"] == "done":
+                    memories = [
+                        {"action": r.action, "id": r.doc_id, "memory": r.memory.to_dict()}
+                        for r in event["results"]
+                    ]
+                    yield f"data: {json.dumps({'type': 'done', 'memories': memories})}\n\n"
+                else:
+                    yield f"data: {json.dumps(event)}\n\n"
+        except Exception:
+            logger.exception("create_page_memory_stream failed slug=%s uid=%s", slug, uid)
+            yield f"data: {json.dumps({'type': 'error', 'message': 'Failed to process memory — please try again.'})}\n\n"
+
+    logger.info("create_page_memory_stream slug=%s uid=%s", slug, uid)
+    return StreamingResponse(generate(), media_type="text/event-stream")
 
 
 @app.get("/pages/{slug}/memories")

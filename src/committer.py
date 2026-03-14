@@ -209,21 +209,27 @@ class CommitResult:
     memory: Memory
 
 
-def commit_memory_firestore(
+def commit_memory_firestore_stream(
     message: str,
     today: date | None = None,
     attachment_urls: list[str] | None = None,
     page_id: str | None = None,
     visibility: str = "public",
-) -> list[CommitResult]:
-    """Core function: process a message and save to Firestore.
+):
+    """Generator that processes a message, saves to Firestore, and yields status events.
 
-    Returns a list of ``CommitResult`` (one per event found in the message).
+    Yields dicts with a ``type`` key:
+    - ``{"type": "status", "message": "..."}`` — progress update
+    - ``{"type": "extracted", "count": N, "message": "..."}`` — after AI call
+    - ``{"type": "saving", "action": "...", "title": "...", "date": "...", "message": "..."}``
+    - ``{"type": "done", "results": [CommitResult, ...]}`` — final event
     """
     import firestore_storage
 
     if today is None:
         today = _today()
+
+    yield {"type": "status", "message": "Loading existing memories…"}
 
     if page_id:
         pairs = firestore_storage.load_memories_by_page(page_id, today)
@@ -231,12 +237,18 @@ def commit_memory_firestore(
         pairs = []
     existing_memories = [mem for _, mem in pairs]
 
-    # Replace complex URLs with placeholders so Gemini sees clean input.
-    sanitised_message, user_urls = replace_urls_with_placeholders(message)
+    yield {"type": "status", "message": "Calling AI to extract events…"}
 
+    sanitised_message, user_urls = replace_urls_with_placeholders(message)
     prompt = build_ai_request(sanitised_message, existing_memories, today,
                               attachment_urls=attachment_urls or None)
     results_raw = call_ai(prompt)
+
+    yield {
+        "type": "extracted",
+        "count": len(results_raw),
+        "message": f"Extracted {len(results_raw)} event(s)",
+    }
 
     _NONE_STRINGS = {"ongoing", "recurring", "none", "null", ""}
 
@@ -256,7 +268,6 @@ def commit_memory_firestore(
         )
         raw_attachments = result.get("attachments")
 
-        # Restore real URLs into AI output
         ai_title = result.get("title") or ""
         ai_content = result["content"]
         if user_urls:
@@ -274,18 +285,52 @@ def commit_memory_firestore(
             visibility=visibility,
         )
 
+        action = result["action"]
+        display_title = ai_title or result.get("slug", "event")
+        verb = "Updating" if action == "update" else "Saving"
+        yield {
+            "type": "saving",
+            "action": action,
+            "title": display_title,
+            "date": target.isoformat(),
+            "message": f"{verb} \"{display_title}\" for {target.isoformat()}",
+        }
+
         doc_id = None
-        if result["action"] == "update" and result.get("update_title") and page_id:
+        if action == "update" and result.get("update_title") and page_id:
             found = firestore_storage.find_memory_by_title_on_page(
                 page_id, result["update_title"], today,
             )
             if found:
                 doc_id = found[0]
         saved_id = firestore_storage.save_memory(mem, doc_id=doc_id)
-        commit_results.append(CommitResult(action=result["action"], doc_id=saved_id, memory=mem))
+        commit_results.append(CommitResult(action=action, doc_id=saved_id, memory=mem))
 
     firestore_storage.delete_expired(today)
-    return commit_results
+    yield {"type": "done", "results": commit_results}
+
+
+def commit_memory_firestore(
+    message: str,
+    today: date | None = None,
+    attachment_urls: list[str] | None = None,
+    page_id: str | None = None,
+    visibility: str = "public",
+) -> list[CommitResult]:
+    """Core function: process a message and save to Firestore.
+
+    Returns a list of ``CommitResult`` (one per event found in the message).
+    """
+    for event in commit_memory_firestore_stream(
+        message=message,
+        today=today,
+        attachment_urls=attachment_urls,
+        page_id=page_id,
+        visibility=visibility,
+    ):
+        if event["type"] == "done":
+            return event["results"]
+    return []  # unreachable, but satisfies type checkers
 
 
 def main(argv: list[str] | None = None) -> None:

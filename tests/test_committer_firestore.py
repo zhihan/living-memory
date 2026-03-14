@@ -4,7 +4,7 @@ from datetime import date
 from unittest.mock import patch, MagicMock
 
 from memory import Memory
-from committer import commit_memory_firestore, main
+from committer import commit_memory_firestore, commit_memory_firestore_stream, main
 
 
 @patch("firestore_storage.delete_expired")
@@ -272,3 +272,45 @@ def test_commit_multiple_events(mock_call_ai, mock_load, mock_save, mock_delete)
     assert results[0].memory.title == "Middle Schoolers"
     assert results[1].memory.title == "High Schoolers"
     mock_delete.assert_called_once()
+
+
+@patch("firestore_storage.delete_expired")
+@patch("firestore_storage.save_memory")
+@patch("committer.call_ai")
+def test_stream_yields_status_events(mock_call_ai, mock_save, mock_delete):
+    """commit_memory_firestore_stream yields status, extracted, saving, and done events."""
+    mock_save.return_value = "new-doc-id"
+    mock_delete.return_value = []
+    mock_call_ai.return_value = [{
+        "action": "create",
+        "target": "2026-03-05",
+        "expires": "2026-04-04",
+        "title": "Team Meeting",
+        "time": "10:00",
+        "place": "Room A",
+        "content": "Weekly planning session",
+    }]
+
+    events = list(commit_memory_firestore_stream(
+        message="Team meeting next Thursday at 10am in Room A",
+        today=date(2026, 2, 18),
+    ))
+
+    types = [e["type"] for e in events]
+    assert "status" in types
+    assert "extracted" in types
+    assert "saving" in types
+    assert types[-1] == "done"
+
+    extracted = next(e for e in events if e["type"] == "extracted")
+    assert extracted["count"] == 1
+
+    saving = next(e for e in events if e["type"] == "saving")
+    assert saving["title"] == "Team Meeting"
+    assert saving["date"] == "2026-03-05"
+    assert saving["action"] == "create"
+
+    done = events[-1]
+    assert len(done["results"]) == 1
+    assert done["results"][0].memory.title == "Team Meeting"
+    assert done["results"][0].doc_id == "new-doc-id"
