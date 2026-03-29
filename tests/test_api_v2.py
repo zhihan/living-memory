@@ -194,6 +194,32 @@ class TestDeleteWorkspace:
 # ---------------------------------------------------------------------------
 
 class TestMemberManagement:
+    def test_list_members_includes_member_details(self, participant_client):
+        ws = _make_workspace()
+
+        class _FakeUser:
+            def __init__(self, display_name, email):
+                self.display_name = display_name
+                self.email = email
+
+        with (
+            patch("workspace_storage.get_workspace", return_value=ws),
+            patch("api_v2._get_member_details", return_value=[
+                {
+                    "uid": PARTICIPANT_UID,
+                    "role": "participant",
+                    "display_name": "Pat Example",
+                    "email": "pat@example.com",
+                },
+            ]),
+        ):
+            resp = participant_client.get("/v2/workspaces/ws-1/members", headers=AUTH)
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["members"][PARTICIPANT_UID] == "participant"
+        assert data["member_details"][0]["display_name"] == "Pat Example"
+
     def test_add_member(self, organizer_client):
         ws = _make_workspace()
         updated = _make_workspace()

@@ -380,7 +380,16 @@ export async function getMemberStreak(
 
 export async function getWorkspaceMembers(
   workspaceId: string,
-): Promise<{ workspace_id: string; members: Record<string, string> }> {
+): Promise<{
+  workspace_id: string;
+  members: Record<string, string>;
+  member_details?: Array<{
+    uid: string;
+    role: string;
+    display_name: string | null;
+    email: string | null;
+  }>;
+}> {
   const resp = await apiFetch(`/v2/workspaces/${workspaceId}/members`);
   return resp.json();
 }

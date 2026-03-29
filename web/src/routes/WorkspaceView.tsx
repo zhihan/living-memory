@@ -69,6 +69,7 @@ export function WorkspaceView() {
 
   // Members
   const [members, setMembers] = useState<Record<string, string> | null>(null);
+  const [memberDetails, setMemberDetails] = useState<Record<string, { display_name: string | null; email: string | null }>>({});
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [inviteRole, setInviteRole] = useState("participant");
   const [inviteCreating, setInviteCreating] = useState(false);
@@ -87,6 +88,14 @@ export function WorkspaceView() {
       setWorkspace(ws);
       setSeries(sr);
       setMembers(mem.members);
+      setMemberDetails(
+        Object.fromEntries(
+          (mem.member_details ?? []).map((member) => [
+            member.uid,
+            { display_name: member.display_name, email: member.email },
+          ]),
+        ),
+      );
     } catch (err) {
       setError(err as Error);
     } finally {
@@ -461,7 +470,13 @@ export function WorkspaceView() {
           <ul className="members-list">
             {Object.entries(members).map(([uid, role]) => (
               <li key={uid} className="member-item">
-                <span className="member-uid">{uid === user?.uid ? "You" : uid.slice(0, 8)}</span>
+                <span className="member-uid">
+                  {uid === user?.uid
+                    ? "You"
+                    : memberDetails[uid]?.display_name
+                      || memberDetails[uid]?.email
+                      || uid.slice(0, 8)}
+                </span>
                 <span className={`badge badge-role-${role}`}>{role}</span>
                 {isOrganizer && (
                   <button

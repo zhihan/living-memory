@@ -120,6 +120,37 @@ def _require_member(workspace: Workspace, uid: str) -> None:
         raise HTTPException(status_code=403, detail="Not a member of this workspace")
 
 
+def _get_member_details(member_roles: dict[str, MemberRole]) -> list[dict]:
+    """Best-effort Firebase profile lookup for member display names."""
+    details: list[dict] = []
+    try:
+        import firebase_admin
+        from firebase_admin import auth as firebase_auth
+
+        if not firebase_admin._apps:
+            firebase_admin.initialize_app()
+    except Exception:
+        firebase_auth = None  # type: ignore[assignment]
+
+    for uid, role in member_roles.items():
+        display_name = None
+        email = None
+        if firebase_auth is not None:
+            try:
+                user = firebase_auth.get_user(uid)
+                display_name = user.display_name
+                email = user.email
+            except Exception:
+                pass
+        details.append({
+            "uid": uid,
+            "role": role,
+            "display_name": display_name,
+            "email": email,
+        })
+    return details
+
+
 # ---------------------------------------------------------------------------
 # Pydantic request / response schemas
 # ---------------------------------------------------------------------------
@@ -308,7 +339,11 @@ def list_members(
 ) -> dict:
     ws = _get_workspace_or_404(workspace_id)
     _require_member(ws, token["uid"])
-    return {"workspace_id": workspace_id, "members": ws.member_roles}
+    return {
+        "workspace_id": workspace_id,
+        "members": ws.member_roles,
+        "member_details": _get_member_details(ws.member_roles),
+    }
 
 
 @router.post("/workspaces/{workspace_id}/members", status_code=201)
