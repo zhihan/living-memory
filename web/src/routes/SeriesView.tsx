@@ -360,9 +360,9 @@ function OccurrenceRow({
 }: {
   occ: OccurrenceSummary;
 }) {
-  const title = occ.overrides.title ?? null;
-  const location = occ.overrides.location;
-  const link = occ.overrides.online_link;
+  const title = occ.overrides?.title ?? null;
+  const location = occ.overrides?.location;
+  const link = occ.overrides?.online_link;
 
   return (
     <li className="occurrence-card">
