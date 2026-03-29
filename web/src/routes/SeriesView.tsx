@@ -44,9 +44,8 @@ function formatScheduleRule(rule: ScheduleRule): string {
 function statusColor(status: string): string {
   const map: Record<string, string> = {
     scheduled: "badge-status-scheduled",
-    confirmed: "badge-status-confirmed",
+    rescheduled: "badge-status-confirmed",
     completed: "badge-status-completed",
-    skipped: "badge-status-skipped",
     cancelled: "badge-status-cancelled",
   };
   return map[status] ?? "badge-status-scheduled";
@@ -180,10 +179,10 @@ export function SeriesView() {
   if (error) return <ErrorMessage error={error} onRetry={load} />;
 
   const upcoming = occurrences?.filter(
-    (o) => !["completed", "skipped", "cancelled"].includes(o.status),
+    (o) => !["completed", "cancelled"].includes(o.status),
   ) ?? [];
   const past = occurrences?.filter(
-    (o) => ["completed", "skipped", "cancelled"].includes(o.status),
+    (o) => ["completed", "cancelled"].includes(o.status),
   ) ?? [];
 
   return (

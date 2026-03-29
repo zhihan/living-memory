@@ -73,7 +73,6 @@ def list_workspaces_for_user(uid: str) -> list[Workspace]:
 
 def add_member(workspace_id: str, uid: str, role: MemberRole) -> Workspace:
     """Add or update uid role in workspace_id."""
-    from google.cloud.firestore import ArrayUnion
     db = _get_client()
     ref = db.collection(WORKSPACES_COLLECTION).document(workspace_id)
     if not ref.get().exists:
@@ -83,6 +82,7 @@ def add_member(workspace_id: str, uid: str, role: MemberRole) -> Workspace:
         "updated_at": _utcnow(),
     }
     if role == "organizer":
+        from google.cloud.firestore_v1 import ArrayUnion
         updates["owner_uids"] = ArrayUnion([uid])
     ref.update(updates)
     return get_workspace(workspace_id)  # type: ignore[return-value]
@@ -90,8 +90,6 @@ def add_member(workspace_id: str, uid: str, role: MemberRole) -> Workspace:
 
 def remove_member(workspace_id: str, uid: str) -> Workspace:
     """Remove uid from workspace_id. Raises if would leave no organizers."""
-    from google.cloud.firestore import ArrayRemove
-    from google.cloud.firestore_v1 import DELETE_FIELD
     workspace = get_workspace(workspace_id)
     if workspace is None:
         raise ValueError(f"Workspace not found: {workspace_id}")
@@ -104,11 +102,13 @@ def remove_member(workspace_id: str, uid: str) -> Workspace:
             raise ValueError("Cannot remove the last organizer of a workspace")
     db = _get_client()
     ref = db.collection(WORKSPACES_COLLECTION).document(workspace_id)
+    from google.cloud.firestore_v1 import DELETE_FIELD
     updates: dict = {
         f"member_roles.{uid}": DELETE_FIELD,
         "updated_at": _utcnow(),
     }
     if current_role == "organizer":
+        from google.cloud.firestore_v1 import ArrayRemove
         updates["owner_uids"] = ArrayRemove([uid])
     ref.update(updates)
     return get_workspace(workspace_id)  # type: ignore[return-value]
@@ -159,10 +159,10 @@ def find_workspace_invite(invite_id: str) -> dict | None:
         db.collection_group(WORKSPACE_INVITES_SUBCOLLECTION)
         .where("invite_id", "==", invite_id)
         .limit(1)
-        .stream()
+        .get()
     )
-    for doc in docs:
-        return doc.to_dict()
+    if docs:
+        return docs[0].to_dict()
     return None
 
 

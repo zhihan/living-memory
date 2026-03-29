@@ -17,7 +17,7 @@ import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { AssistantChat } from "../AssistantChat";
 
-const OCCURRENCE_STATUSES = ["scheduled", "confirmed", "completed", "skipped", "cancelled"];
+const OCCURRENCE_STATUSES = ["scheduled", "rescheduled", "completed", "cancelled"];
 
 function formatDate(iso: string, timezone?: string): string {
   return new Date(iso).toLocaleString("en-US", {
@@ -134,7 +134,7 @@ export function OccurrenceView() {
     if (!occurrenceId) return;
     setCheckingIn(true);
     try {
-      const ci = await createCheckIn(occurrenceId, "present");
+      const ci = await createCheckIn(occurrenceId, "confirmed");
       setCheckIns((prev) => [...(prev ?? []), ci]);
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to check in");

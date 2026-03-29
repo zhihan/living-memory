@@ -3,6 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { acceptInvite } from "../api";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 
+const ACCEPT_INVITE_TIMEOUT_MS = 15000;
+
 export function AcceptInvite() {
   const { inviteId } = useParams<{ inviteId: string }>();
   const navigate = useNavigate();
@@ -14,7 +16,14 @@ export function AcceptInvite() {
     setStarted(true);
     setError(null);
     try {
-      const result = await acceptInvite(inviteId);
+      const result = await Promise.race([
+        acceptInvite(inviteId),
+        new Promise<never>((_, reject) => {
+          window.setTimeout(() => {
+            reject(new Error("Invite acceptance timed out. Retry or open Dashboard to check whether it already succeeded."));
+          }, ACCEPT_INVITE_TIMEOUT_MS);
+        }),
+      ]);
       navigate(`/w/${result.workspace_id}`, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to accept invite");

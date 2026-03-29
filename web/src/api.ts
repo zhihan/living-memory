@@ -270,7 +270,7 @@ export async function patchOccurrence(
 
 export async function createCheckIn(
   occurrenceId: string,
-  status: string = "present",
+  status: string = "confirmed",
   note?: string,
 ): Promise<CheckInSummary> {
   const resp = await apiFetch(`/v2/occurrences/${occurrenceId}/check-ins`, {

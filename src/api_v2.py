@@ -42,6 +42,8 @@ from pydantic import BaseModel, field_validator
 
 import series_storage
 import workspace_storage
+from assistant import run_assistant_stream
+from assistant_actions import execute_action, get_pending_action, update_pending_action_status
 from models import (
     CheckIn,
     MemberRole,
@@ -1030,7 +1032,6 @@ def assistant_chat(
 ) -> object:
     import json as _json
     from fastapi.responses import StreamingResponse
-    from assistant import run_assistant_stream
 
     ws = _get_workspace_or_404(workspace_id)
     _require_role(ws, token['uid'], 'organizer', 'teacher')
@@ -1055,8 +1056,6 @@ def confirm_action(
     action_id: str,
     token: dict = Depends(_require_token),
 ) -> dict:
-    from assistant_actions import get_pending_action, update_pending_action_status, execute_action
-
     pending = get_pending_action(action_id)
     if pending is None:
         raise HTTPException(status_code=404, detail='Action not found or expired')
@@ -1083,8 +1082,6 @@ def cancel_action(
     action_id: str,
     token: dict = Depends(_require_token),
 ) -> dict:
-    from assistant_actions import get_pending_action, update_pending_action_status
-
     pending = get_pending_action(action_id)
     if pending is None:
         raise HTTPException(status_code=404, detail='Action not found or expired')
