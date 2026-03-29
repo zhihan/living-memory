@@ -201,6 +201,7 @@ class OccurrenceOverridesIn(BaseModel):
     location: Optional[str] = None
     online_link: Optional[str] = None
     title: Optional[str] = None
+    notes: Optional[str] = None
 
     def to_model(self) -> OccurrenceOverrides:
         return OccurrenceOverrides(
@@ -209,6 +210,7 @@ class OccurrenceOverridesIn(BaseModel):
             location=self.location,
             online_link=self.online_link,
             title=self.title,
+            notes=self.notes,
         )
 
 
@@ -248,6 +250,16 @@ def create_workspace(
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     return ws.to_dict()
+
+
+@router.get("/workspaces")
+def list_workspaces(
+    token: dict = Depends(_require_token),
+) -> dict:
+    """Return all workspaces where the caller is an owner."""
+    uid = token["uid"]
+    workspaces = workspace_storage.list_workspaces_for_user(uid)
+    return {"workspaces": [ws.to_dict() for ws in workspaces]}
 
 
 @router.get("/workspaces/{workspace_id}")
