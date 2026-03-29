@@ -215,6 +215,7 @@ class OccurrenceOverrides:
     location: str | None = None
     online_link: str | None = None
     title: str | None = None
+    notes: str | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -223,6 +224,7 @@ class OccurrenceOverrides:
             "location": self.location,
             "online_link": self.online_link,
             "title": self.title,
+            "notes": self.notes,
         }
 
     @classmethod
@@ -233,6 +235,7 @@ class OccurrenceOverrides:
             location=data.get("location"),
             online_link=data.get("online_link"),
             title=data.get("title"),
+            notes=data.get("notes"),
         )
 
 
