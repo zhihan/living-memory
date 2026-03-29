@@ -19,8 +19,8 @@ export function Markdown({ text, className }: { text: string; className?: string
 }
 
 function parseLine(line: string): ReactNode[] {
-  // Regex matches: [text](url), **bold**, *italic*
-  const re = /(\[([^\]]+)\]\((https?:\/\/[^)]+)\)|\*\*(.+?)\*\*|\*(.+?)\*)/g;
+  // Matches: [text](url), **bold**, *italic*, or bare https://… URLs
+  const re = /(\[([^\]]+)\]\((https?:\/\/[^)]+)\)|\*\*(.+?)\*\*|\*(.+?)\*|(https?:\/\/[^\s<]+))/g;
   const nodes: ReactNode[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -42,6 +42,13 @@ function parseLine(line: string): ReactNode[] {
     } else if (match[5]) {
       // Italic: *text*
       nodes.push(<em key={match.index}>{match[5]}</em>);
+    } else if (match[6]) {
+      // Bare URL
+      nodes.push(
+        <a key={match.index} href={match[6]} target="_blank" rel="noreferrer">
+          {match[6]}
+        </a>
+      );
     }
     lastIndex = match.index + match[0].length;
   }
