@@ -175,6 +175,7 @@ class CreateSeriesRequest(BaseModel):
     default_duration_minutes: Optional[int] = None
     default_location: Optional[str] = None
     default_online_link: Optional[str] = None
+    location_type: Optional[str] = None  # "fixed" or "per_occurrence"
     description: Optional[str] = None
 
 
@@ -184,6 +185,7 @@ class UpdateSeriesRequest(BaseModel):
     default_duration_minutes: Optional[int] = None
     default_location: Optional[str] = None
     default_online_link: Optional[str] = None
+    location_type: Optional[str] = None  # "fixed" or "per_occurrence"
     status: Optional[str] = None
     description: Optional[str] = None
     schedule_rule: Optional[ScheduleRuleIn] = None
@@ -217,6 +219,7 @@ class OccurrenceOverridesIn(BaseModel):
 class UpdateOccurrenceRequest(BaseModel):
     status: Optional[str] = None
     scheduled_for: Optional[str] = None
+    location: Optional[str] = None
     overrides: Optional[OccurrenceOverridesIn] = None
 
 
@@ -398,6 +401,7 @@ def create_series(
         default_duration_minutes=body.default_duration_minutes,
         default_location=body.default_location,
         default_online_link=body.default_online_link,
+        location_type=body.location_type or "fixed",
         description=body.description,
         created_by=token["uid"],
     )
@@ -438,7 +442,8 @@ def update_series(
     _require_role(ws, token["uid"], "organizer", "teacher")
     updates: dict = {}
     for field in ("title", "default_time", "default_duration_minutes",
-                  "default_location", "default_online_link", "status", "description"):
+                  "default_location", "default_online_link", "location_type",
+                  "status", "description"):
         val = getattr(body, field)
         if val is not None:
             updates[field] = val
@@ -535,6 +540,10 @@ def update_occurrence_endpoint(
     ws = _get_workspace_or_404(occ.workspace_id)
     _require_role(ws, token["uid"], "organizer", "teacher")
 
+    updates: dict = {}
+    if body.location is not None:
+        updates["location"] = body.location
+
     if body.status == "cancelled":
         result = skip_occurrence(occurrence_id)
     elif body.status == "completed":
@@ -543,8 +552,15 @@ def update_occurrence_endpoint(
         result = reschedule_occurrence(occurrence_id, body.scheduled_for)
     elif body.overrides is not None:
         result = edit_occurrence(occurrence_id, body.overrides.to_model())
+    elif updates:
+        result = series_storage.update_occurrence(occurrence_id, updates)
     else:
         raise HTTPException(status_code=400, detail="No valid update field provided")
+
+    # Apply additional field updates alongside status/override changes
+    if updates and (body.status or body.scheduled_for or body.overrides):
+        result = series_storage.update_occurrence(occurrence_id, updates)
+
     return result.to_dict()
 
 

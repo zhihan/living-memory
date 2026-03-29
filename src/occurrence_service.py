@@ -82,6 +82,7 @@ def generate_and_save(
             workspace_id=series.workspace_id,
             scheduled_for=scheduled_for,
             status="scheduled",
+            location=series.default_location if series.location_type == "fixed" else None,
             sequence_index=existing_count + len(new_occurrences),
         )
         new_occurrences.append(occ)
@@ -203,6 +204,7 @@ def regenerate_series(
                 workspace_id=series.workspace_id,
                 scheduled_for=scheduled_for,
                 status="scheduled",
+                location=series.default_location if series.location_type == "fixed" else None,
                 sequence_index=base_seq + idx,
             ))
 

@@ -84,7 +84,7 @@ export function OccurrenceView() {
   function startEdit() {
     if (!occurrence) return;
     setEditTitle(occurrence.overrides?.title ?? "");
-    setEditLocation(occurrence.overrides?.location ?? "");
+    setEditLocation(occurrence.location ?? occurrence.overrides?.location ?? "");
     setEditLink(occurrence.overrides?.online_link ?? "");
     setEditNotes(occurrence.overrides?.notes ?? "");
     setEditDuration(occurrence.overrides?.duration_minutes?.toString() ?? "");
@@ -99,12 +99,14 @@ export function OccurrenceView() {
     setEditError(null);
     const overrides: OccurrenceOverrides = {};
     if (editTitle.trim()) overrides.title = editTitle.trim();
-    if (editLocation.trim()) overrides.location = editLocation.trim();
     if (editLink.trim()) overrides.online_link = editLink.trim();
     if (editNotes.trim()) overrides.notes = editNotes.trim();
     if (editDuration) overrides.duration_minutes = parseInt(editDuration, 10);
     try {
-      const updated = await patchOccurrence(occurrenceId, { overrides });
+      const updated = await patchOccurrence(occurrenceId, {
+        location: editLocation.trim() || null,
+        overrides,
+      });
       setOccurrence(updated);
       setEditing(false);
     } catch (err) {
@@ -145,7 +147,7 @@ export function OccurrenceView() {
 
   const occ = occurrence!;
   const effectiveTitle = occ.overrides?.title ?? series?.title ?? "Meeting";
-  const effectiveLocation = occ.overrides?.location ?? series?.default_location;
+  const effectiveLocation = occ.location ?? occ.overrides?.location ?? series?.default_location;
   const effectiveLink = occ.overrides?.online_link ?? series?.default_online_link;
   const effectiveNotes = occ.overrides?.notes;
   const effectiveDuration = occ.overrides?.duration_minutes ?? series?.default_duration_minutes;
@@ -280,7 +282,7 @@ export function OccurrenceView() {
               />
             </div>
             <div className="form-field">
-              <label htmlFor="eo-location">Location override</label>
+              <label htmlFor="eo-location">Location</label>
               <input
                 id="eo-location"
                 type="text"

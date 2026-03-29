@@ -68,6 +68,7 @@ export function SeriesView() {
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editLocation, setEditLocation] = useState("");
+  const [editLocationType, setEditLocationType] = useState<"fixed" | "per_occurrence">("fixed");
   const [editLink, setEditLink] = useState("");
   const [editTime, setEditTime] = useState("");
   const [editDuration, setEditDuration] = useState("");
@@ -112,6 +113,7 @@ export function SeriesView() {
     setEditTitle(series.title);
     setEditDescription(series.description ?? "");
     setEditLocation(series.default_location ?? "");
+    setEditLocationType(series.location_type ?? "fixed");
     setEditLink(series.default_online_link ?? "");
     setEditTime(series.default_time ?? "");
     setEditDuration(series.default_duration_minutes?.toString() ?? "");
@@ -130,6 +132,7 @@ export function SeriesView() {
         description: editDescription.trim() || undefined,
         default_location: editLocation.trim() || undefined,
         default_online_link: editLink.trim() || undefined,
+        location_type: editLocationType,
         default_time: editTime || undefined,
         default_duration_minutes: editDuration ? parseInt(editDuration, 10) : undefined,
       });
@@ -288,17 +291,40 @@ export function SeriesView() {
             </div>
           </div>
           <div className="form-field">
-            <label htmlFor="edit-location">Location</label>
-            <input
-              id="edit-location"
-              type="text"
-              className="form-input"
-              value={editLocation}
-              onChange={(e) => setEditLocation(e.target.value)}
-              disabled={editSubmitting}
-              placeholder="Room or address"
-            />
+            <label>Location type</label>
+            <div className="visibility-toggle">
+              <button
+                type="button"
+                className={`btn btn-sm ${editLocationType === "fixed" ? "btn-primary" : "btn-secondary"}`}
+                onClick={() => setEditLocationType("fixed")}
+                disabled={editSubmitting}
+              >
+                Fixed location
+              </button>
+              <button
+                type="button"
+                className={`btn btn-sm ${editLocationType === "per_occurrence" ? "btn-primary" : "btn-secondary"}`}
+                onClick={() => setEditLocationType("per_occurrence")}
+                disabled={editSubmitting}
+              >
+                Changes each meeting
+              </button>
+            </div>
           </div>
+          {editLocationType === "fixed" && (
+            <div className="form-field">
+              <label htmlFor="edit-location">Default location</label>
+              <input
+                id="edit-location"
+                type="text"
+                className="form-input"
+                value={editLocation}
+                onChange={(e) => setEditLocation(e.target.value)}
+                disabled={editSubmitting}
+                placeholder="Room or address"
+              />
+            </div>
+          )}
           <div className="form-field">
             <label htmlFor="edit-link">Online Link</label>
             <input
@@ -497,7 +523,7 @@ function OccurrenceRow({
   occ: OccurrenceSummary;
 }) {
   const title = occ.overrides?.title ?? null;
-  const location = occ.overrides?.location;
+  const location = occ.location ?? occ.overrides?.location;
   const link = occ.overrides?.online_link;
 
   return (

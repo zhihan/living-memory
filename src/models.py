@@ -156,6 +156,8 @@ class Series:
     default_duration_minutes: int | None = None
     default_location: str | None = None
     default_online_link: str | None = None
+    # "fixed" = same location every time; "per_occurrence" = set per meeting
+    location_type: Literal["fixed", "per_occurrence"] = "fixed"
     status: SeriesStatus = "active"
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -175,6 +177,7 @@ class Series:
             "default_duration_minutes": self.default_duration_minutes,
             "default_location": self.default_location,
             "default_online_link": self.default_online_link,
+            "location_type": self.location_type,
             "status": self.status,
             "created_at": self.created_at or now,
             "updated_at": self.updated_at or now,
@@ -194,6 +197,7 @@ class Series:
             default_duration_minutes=data.get("default_duration_minutes"),
             default_location=data.get("default_location"),
             default_online_link=data.get("default_online_link"),
+            location_type=data.get("location_type", "fixed"),
             status=data.get("status", "active"),
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),
@@ -256,6 +260,8 @@ class Occurrence:
     # ISO 8601 UTC datetime, e.g. "2026-04-01T14:00:00+00:00"
     scheduled_for: str
     status: OccurrenceStatus = "scheduled"
+    # Per-occurrence location (always present; set from series default or per-occurrence)
+    location: str | None = None
     overrides: OccurrenceOverrides | None = None
     # Optional FK to a ContentPacket document (added in later phase)
     content_packet_id: str | None = None
@@ -272,6 +278,7 @@ class Occurrence:
             "workspace_id": self.workspace_id,
             "scheduled_for": self.scheduled_for,
             "status": self.status,
+            "location": self.location,
             "overrides": self.overrides.to_dict() if self.overrides else None,
             "content_packet_id": self.content_packet_id,
             "created_at": self.created_at or now,
@@ -288,6 +295,7 @@ class Occurrence:
             workspace_id=data["workspace_id"],
             scheduled_for=data["scheduled_for"],
             status=data.get("status", "scheduled"),
+            location=data.get("location"),
             overrides=OccurrenceOverrides.from_dict(raw_overrides) if raw_overrides else None,
             content_packet_id=data.get("content_packet_id"),
             created_at=data.get("created_at"),

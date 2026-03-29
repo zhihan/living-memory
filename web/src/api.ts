@@ -74,6 +74,7 @@ export interface SeriesSummary {
   default_duration_minutes: number | null;
   default_location: string | null;
   default_online_link: string | null;
+  location_type: "fixed" | "per_occurrence";
   status: string;
   created_at: string;
   updated_at: string;
@@ -95,6 +96,7 @@ export interface OccurrenceSummary {
   workspace_id: string;
   scheduled_for: string;
   status: string;
+  location: string | null;
   overrides: OccurrenceOverrides;
   created_at: string;
   updated_at: string;
@@ -172,6 +174,7 @@ export async function createSeries(
     default_duration_minutes?: number;
     default_location?: string;
     default_online_link?: string;
+    location_type?: "fixed" | "per_occurrence";
   },
 ): Promise<SeriesSummary> {
   const resp = await apiFetch(`/v2/workspaces/${workspaceId}/series`, {
@@ -202,6 +205,7 @@ export async function patchSeries(
     default_duration_minutes: number;
     default_location: string;
     default_online_link: string;
+    location_type: "fixed" | "per_occurrence";
     schedule_rule: ScheduleRule;
     status: string;
   }>,
@@ -249,6 +253,7 @@ export async function patchOccurrence(
   occurrenceId: string,
   updates: {
     status?: string;
+    location?: string | null;
     overrides?: OccurrenceOverrides;
   },
 ): Promise<OccurrenceSummary> {

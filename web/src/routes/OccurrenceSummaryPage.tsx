@@ -58,7 +58,7 @@ export function OccurrenceSummaryPage() {
 
   const occ = occurrence!;
   const effectiveTitle = occ.overrides?.title ?? series?.title ?? "Meeting";
-  const effectiveLocation = occ.overrides?.location ?? series?.default_location;
+  const effectiveLocation = occ.location ?? occ.overrides?.location ?? series?.default_location;
   const effectiveLink = occ.overrides?.online_link ?? series?.default_online_link;
   const effectiveNotes = occ.overrides?.notes;
   const effectiveDuration = occ.overrides?.duration_minutes ?? series?.default_duration_minutes;

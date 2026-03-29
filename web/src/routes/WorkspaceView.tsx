@@ -54,6 +54,7 @@ export function WorkspaceView() {
   const [formTime, setFormTime] = useState("10:00");
   const [formDuration, setFormDuration] = useState("60");
   const [formLocation, setFormLocation] = useState("");
+  const [formLocationType, setFormLocationType] = useState<"fixed" | "per_occurrence">("fixed");
   const [formLink, setFormLink] = useState("");
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -109,6 +110,7 @@ export function WorkspaceView() {
         default_duration_minutes: formDuration ? parseInt(formDuration, 10) : undefined,
         default_location: formLocation.trim() || undefined,
         default_online_link: formLink.trim() || undefined,
+        location_type: formLocationType,
       });
       setShowForm(false);
       setFormTitle("");
@@ -118,6 +120,7 @@ export function WorkspaceView() {
       setFormTime("10:00");
       setFormDuration("60");
       setFormLocation("");
+      setFormLocationType("fixed");
       setFormLink("");
       // Navigate to series detail
       navigate(`/w/${workspaceId}/series/${created.series_id}`);
@@ -259,17 +262,40 @@ export function WorkspaceView() {
               </div>
             </div>
             <div className="form-field">
-              <label htmlFor="series-location">Location</label>
-              <input
-                id="series-location"
-                type="text"
-                className="form-input"
-                value={formLocation}
-                onChange={(e) => setFormLocation(e.target.value)}
-                placeholder="Room 3B or 123 Main St"
-                disabled={formSubmitting}
-              />
+              <label>Location type</label>
+              <div className="visibility-toggle">
+                <button
+                  type="button"
+                  className={`btn btn-sm ${formLocationType === "fixed" ? "btn-primary" : "btn-secondary"}`}
+                  onClick={() => setFormLocationType("fixed")}
+                  disabled={formSubmitting}
+                >
+                  Fixed location
+                </button>
+                <button
+                  type="button"
+                  className={`btn btn-sm ${formLocationType === "per_occurrence" ? "btn-primary" : "btn-secondary"}`}
+                  onClick={() => setFormLocationType("per_occurrence")}
+                  disabled={formSubmitting}
+                >
+                  Changes each meeting
+                </button>
+              </div>
             </div>
+            {formLocationType === "fixed" && (
+              <div className="form-field">
+                <label htmlFor="series-location">Default location</label>
+                <input
+                  id="series-location"
+                  type="text"
+                  className="form-input"
+                  value={formLocation}
+                  onChange={(e) => setFormLocation(e.target.value)}
+                  placeholder="Room 3B or 123 Main St"
+                  disabled={formSubmitting}
+                />
+              </div>
+            )}
             <div className="form-field">
               <label htmlFor="series-link">Online Link</label>
               <input
