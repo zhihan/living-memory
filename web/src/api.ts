@@ -376,6 +376,54 @@ export async function getMemberStreak(
 }
 
 
+// --- Members & Invites ---
+
+export async function getWorkspaceMembers(
+  workspaceId: string,
+): Promise<{ workspace_id: string; members: Record<string, string> }> {
+  const resp = await apiFetch(`/v2/workspaces/${workspaceId}/members`);
+  return resp.json();
+}
+
+export async function removeMember(
+  workspaceId: string,
+  uid: string,
+): Promise<void> {
+  await apiFetch(`/v2/workspaces/${workspaceId}/members/${uid}`, {
+    method: "DELETE",
+  });
+}
+
+export interface InviteInfo {
+  invite_id: string;
+  workspace_id: string;
+  role: string;
+  created_by: string;
+  expires_at: string;
+}
+
+export async function createWorkspaceInvite(
+  workspaceId: string,
+  role: string = "participant",
+  expiresInDays: number = 7,
+): Promise<InviteInfo> {
+  const resp = await apiFetch(`/v2/workspaces/${workspaceId}/invites`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ role, expires_in_days: expiresInDays }),
+  });
+  return resp.json();
+}
+
+export async function acceptInvite(
+  inviteId: string,
+): Promise<{ accepted: boolean; workspace_id: string; role: string }> {
+  const resp = await apiFetch(`/v2/invites/${inviteId}/accept`, {
+    method: "POST",
+  });
+  return resp.json();
+}
+
 // ============================================================
 // Assistant API
 // ============================================================

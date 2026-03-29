@@ -3,12 +3,16 @@ import { Link, useParams, useNavigate } from "react-router-dom";
 import {
   getWorkspace,
   getWorkspaceSeries,
+  getWorkspaceMembers,
+  createWorkspaceInvite,
+  removeMember,
   createSeries,
   generateOccurrences,
   type WorkspaceSummary,
   type SeriesSummary,
   type ScheduleRule,
 } from "../api";
+import { useAuth } from "../auth";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { AssistantChat } from "../AssistantChat";
@@ -40,6 +44,7 @@ function formatScheduleRule(rule: ScheduleRule): string {
 export function WorkspaceView() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [workspace, setWorkspace] = useState<WorkspaceSummary | null>(null);
   const [series, setSeries] = useState<SeriesSummary[] | null>(null);
@@ -62,17 +67,26 @@ export function WorkspaceView() {
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [showAssistant, setShowAssistant] = useState(false);
 
+  // Members
+  const [members, setMembers] = useState<Record<string, string> | null>(null);
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [inviteRole, setInviteRole] = useState("participant");
+  const [inviteCreating, setInviteCreating] = useState(false);
+  const [removingUid, setRemovingUid] = useState<string | null>(null);
+
   const load = useCallback(async () => {
     if (!workspaceId) return;
     setLoading(true);
     setError(null);
     try {
-      const [ws, sr] = await Promise.all([
+      const [ws, sr, mem] = await Promise.all([
         getWorkspace(workspaceId),
         getWorkspaceSeries(workspaceId),
+        getWorkspaceMembers(workspaceId),
       ]);
       setWorkspace(ws);
       setSeries(sr);
+      setMembers(mem.members);
     } catch (err) {
       setError(err as Error);
     } finally {
@@ -142,6 +156,39 @@ export function WorkspaceView() {
       setGeneratingId(null);
     }
   }
+
+  async function handleCreateInvite() {
+    if (!workspaceId) return;
+    setInviteCreating(true);
+    try {
+      const invite = await createWorkspaceInvite(workspaceId, inviteRole);
+      setInviteLink(`${window.location.origin}/invites/${invite.invite_id}`);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to create invite");
+    } finally {
+      setInviteCreating(false);
+    }
+  }
+
+  async function handleRemoveMember(uid: string) {
+    if (!workspaceId) return;
+    setRemovingUid(uid);
+    try {
+      await removeMember(workspaceId, uid);
+      setMembers((prev) => {
+        if (!prev) return prev;
+        const next = { ...prev };
+        delete next[uid];
+        return next;
+      });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to remove member");
+    } finally {
+      setRemovingUid(null);
+    }
+  }
+
+  const isOrganizer = user?.uid && workspace?.member_roles[user.uid] === "organizer";
 
   if (loading) return <LoadingSpinner message="Loading workspace..." />;
   if (error) return <ErrorMessage error={error} onRetry={load} />;
@@ -387,6 +434,75 @@ export function WorkspaceView() {
               No series yet. Create a recurring schedule to get started.
             </p>
           )
+        )}
+      </section>
+
+      {/* Members */}
+      <section className="section">
+        <div className="section-header">
+          <h2>Members</h2>
+        </div>
+        {members && (
+          <ul className="members-list">
+            {Object.entries(members).map(([uid, role]) => (
+              <li key={uid} className="member-item">
+                <span className="member-uid">{uid === user?.uid ? "You" : uid.slice(0, 8)}</span>
+                <span className={`badge badge-role-${role}`}>{role}</span>
+                {isOrganizer && uid !== user?.uid && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-xs"
+                    onClick={() => handleRemoveMember(uid)}
+                    disabled={removingUid === uid}
+                  >
+                    {removingUid === uid ? "Removing..." : "Remove"}
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+        {isOrganizer && (
+          <div className="invite-section">
+            <div className="invite-controls">
+              <select
+                className="form-input form-input-inline"
+                value={inviteRole}
+                onChange={(e) => setInviteRole(e.target.value)}
+              >
+                <option value="participant">Participant</option>
+                <option value="organizer">Organizer</option>
+              </select>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={handleCreateInvite}
+                disabled={inviteCreating}
+              >
+                {inviteCreating ? "Creating..." : "Create Invite Link"}
+              </button>
+            </div>
+            {inviteLink && (
+              <div className="invite-link-box">
+                <input
+                  type="text"
+                  className="form-input"
+                  value={inviteLink}
+                  readOnly
+                  onFocus={(e) => e.target.select()}
+                />
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => {
+                    navigator.clipboard.writeText(inviteLink);
+                  }}
+                >
+                  Copy
+                </button>
+              </div>
+            )}
+          </div>
         )}
       </section>
 

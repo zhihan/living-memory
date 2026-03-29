@@ -11,6 +11,7 @@ import { SeriesView } from "./routes/SeriesView";
 import { OccurrenceView } from "./routes/OccurrenceView";
 import { OccurrenceSummaryPage } from "./routes/OccurrenceSummaryPage";
 import { TeacherDashboard } from "./routes/TeacherDashboard";
+import { AcceptInvite } from "./routes/AcceptInvite";
 import "./styles.css";
 
 createRoot(document.getElementById("root")!).render(
@@ -23,6 +24,15 @@ createRoot(document.getElementById("root")!).render(
 
           {/* Participant-facing public summary — no auth required */}
           <Route path="/occurrences/:occurrenceId/summary" element={<OccurrenceSummaryPage />} />
+
+          <Route
+            path="/invites/:inviteId"
+            element={
+              <RequireAuth>
+                <AcceptInvite />
+              </RequireAuth>
+            }
+          />
 
           <Route element={<AppShell />}>
             {/* New workspace-centric routes */}
