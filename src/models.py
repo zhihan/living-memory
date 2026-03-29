@@ -320,6 +320,7 @@ class CheckIn:
     series_id: str
     workspace_id: str
     user_id: str
+    display_name: str | None = None
     status: CheckInStatus = "pending"
     checked_in_at: datetime | None = None
     note: str | None = None
@@ -334,6 +335,7 @@ class CheckIn:
             "series_id": self.series_id,
             "workspace_id": self.workspace_id,
             "user_id": self.user_id,
+            "display_name": self.display_name,
             "status": self.status,
             "checked_in_at": self.checked_in_at,
             "note": self.note,
@@ -349,6 +351,7 @@ class CheckIn:
             series_id=data["series_id"],
             workspace_id=data["workspace_id"],
             user_id=data["user_id"],
+            display_name=data.get("display_name"),
             status=data.get("status", "pending"),
             checked_in_at=data.get("checked_in_at"),
             note=data.get("note"),

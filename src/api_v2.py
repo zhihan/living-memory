@@ -582,6 +582,7 @@ def upsert_check_in(
     _require_member(ws, token["uid"])
 
     uid = token["uid"]
+    display_name = token.get("name") or token.get("email") or uid[:8]
     # Check if already exists
     existing = series_storage.get_check_in_for_user(occurrence_id, uid)
     now = datetime.now(timezone.utc)
@@ -590,6 +591,7 @@ def upsert_check_in(
         check_in = existing
         check_in.status = body.status
         check_in.note = body.note
+        check_in.display_name = display_name
         if body.status == "confirmed":
             check_in.checked_in_at = now
     else:
@@ -599,6 +601,7 @@ def upsert_check_in(
             series_id=occ.series_id,
             workspace_id=occ.workspace_id,
             user_id=uid,
+            display_name=display_name,
             status=body.status,
             note=body.note,
             checked_in_at=now if body.status == "confirmed" else None,

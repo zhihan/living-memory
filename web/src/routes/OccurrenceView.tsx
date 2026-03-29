@@ -359,7 +359,7 @@ export function OccurrenceView() {
             {checkIns.map((ci) => (
               <li key={ci.check_in_id} className="checkin-item">
                 <span className={`badge badge-ci-${ci.status}`}>{ci.status}</span>
-                <span className="checkin-uid">{ci.user_id.slice(0, 8)}…</span>
+                <span className="checkin-uid">{ci.display_name ?? ci.user_id.slice(0, 8)}</span>
                 {ci.checked_in_at && (
                   <span className="checkin-time">
                     {new Date(ci.checked_in_at).toLocaleTimeString([], {

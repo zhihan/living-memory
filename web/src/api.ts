@@ -114,6 +114,7 @@ export interface CheckInSummary {
   check_in_id: string;
   occurrence_id: string;
   user_id: string;
+  display_name: string | null;
   status: string;
   checked_in_at: string | null;
   note: string | null;
