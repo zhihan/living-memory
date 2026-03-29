@@ -205,9 +205,6 @@ export function SeriesView() {
         </div>
         <h1 className="page-title">
           {series?.title}
-          {series && (
-            <span className={`badge badge-status-${series.status}`}>{series.status}</span>
-          )}
         </h1>
         {series && (
           <p className="series-meta">
@@ -358,9 +355,10 @@ export function SeriesView() {
         </form>
       )}
 
+      {/* Last & Next Meetings */}
       <section className="section">
         <div className="section-header">
-          <h2>Upcoming</h2>
+          <h2>Meetings</h2>
           <button
             type="button"
             className="btn btn-secondary btn-sm"
@@ -371,16 +369,86 @@ export function SeriesView() {
           </button>
         </div>
         {generateError && <p className="form-error">{generateError}</p>}
-        {upcoming.length > 0 ? (
-          <ul className="occurrence-list">
-            {upcoming.slice(0, 10).map((occ) => (
-              <OccurrenceRow
-                key={occ.occurrence_id}
-                occ={occ}
-              />
-            ))}
-          </ul>
-        ) : (
+
+        {past.length > 0 && (() => {
+          const last = past[0];
+          return (
+            <div className="meeting-card meeting-card-past">
+              <div className="meeting-card-label">Last</div>
+              <Link to={`/occurrences/${last.occurrence_id}`} className="meeting-card-date">
+                {formatDate(last.scheduled_for)}
+              </Link>
+              <span className={`badge ${statusColor(last.status)}`}>{last.status}</span>
+              {last.overrides?.notes && (
+                <p className="meeting-card-notes">{last.overrides.notes.length > 120 ? last.overrides.notes.slice(0, 120) + "…" : last.overrides.notes}</p>
+              )}
+            </div>
+          );
+        })()}
+
+        {upcoming.length > 0 ? (() => {
+          const next = upcoming[0];
+          const nextNotes = next.overrides?.notes;
+          return (
+            <div className="meeting-card meeting-card-next">
+              <div className="meeting-card-header">
+                <div className="meeting-card-label">Next</div>
+                {!editingAgenda && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-xs"
+                    onClick={() => {
+                      setAgendaText(nextNotes ?? "");
+                      setEditingAgenda(true);
+                    }}
+                  >
+                    {nextNotes ? "Edit agenda" : "Add agenda"}
+                  </button>
+                )}
+              </div>
+              <Link to={`/occurrences/${next.occurrence_id}`} className="meeting-card-date">
+                {formatDate(next.scheduled_for)}
+              </Link>
+              {(next.location ?? next.overrides?.location) && (
+                <span className="meeting-card-location">{next.location ?? next.overrides?.location}</span>
+              )}
+              {editingAgenda ? (
+                <div className="next-meeting-edit">
+                  <textarea
+                    className="form-input form-textarea"
+                    value={agendaText}
+                    onChange={(e) => setAgendaText(e.target.value)}
+                    rows={3}
+                    placeholder="e.g. Chapter 5: Romans, Discussion questions..."
+                    disabled={agendaSaving}
+                  />
+                  <div className="form-actions">
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-xs"
+                      onClick={() => handleSaveAgenda(next.occurrence_id)}
+                      disabled={agendaSaving}
+                    >
+                      {agendaSaving ? "Saving..." : "Save"}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-xs"
+                      onClick={() => setEditingAgenda(false)}
+                      disabled={agendaSaving}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : nextNotes ? (
+                <p className="meeting-card-notes">{nextNotes}</p>
+              ) : (
+                <p className="placeholder-sm">No agenda set.</p>
+              )}
+            </div>
+          );
+        })() : (
           <p className="placeholder">
             No upcoming occurrences.{" "}
             <button
@@ -394,68 +462,6 @@ export function SeriesView() {
           </p>
         )}
       </section>
-
-      {/* Next Meeting Agenda */}
-      {upcoming.length > 0 && (() => {
-        const next = upcoming[0];
-        const nextNotes = next.overrides?.notes;
-        return (
-          <section className="section">
-            <div className="section-header">
-              <h2>Next Meeting</h2>
-              {!editingAgenda && (
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => {
-                    setAgendaText(nextNotes ?? "");
-                    setEditingAgenda(true);
-                  }}
-                >
-                  {nextNotes ? "Edit agenda" : "Add agenda"}
-                </button>
-              )}
-            </div>
-            <p className="series-meta">
-              {formatDate(next.scheduled_for)} — {next.overrides?.title ?? series?.title}
-            </p>
-            {editingAgenda ? (
-              <div className="next-meeting-edit">
-                <textarea
-                  className="form-input form-textarea"
-                  value={agendaText}
-                  onChange={(e) => setAgendaText(e.target.value)}
-                  rows={4}
-                  placeholder="e.g. Chapter 5: Romans, Discussion questions..."
-                  disabled={agendaSaving}
-                />
-                <div className="form-actions">
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm"
-                    onClick={() => handleSaveAgenda(next.occurrence_id)}
-                    disabled={agendaSaving}
-                  >
-                    {agendaSaving ? "Saving..." : "Save"}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => setEditingAgenda(false)}
-                    disabled={agendaSaving}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : nextNotes ? (
-              <p className="occurrence-notes">{nextNotes}</p>
-            ) : (
-              <p className="placeholder-sm">No agenda set for the next meeting.</p>
-            )}
-          </section>
-        );
-      })()}
 
       {/* AI Assistant */}
       <section className="section">
@@ -498,51 +504,6 @@ export function SeriesView() {
         )}
       </section>
 
-      {past.length > 0 && (
-        <section className="section">
-          <div className="section-header">
-            <h2>Past</h2>
-          </div>
-          <ul className="occurrence-list occurrence-list-past">
-            {past.slice(0, 5).map((occ) => (
-              <OccurrenceRow
-                key={occ.occurrence_id}
-                occ={occ}
-              />
-            ))}
-          </ul>
-        </section>
-      )}
     </div>
-  );
-}
-
-function OccurrenceRow({
-  occ,
-}: {
-  occ: OccurrenceSummary;
-}) {
-  const title = occ.overrides?.title ?? null;
-  const location = occ.location ?? occ.overrides?.location;
-  const link = occ.overrides?.online_link;
-
-  return (
-    <li className="occurrence-card">
-      <Link to={`/occurrences/${occ.occurrence_id}`} className="occurrence-card-date">
-        {formatDate(occ.scheduled_for)}
-      </Link>
-      {title && <span className="occurrence-override-label">{title}</span>}
-      <span className={`badge ${statusColor(occ.status)}`}>{occ.status}</span>
-      {(location || link) && (
-        <div className="occurrence-location">
-          {location && <span className="location-chip">{location}</span>}
-          {link && (
-            <a href={link} target="_blank" rel="noreferrer" className="link-chip">
-              Join
-            </a>
-          )}
-        </div>
-      )}
-    </li>
   );
 }

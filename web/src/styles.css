@@ -1910,3 +1910,61 @@ details[open] .chevron { transform: rotate(90deg); }
 .md-line:empty::before { content: "\00a0"; }
 .md-line a { color: #3182ce; text-decoration: underline; }
 .md-line a:hover { opacity: 0.8; }
+
+/* ============================================================
+   Meeting Cards (last/next on series page)
+   ============================================================ */
+
+.meeting-card {
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.meeting-card-past {
+  opacity: 0.7;
+}
+
+.meeting-card-next {
+  border-color: var(--accent, #3182ce);
+  border-width: 2px;
+}
+
+.meeting-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.meeting-card-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.meeting-card-date {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text);
+  text-decoration: none;
+}
+.meeting-card-date:hover { text-decoration: underline; }
+
+.meeting-card-location {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.meeting-card-notes {
+  font-size: 0.82rem;
+  color: #4a5568;
+  line-height: 1.4;
+  margin: 0;
+  white-space: pre-wrap;
+}
