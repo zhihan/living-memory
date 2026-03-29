@@ -366,7 +366,7 @@ def create_invite(
     }
 
 
-@router.post("/v2/invites/{invite_id}/accept", status_code=200)
+@router.post("/invites/{invite_id}/accept", status_code=200)
 def accept_invite(
     invite_id: str,
     token: dict = Depends(_require_token),
