@@ -1901,3 +1901,12 @@ details[open] .chevron { transform: rotate(90deg); }
   font-size: 0.72rem;
   border-radius: 0.3rem;
 }
+
+/* ============================================================
+   Inline Markdown
+   ============================================================ */
+
+.md-line { margin: 0.15rem 0; }
+.md-line:empty::before { content: "\00a0"; }
+.md-line a { color: #3182ce; text-decoration: underline; }
+.md-line a:hover { opacity: 0.8; }

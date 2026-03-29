@@ -129,7 +129,7 @@ export function OccurrenceSummaryPage() {
       </div>
 
       <div className="summary-footer">
-        <span>Powered by Event Ledger</span>
+        <span>Powered by Meeting Assistant</span>
       </div>
     </div>
   );

@@ -15,6 +15,7 @@ import {
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { AssistantChat } from "../AssistantChat";
+import { Markdown } from "../components/Markdown";
 
 function formatDate(iso: string, timezone?: string): string {
   return new Date(iso).toLocaleString("en-US", {
@@ -213,7 +214,7 @@ export function SeriesView() {
           </p>
         )}
         {series?.description && (
-          <p className="series-description">{series.description}</p>
+          <Markdown text={series.description} className="series-description" />
         )}
         {series && (series.default_location || series.default_online_link) && (
           <div className="series-location-row">
@@ -249,15 +250,15 @@ export function SeriesView() {
             />
           </div>
           <div className="form-field">
-            <label htmlFor="edit-desc">Description</label>
-            <input
+            <label htmlFor="edit-desc">Description (markdown supported)</label>
+            <textarea
               id="edit-desc"
-              type="text"
-              className="form-input"
+              className="form-input form-textarea"
               value={editDescription}
               onChange={(e) => setEditDescription(e.target.value)}
               disabled={editSubmitting}
-              placeholder="Optional"
+              placeholder={"Add resources, links, and notes.\ne.g. [Study Guide](https://example.com)"}
+              rows={4}
             />
           </div>
           <div className="form-row">

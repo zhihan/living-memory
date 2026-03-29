@@ -12,6 +12,7 @@ import {
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { AssistantChat } from "../AssistantChat";
+import { Markdown } from "../components/Markdown";
 
 const FREQ_OPTIONS = [
   { value: "daily", label: "Daily" },
@@ -186,15 +187,15 @@ export function WorkspaceView() {
               />
             </div>
             <div className="form-field">
-              <label htmlFor="series-desc">Description</label>
-              <input
+              <label htmlFor="series-desc">Description (markdown supported)</label>
+              <textarea
                 id="series-desc"
-                type="text"
-                className="form-input"
+                className="form-input form-textarea"
                 value={formDescription}
                 onChange={(e) => setFormDescription(e.target.value)}
-                placeholder="Optional description"
+                placeholder={"Add resources, links, and notes.\ne.g. [Study Guide](https://example.com)"}
                 disabled={formSubmitting}
+                rows={3}
               />
             </div>
             <div className="form-field">
@@ -317,7 +318,7 @@ export function WorkspaceView() {
                   {s.default_time && ` at ${s.default_time}`}
                   {s.default_duration_minutes && ` (${s.default_duration_minutes}m)`}
                 </p>
-                {s.description && <p className="series-card-desc">{s.description}</p>}
+                {s.description && <Markdown text={s.description} className="series-card-desc" />}
                 {(s.default_location || s.default_online_link) && (
                   <p className="series-card-location">
                     {s.default_location && (
