@@ -11,6 +11,13 @@
         }
       },
       {
+        "source": "/v2/**",
+        "run": {
+          "serviceId": "event-ledger-api",
+          "region": "northamerica-northeast1"
+        }
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }
