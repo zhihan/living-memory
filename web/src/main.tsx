@@ -10,6 +10,7 @@ import { WorkspaceView } from "./routes/WorkspaceView";
 import { SeriesView } from "./routes/SeriesView";
 import { OccurrenceView } from "./routes/OccurrenceView";
 import { OccurrenceSummaryPage } from "./routes/OccurrenceSummaryPage";
+import { TeacherDashboard } from "./routes/TeacherDashboard";
 // Legacy routes kept for compatibility during migration
 import { Dashboard } from "./routes/Dashboard";
 import { PageView } from "./routes/PageView";
@@ -58,6 +59,14 @@ createRoot(document.getElementById("root")!).render(
               element={
                 <RequireAuth>
                   <OccurrenceView />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/cohorts/:cohortId/dashboard"
+              element={
+                <RequireAuth>
+                  <TeacherDashboard />
                 </RequireAuth>
               }
             />

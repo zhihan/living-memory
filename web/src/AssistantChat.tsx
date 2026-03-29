@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from "react";
-import { auth } from "../firebase";
+import { auth } from "./firebase";
 
 const BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL ?? "";
 
