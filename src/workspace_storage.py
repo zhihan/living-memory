@@ -155,12 +155,15 @@ def create_workspace_invite(
 def find_workspace_invite(invite_id: str) -> dict | None:
     """Find a workspace invite by ID (collection group query)."""
     db = _get_client()
-    docs = (
+    query = (
         db.collection_group(WORKSPACE_INVITES_SUBCOLLECTION)
         .where("invite_id", "==", invite_id)
         .limit(1)
-        .get()
     )
+    try:
+        docs = query.get()
+    except Exception:
+        docs = list(query.stream())
     if docs:
         return docs[0].to_dict()
     return None
