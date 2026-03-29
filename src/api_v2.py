@@ -750,3 +750,86 @@ def get_series_ics(
         media_type='text/calendar',
         headers={'Content-Disposition': f'attachment; filename={filename}'},
     )
+
+
+# ---------------------------------------------------------------------------
+# Assistant endpoints
+# ---------------------------------------------------------------------------
+
+class AssistantMessageRequest(BaseModel):
+    message: str
+    workspace_context: dict | None = None
+
+
+@router.post('/workspaces/{workspace_id}/assistant')
+def assistant_chat(
+    workspace_id: str,
+    body: AssistantMessageRequest,
+    token: dict = Depends(_require_token),
+) -> object:
+    import json as _json
+    from fastapi.responses import StreamingResponse
+    from assistant import run_assistant_stream
+
+    ws = _get_workspace_or_404(workspace_id)
+    _require_role(ws, token['uid'], 'organizer', 'teacher')
+    uid = token['uid']
+
+    def _event_stream():
+        for event in run_assistant_stream(
+            message=body.message,
+            workspace_id=workspace_id,
+            uid=uid,
+            workspace_context=body.workspace_context,
+        ):
+            yield f"data: {_json.dumps(event)}\n\n"
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(_event_stream(), media_type='text/event-stream')
+
+
+@router.post('/assistant/actions/{action_id}/confirm')
+def confirm_action(
+    action_id: str,
+    token: dict = Depends(_require_token),
+) -> dict:
+    from assistant_actions import get_pending_action, update_pending_action_status, execute_action
+
+    pending = get_pending_action(action_id)
+    if pending is None:
+        raise HTTPException(status_code=404, detail='Action not found or expired')
+    if pending.requested_by_uid != token['uid']:
+        raise HTTPException(status_code=403, detail='Not your action')
+    if pending.status != 'pending':
+        raise HTTPException(status_code=409, detail=f'Action is already {pending.status}')
+
+    ws = _get_workspace_or_404(pending.workspace_id)
+    _require_role(ws, token['uid'], 'organizer', 'teacher')
+
+    update_pending_action_status(action_id, 'confirmed')
+    try:
+        result = execute_action(pending)
+        update_pending_action_status(action_id, 'executed', result=result)
+        return {'status': 'executed', 'action_id': action_id, 'result': result}
+    except Exception as exc:
+        update_pending_action_status(action_id, 'failed', error=str(exc))
+        raise HTTPException(status_code=500, detail=f'Action execution failed: {exc}') from exc
+
+
+@router.post('/assistant/actions/{action_id}/cancel', status_code=200)
+def cancel_action(
+    action_id: str,
+    token: dict = Depends(_require_token),
+) -> dict:
+    from assistant_actions import get_pending_action, update_pending_action_status
+
+    pending = get_pending_action(action_id)
+    if pending is None:
+        raise HTTPException(status_code=404, detail='Action not found or expired')
+    if pending.requested_by_uid != token['uid']:
+        raise HTTPException(status_code=403, detail='Not your action')
+    if pending.status != 'pending':
+        raise HTTPException(status_code=409, detail=f'Action is already {pending.status}')
+
+    update_pending_action_status(action_id, 'cancelled')
+    return {'status': 'cancelled', 'action_id': action_id}

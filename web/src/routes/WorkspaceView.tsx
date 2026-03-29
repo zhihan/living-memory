@@ -11,6 +11,7 @@ import {
 } from "../api";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ErrorMessage } from "../components/ErrorMessage";
+import { AssistantChat } from "../AssistantChat";
 
 const FREQ_OPTIONS = [
   { value: "daily", label: "Daily" },
@@ -57,6 +58,7 @@ export function WorkspaceView() {
   const [formError, setFormError] = useState<string | null>(null);
 
   const [generatingId, setGeneratingId] = useState<string | null>(null);
+  const [showAssistant, setShowAssistant] = useState(false);
 
   const load = useCallback(async () => {
     if (!workspaceId) return;
@@ -363,6 +365,21 @@ export function WorkspaceView() {
               No series yet. Create a recurring schedule to get started.
             </p>
           )
+        )}
+      </section>
+
+      <section className="section">
+        <div className="section-header">
+          <h2>AI Assistant</h2>
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => setShowAssistant((v) => !v)}
+          >
+            {showAssistant ? "Hide Assistant" : "Open Assistant"}
+          </button>
+        </div>
+        {showAssistant && workspaceId && (
+          <AssistantChat workspaceId={workspaceId} />
         )}
       </section>
     </div>
