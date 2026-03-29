@@ -27,6 +27,10 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Event Ledger API")
 
+# Mount API v2 router (workspaces, series, occurrences, check-ins)
+from api_v2 import router as v2_router  # noqa: E402
+app.include_router(v2_router)
+
 
 class StripApiPrefixMiddleware:
     """Allow Firebase Hosting /api/** rewrites without requiring separate routes.
