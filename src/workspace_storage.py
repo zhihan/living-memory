@@ -89,6 +89,29 @@ def add_member(workspace_id: str, uid: str, role: MemberRole) -> Workspace:
     return get_workspace(workspace_id)  # type: ignore[return-value]
 
 
+def update_member_profile(
+    workspace_id: str,
+    uid: str,
+    *,
+    display_name: str | None = None,
+    email: str | None = None,
+) -> Workspace:
+    """Persist lightweight display metadata for a workspace member."""
+    db = _get_client()
+    ref = db.collection(WORKSPACES_COLLECTION).document(workspace_id)
+    if not ref.get().exists:
+        raise ValueError(f"Workspace not found: {workspace_id}")
+    updates = {
+        f"member_profiles.{uid}": {
+            "display_name": display_name,
+            "email": email,
+        },
+        "updated_at": _utcnow(),
+    }
+    ref.update(updates)
+    return get_workspace(workspace_id)  # type: ignore[return-value]
+
+
 def remove_member(workspace_id: str, uid: str) -> Workspace:
     """Remove uid from workspace_id. Raises if would leave no organizers."""
     workspace = get_workspace(workspace_id)
@@ -106,6 +129,7 @@ def remove_member(workspace_id: str, uid: str) -> Workspace:
     from google.cloud.firestore_v1 import DELETE_FIELD
     updates: dict = {
         f"member_roles.{uid}": DELETE_FIELD,
+        f"member_profiles.{uid}": DELETE_FIELD,
         "updated_at": _utcnow(),
     }
     if current_role == "organizer":

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+import types
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, call, patch
 
@@ -220,6 +222,23 @@ class TestMemberManagement:
         with patch("workspace_storage._get_client", return_value=mock_db):
             role = get_member_role("ws-1", "uid-unknown")
         assert role is None
+
+    def test_remove_member_deletes_profile(self):
+        data = _ws_data(
+            member_roles={"uid-alice": "organizer", "uid-bob": "participant"},
+            member_profiles={"uid-bob": {"display_name": "Bob", "email": "bob@example.com"}},
+        )
+        mock_db = MagicMock()
+        mock_ref = MagicMock()
+        mock_db.collection.return_value.document.return_value = mock_ref
+        fake_firestore_v1 = types.ModuleType("google.cloud.firestore_v1")
+        fake_firestore_v1.DELETE_FIELD = object()
+        with patch.dict(sys.modules, {"google.cloud.firestore_v1": fake_firestore_v1}):
+            with patch("workspace_storage._get_client", return_value=mock_db):
+                with patch("workspace_storage.get_workspace", return_value=Workspace.from_dict(data)):
+                    remove_member("ws-1", "uid-bob")
+        update_args = mock_ref.update.call_args[0][0]
+        assert "member_profiles.uid-bob" in update_args
 
     def test_remove_last_organizer_raises(self):
         data = _ws_data(member_roles={"uid-alice": "organizer"})

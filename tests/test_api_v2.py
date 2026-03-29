@@ -195,12 +195,12 @@ class TestDeleteWorkspace:
 
 class TestMemberManagement:
     def test_list_members_includes_member_details(self, participant_client):
-        ws = _make_workspace()
-
-        class _FakeUser:
-            def __init__(self, display_name, email):
-                self.display_name = display_name
-                self.email = email
+        ws = _make_workspace(member_profiles={
+            PARTICIPANT_UID: {
+                "display_name": "Pat Example",
+                "email": "pat@example.com",
+            },
+        })
 
         with (
             patch("workspace_storage.get_workspace", return_value=ws),
@@ -208,8 +208,8 @@ class TestMemberManagement:
                 {
                     "uid": PARTICIPANT_UID,
                     "role": "participant",
-                    "display_name": "Pat Example",
-                    "email": "pat@example.com",
+                    "display_name": None,
+                    "email": None,
                 },
             ]),
         ):
@@ -218,7 +218,18 @@ class TestMemberManagement:
         assert resp.status_code == 200
         data = resp.json()
         assert data["members"][PARTICIPANT_UID] == "participant"
-        assert data["member_details"][0]["display_name"] == "Pat Example"
+        member_details = {member["uid"]: member for member in data["member_details"]}
+        assert member_details[PARTICIPANT_UID]["display_name"] == "Pat Example"
+
+    def test_accept_invite_persists_member_profile(self, participant_client):
+        invite = {"workspace_id": "ws-1", "role": "participant"}
+        with (
+            patch("workspace_storage.accept_workspace_invite", return_value=invite),
+            patch("workspace_storage.update_member_profile") as mock_update_profile,
+        ):
+            resp = participant_client.post("/v2/invites/inv-1/accept", headers=AUTH)
+        assert resp.status_code == 200
+        mock_update_profile.assert_called_once()
 
     def test_add_member(self, organizer_client):
         ws = _make_workspace()

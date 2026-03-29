@@ -151,6 +151,22 @@ def _get_member_details(member_roles: dict[str, MemberRole]) -> list[dict]:
     return details
 
 
+def _merge_member_details(workspace: Workspace) -> list[dict]:
+    """Prefer persisted workspace profiles, with Firebase lookup as fallback."""
+    runtime_details = {d["uid"]: d for d in _get_member_details(workspace.member_roles)}
+    merged: list[dict] = []
+    for uid, role in workspace.member_roles.items():
+        stored = workspace.member_profiles.get(uid, {})
+        runtime = runtime_details.get(uid, {})
+        merged.append({
+            "uid": uid,
+            "role": role,
+            "display_name": stored.get("display_name") or runtime.get("display_name"),
+            "email": stored.get("email") or runtime.get("email"),
+        })
+    return merged
+
+
 # ---------------------------------------------------------------------------
 # Pydantic request / response schemas
 # ---------------------------------------------------------------------------
@@ -279,6 +295,12 @@ def create_workspace(
         timezone=body.timezone,
         owner_uids=[uid],
         member_roles={uid: "organizer"},
+        member_profiles={
+            uid: {
+                "display_name": token.get("name"),
+                "email": token.get("email"),
+            },
+        },
         description=body.description,
     )
     try:
@@ -342,7 +364,7 @@ def list_members(
     return {
         "workspace_id": workspace_id,
         "members": ws.member_roles,
-        "member_details": _get_member_details(ws.member_roles),
+        "member_details": _merge_member_details(ws),
     }
 
 
@@ -411,6 +433,12 @@ def accept_invite(
     uid = token["uid"]
     try:
         invite = workspace_storage.accept_workspace_invite(invite_id, uid)
+        workspace_storage.update_member_profile(
+            invite["workspace_id"],
+            uid,
+            display_name=token.get("name"),
+            email=token.get("email"),
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"accepted": True, "workspace_id": invite["workspace_id"], "role": invite["role"]}

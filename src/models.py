@@ -52,6 +52,8 @@ class Workspace:
     owner_uids: list[str]
     # uid -> MemberRole; owners are also listed here with role "organizer"
     member_roles: dict[str, MemberRole] = field(default_factory=dict)
+    # uid -> lightweight display metadata for workspace member lists
+    member_profiles: dict[str, dict[str, str | None]] = field(default_factory=dict)
     created_at: datetime | None = None
     updated_at: datetime | None = None
     description: str | None = None
@@ -65,6 +67,7 @@ class Workspace:
             "timezone": self.timezone,
             "owner_uids": self.owner_uids,
             "member_roles": self.member_roles,
+            "member_profiles": self.member_profiles,
             "created_at": self.created_at or now,
             "updated_at": self.updated_at or now,
             "description": self.description,
@@ -79,6 +82,7 @@ class Workspace:
             timezone=data.get("timezone", "UTC"),
             owner_uids=list(data.get("owner_uids", [])),
             member_roles=dict(data.get("member_roles", {})),
+            member_profiles=dict(data.get("member_profiles", {})),
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),
             description=data.get("description"),

@@ -87,6 +87,14 @@ class TestWorkspace:
         assert restored.member_roles["uid-alice"] == "organizer"
         assert restored.member_roles["uid-bob"] == "participant"
 
+    def test_member_profiles_roundtrip(self):
+        ws = self._make(member_profiles={
+            "uid-alice": {"display_name": "Alice", "email": "alice@example.com"},
+        })
+        restored = Workspace.from_dict(ws.to_dict())
+        assert restored.member_profiles["uid-alice"]["display_name"] == "Alice"
+        assert restored.member_profiles["uid-alice"]["email"] == "alice@example.com"
+
     def test_default_timezone(self):
         ws = self._make()
         d = ws.to_dict()
