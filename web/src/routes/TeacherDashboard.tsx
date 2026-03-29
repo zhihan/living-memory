@@ -1,12 +1,9 @@
 import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import {
   getCohortDashboard,
-  listCohorts,
-  createCohort,
   addCohortMember,
   type CohortDashboard,
-  type CohortSummary,
   type StudentSummary,
 } from "../api";
 import { LoadingSpinner } from "../components/LoadingSpinner";
@@ -187,7 +184,7 @@ export function TeacherDashboard() {
     }
   };
 
-  if (!cohortId) return <ErrorMessage message="No cohort ID provided" />;
+  if (!cohortId) return <ErrorMessage error={new Error("No cohort ID provided")} />;
 
   return (
     <div className="teacher-dashboard">
@@ -237,7 +234,7 @@ export function TeacherDashboard() {
       )}
 
       {loading && <LoadingSpinner />}
-      {error && <ErrorMessage message={error.message} />}
+      {error && <ErrorMessage error={error} />}
       {!loading && !error && dashboard && (
         <DashboardView dashboard={dashboard} />
       )}

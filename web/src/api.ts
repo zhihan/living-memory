@@ -460,3 +460,49 @@ export async function getMemberStreak(
   const resp = await apiFetch(`/v2/cohorts/${cohortId}/members/${userId}/streak`);
   return resp.json();
 }
+
+
+// ============================================================
+// Assistant API
+// ============================================================
+
+export interface AssistantEvent {
+  type: "status" | "text_chunk" | "action_proposal" | "done" | "error";
+  message?: string;
+  text?: string;
+  action_id?: string;
+  action_type?: string;
+  preview_summary?: string;
+  payload?: Record<string, unknown>;
+}
+
+/**
+ * Send a message to the organizer assistant.
+ * Returns a ReadableStream of SSE-encoded AssistantEvent objects.
+ * The caller is responsible for consuming the stream.
+ */
+export async function sendAssistantMessage(
+  workspaceId: string,
+  message: string,
+): Promise<ReadableStream<Uint8Array>> {
+  const resp = await apiFetch(`/v2/workspaces/${workspaceId}/assistant`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message }),
+  });
+  if (!resp.body) throw new Error("No response body");
+  return resp.body;
+}
+
+export async function confirmAssistantAction(
+  actionId: string,
+): Promise<{ status: string; result: unknown }> {
+  const resp = await apiFetch(`/v2/assistant/actions/${actionId}/confirm`, {
+    method: "POST",
+  });
+  return resp.json();
+}
+
+export async function cancelAssistantAction(actionId: string): Promise<void> {
+  await apiFetch(`/v2/assistant/actions/${actionId}/cancel`, { method: "POST" });
+}
