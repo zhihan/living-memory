@@ -478,7 +478,7 @@ export function WorkspaceView() {
                       || uid.slice(0, 8)}
                 </span>
                 <span className={`badge badge-role-${role}`}>{role}</span>
-                {isOrganizer && (
+                {(isOrganizer || uid === user?.uid) && (
                   <button
                     type="button"
                     className="btn btn-secondary btn-xs"

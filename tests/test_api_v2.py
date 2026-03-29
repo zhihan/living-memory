@@ -252,6 +252,27 @@ class TestMemberManagement:
             )
         assert resp.status_code == 403
 
+    def test_participant_can_leave_workspace(self, participant_client):
+        ws = _make_workspace()
+        with (
+            patch("workspace_storage.get_workspace", return_value=ws),
+            patch("workspace_storage.remove_member"),
+        ):
+            resp = participant_client.delete(
+                f"/v2/workspaces/ws-1/members/{PARTICIPANT_UID}",
+                headers=AUTH,
+            )
+        assert resp.status_code == 204
+
+    def test_participant_cannot_remove_other_member(self, participant_client):
+        ws = _make_workspace()
+        with patch("workspace_storage.get_workspace", return_value=ws):
+            resp = participant_client.delete(
+                f"/v2/workspaces/ws-1/members/{ORGANIZER_UID}",
+                headers=AUTH,
+            )
+        assert resp.status_code == 403
+
 
 # ---------------------------------------------------------------------------
 # Series endpoints

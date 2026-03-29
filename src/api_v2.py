@@ -387,7 +387,11 @@ def remove_member(
     token: dict = Depends(_require_token),
 ) -> None:
     ws = _get_workspace_or_404(workspace_id)
-    _require_organizer(ws, token["uid"])
+    caller_uid = token["uid"]
+    if uid != caller_uid:
+        _require_organizer(ws, caller_uid)
+    else:
+        _require_member(ws, caller_uid)
     try:
         workspace_storage.remove_member(workspace_id, uid)
     except ValueError as exc:
