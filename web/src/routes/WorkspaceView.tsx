@@ -172,9 +172,15 @@ export function WorkspaceView() {
 
   async function handleRemoveMember(uid: string) {
     if (!workspaceId) return;
+    const isSelf = uid === user?.uid;
+    if (isSelf && !window.confirm("Leave this workspace? You will lose access.")) return;
     setRemovingUid(uid);
     try {
       await removeMember(workspaceId, uid);
+      if (isSelf) {
+        navigate("/dashboard");
+        return;
+      }
       setMembers((prev) => {
         if (!prev) return prev;
         const next = { ...prev };
@@ -448,14 +454,14 @@ export function WorkspaceView() {
               <li key={uid} className="member-item">
                 <span className="member-uid">{uid === user?.uid ? "You" : uid.slice(0, 8)}</span>
                 <span className={`badge badge-role-${role}`}>{role}</span>
-                {isOrganizer && uid !== user?.uid && (
+                {isOrganizer && (
                   <button
                     type="button"
                     className="btn btn-secondary btn-xs"
                     onClick={() => handleRemoveMember(uid)}
                     disabled={removingUid === uid}
                   >
-                    {removingUid === uid ? "Removing..." : "Remove"}
+                    {removingUid === uid ? "Removing..." : uid === user?.uid ? "Leave" : "Remove"}
                   </button>
                 )}
               </li>
