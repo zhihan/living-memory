@@ -628,3 +628,125 @@ def update_check_in(
         ci.checked_in_at = datetime.now(timezone.utc)
     series_storage.save_check_in(ci)
     return ci.to_dict()
+
+
+# ---------------------------------------------------------------------------
+# Notification rule endpoints
+# ---------------------------------------------------------------------------
+
+class CreateNotificationRuleRequest(BaseModel):
+    channel: str  # email | in_app | telegram | calendar
+    remind_before_minutes: int
+    series_id: Optional[str] = None
+    target_roles: list[str] = []
+    enabled: bool = True
+
+
+@router.get('/workspaces/{workspace_id}/notification-rules')
+def list_notification_rules(
+    workspace_id: str,
+    token: dict = Depends(_require_token),
+) -> dict:
+    ws = _get_workspace_or_404(workspace_id)
+    _require_member(ws, token['uid'])
+    import series_storage as _ss
+    rules = _ss.list_notification_rules_for_workspace(workspace_id)
+    return {'workspace_id': workspace_id, 'rules': [r.to_dict() for r in rules]}
+
+
+@router.post('/workspaces/{workspace_id}/notification-rules', status_code=201)
+def create_notification_rule(
+    workspace_id: str,
+    body: CreateNotificationRuleRequest,
+    token: dict = Depends(_require_token),
+) -> dict:
+    ws = _get_workspace_or_404(workspace_id)
+    _require_organizer(ws, token['uid'])
+    from models import NotificationRule
+    import series_storage as _ss
+    rule = NotificationRule(
+        rule_id=str(uuid.uuid4()),
+        workspace_id=workspace_id,
+        series_id=body.series_id,
+        channel=body.channel,
+        remind_before_minutes=body.remind_before_minutes,
+        enabled=body.enabled,
+        target_roles=body.target_roles,
+    )
+    _ss.save_notification_rule(rule)
+    return rule.to_dict()
+
+
+@router.delete('/notification-rules/{rule_id}', status_code=204)
+def delete_notification_rule(
+    rule_id: str,
+    token: dict = Depends(_require_token),
+) -> None:
+    import series_storage as _ss
+    from firestore_storage import _get_client
+    rule = _ss.get_notification_rule(rule_id)
+    if rule is None:
+        raise HTTPException(status_code=404, detail='NotificationRule not found')
+    ws = _get_workspace_or_404(rule.workspace_id)
+    _require_organizer(ws, token['uid'])
+    db = _get_client()
+    db.collection(_ss.NOTIFICATION_RULES_COLLECTION).document(rule_id).delete()
+
+
+# ---------------------------------------------------------------------------
+# ICS export endpoints
+# ---------------------------------------------------------------------------
+
+@router.get('/occurrences/{occurrence_id}/ics')
+def get_occurrence_ics(
+    occurrence_id: str,
+    token: dict = Depends(_require_token),
+) -> object:
+    """Export a single occurrence as an ICS file."""
+    from fastapi.responses import Response
+    occ = series_storage.get_occurrence(occurrence_id)
+    if occ is None:
+        raise HTTPException(status_code=404, detail='Occurrence not found')
+    ws = _get_workspace_or_404(occ.workspace_id)
+    _require_member(ws, token['uid'])
+    s = series_storage.get_series(occ.series_id)
+    if s is None:
+        raise HTTPException(status_code=404, detail='Series not found')
+    try:
+        from ics_export import occurrence_to_ics, calendar_to_bytes
+    except ImportError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    cal = occurrence_to_ics(occ, s)
+    ics_bytes = calendar_to_bytes(cal)
+    filename = f'occurrence-{occurrence_id}.ics'
+    return Response(
+        content=ics_bytes,
+        media_type='text/calendar',
+        headers={'Content-Disposition': f'attachment; filename={filename}'},
+    )
+
+
+@router.get('/series/{series_id}/ics')
+def get_series_ics(
+    series_id: str,
+    include_cancelled: bool = False,
+    token: dict = Depends(_require_token),
+) -> object:
+    """Export all occurrences of a series as an ICS calendar feed."""
+    from fastapi.responses import Response
+    s = _get_series_or_404(series_id)
+    ws = _get_workspace_or_404(s.workspace_id)
+    _require_member(ws, token['uid'])
+    occs = series_storage.list_occurrences_for_series(series_id)
+    try:
+        from ics_export import series_to_ics, calendar_to_bytes
+    except ImportError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    cal = series_to_ics(s, occs, include_cancelled=include_cancelled)
+    ics_bytes = calendar_to_bytes(cal)
+    filename = f'series-{series_id}.ics'
+    return Response(
+        content=ics_bytes,
+        media_type='text/calendar',
+        headers={'Content-Disposition': f'attachment; filename={filename}'},
+    )
