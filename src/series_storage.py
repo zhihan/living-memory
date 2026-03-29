@@ -284,3 +284,15 @@ def list_delivery_logs_for_occurrence(occurrence_id: str) -> list[DeliveryLog]:
     results = [DeliveryLog.from_dict(doc.to_dict()) for doc in docs]
     results.sort(key=lambda d: d.created_at or datetime.min.replace(tzinfo=timezone.utc))
     return results
+
+
+def list_check_ins_for_user_in_workspace(user_id: str, workspace_id: str) -> list[CheckIn]:
+    """Return all CheckIns for a user across all occurrences in a workspace."""
+    db = _get_client()
+    docs = (
+        db.collection(CHECK_INS_COLLECTION)
+        .where("user_id", "==", user_id)
+        .where("workspace_id", "==", workspace_id)
+        .stream()
+    )
+    return [CheckIn.from_dict(doc.to_dict()) for doc in docs]

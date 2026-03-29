@@ -750,3 +750,191 @@ def get_series_ics(
         media_type='text/calendar',
         headers={'Content-Disposition': f'attachment; filename={filename}'},
     )
+
+
+# ---------------------------------------------------------------------------
+# Study / Cohort endpoints  (Phase 7)
+# ---------------------------------------------------------------------------
+
+class CreateCohortRequest(BaseModel):
+    title: str
+    description: Optional[str] = None
+
+
+class AddCohortMemberRequest(BaseModel):
+    user_id: str
+    role: str = "student"
+
+
+def _get_cohort_or_404(cohort_id: str) -> dict:
+    import study_storage
+    cohort = study_storage.get_cohort(cohort_id)
+    if cohort is None:
+        raise HTTPException(status_code=404, detail=f"Cohort not found: {cohort_id}")
+    return cohort
+
+
+@router.post("/workspaces/{workspace_id}/cohorts", status_code=201)
+def create_cohort(
+    workspace_id: str,
+    body: CreateCohortRequest,
+    token: dict = Depends(_require_token),
+) -> dict:
+    """Create a new cohort inside a workspace (teacher or organizer only)."""
+    ws = _get_workspace_or_404(workspace_id)
+    _require_role(ws, token["uid"], "teacher", "organizer")
+    import study_storage
+    cohort = study_storage.create_cohort(
+        workspace_id=workspace_id,
+        title=body.title,
+        created_by=token["uid"],
+        description=body.description,
+    )
+    return cohort
+
+
+@router.get("/workspaces/{workspace_id}/cohorts")
+def list_cohorts(
+    workspace_id: str,
+    token: dict = Depends(_require_token),
+) -> dict:
+    """List all cohorts in a workspace."""
+    ws = _get_workspace_or_404(workspace_id)
+    _require_member(ws, token["uid"])
+    import study_storage
+    cohorts = study_storage.list_cohorts_for_workspace(workspace_id)
+    return {"workspace_id": workspace_id, "cohorts": cohorts}
+
+
+@router.post("/cohorts/{cohort_id}/members", status_code=201)
+def add_cohort_member(
+    cohort_id: str,
+    body: AddCohortMemberRequest,
+    token: dict = Depends(_require_token),
+) -> dict:
+    """Add a student to a cohort."""
+    cohort = _get_cohort_or_404(cohort_id)
+    ws = _get_workspace_or_404(cohort["workspace_id"])
+    _require_role(ws, token["uid"], "teacher", "organizer")
+    import study_storage
+    member = study_storage.add_cohort_member(
+        cohort_id=cohort_id,
+        user_id=body.user_id,
+        role=body.role,
+    )
+    return member
+
+
+@router.get("/cohorts/{cohort_id}/dashboard")
+def get_cohort_dashboard(
+    cohort_id: str,
+    token: dict = Depends(_require_token),
+) -> dict:
+    """Teacher dashboard: misses, streaks, and completion by student."""
+    cohort = _get_cohort_or_404(cohort_id)
+    ws = _get_workspace_or_404(cohort["workspace_id"])
+    _require_role(ws, token["uid"], "teacher", "organizer")
+
+    import study_storage
+    import series_storage as _ss
+    from study import build_cohort_dashboard
+
+    members = study_storage.list_cohort_members(cohort_id)
+
+    # Gather check-ins per member (all check-ins in this workspace)
+    member_check_ins: dict[str, list[dict]] = {}
+    member_badges: dict[str, list[str]] = {}
+
+    for m in members:
+        uid = m["user_id"]
+        # Collect check-ins across all series in this workspace
+        all_check_ins = _ss.list_check_ins_for_user_in_workspace(uid, cohort["workspace_id"])
+        member_check_ins[uid] = [ci.to_dict() for ci in all_check_ins]
+        badge_docs = study_storage.list_badges_for_user(uid, workspace_id=cohort["workspace_id"])
+        member_badges[uid] = [b["badge_id"] for b in badge_docs]
+
+    dashboard = build_cohort_dashboard(
+        cohort_id=cohort_id,
+        member_check_ins=member_check_ins,
+        member_badges=member_badges,
+        tz_name=ws.timezone,
+    )
+
+    students_out = []
+    for s in dashboard.students:
+        students_out.append({
+            "user_id": s.user_id,
+            "streak": {
+                "current_streak": s.streak.current_streak,
+                "longest_streak": s.streak.longest_streak,
+                "total_confirmed": s.streak.total_confirmed,
+                "last_confirmed_date": (
+                    s.streak.last_confirmed_date.isoformat()
+                    if s.streak.last_confirmed_date else None
+                ),
+            },
+            "escalation": {
+                "level": s.escalation.level,
+                "recent_misses": s.escalation.recent_misses,
+                "message": s.escalation.message,
+            },
+            "badges": s.badges,
+        })
+
+    return {
+        "cohort_id": cohort_id,
+        "cohort_title": cohort["title"],
+        "total_members": dashboard.total_members,
+        "avg_current_streak": dashboard.avg_current_streak,
+        "total_misses_this_week": dashboard.total_misses_this_week,
+        "students": students_out,
+    }
+
+
+@router.get("/cohorts/{cohort_id}/members/{user_id}/streak")
+def get_member_streak(
+    cohort_id: str,
+    user_id: str,
+    token: dict = Depends(_require_token),
+) -> dict:
+    """Get the streak for a specific student in a cohort."""
+    cohort = _get_cohort_or_404(cohort_id)
+    ws = _get_workspace_or_404(cohort["workspace_id"])
+
+    # Allowed: teacher/organizer OR the student themselves
+    caller = token["uid"]
+    if caller != user_id:
+        _require_role(ws, caller, "teacher", "organizer")
+    else:
+        _require_member(ws, caller)
+
+    import study_storage
+    import series_storage as _ss
+    from study import calculate_streak, evaluate_escalation
+
+    all_check_ins = _ss.list_check_ins_for_user_in_workspace(user_id, cohort["workspace_id"])
+    ci_dicts = [ci.to_dict() for ci in all_check_ins]
+
+    streak = calculate_streak(ci_dicts, tz_name=ws.timezone)
+    escalation = evaluate_escalation(ci_dicts, tz_name=ws.timezone)
+    badge_docs = study_storage.list_badges_for_user(user_id, workspace_id=cohort["workspace_id"])
+
+    return {
+        "user_id": user_id,
+        "cohort_id": cohort_id,
+        "streak": {
+            "current_streak": streak.current_streak,
+            "longest_streak": streak.longest_streak,
+            "total_confirmed": streak.total_confirmed,
+            "last_confirmed_date": (
+                streak.last_confirmed_date.isoformat()
+                if streak.last_confirmed_date else None
+            ),
+        },
+        "escalation": {
+            "level": escalation.level,
+            "recent_misses": escalation.recent_misses,
+            "message": escalation.message,
+        },
+        "badges": [b["badge_id"] for b in badge_docs],
+    }
