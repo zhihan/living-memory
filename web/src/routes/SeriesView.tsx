@@ -670,7 +670,6 @@ export function SeriesView() {
           }
           // Get all members (non-organizer) as rows
           const members = Object.entries(report.members)
-            .filter(([, role]) => role !== "organizer")
             .map(([uid, role]) => ({
               uid,
               role,
