@@ -70,8 +70,8 @@ export function SeriesView() {
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
+  const [editExtendDate, setEditExtendDate] = useState("");
   const [generating, setGenerating] = useState(false);
-  const [generateError, setGenerateError] = useState<string | null>(null);
 
   // Next meeting agenda
   const [editingAgenda, setEditingAgenda] = useState(false);
@@ -99,6 +99,18 @@ export function SeriesView() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Furthest scheduled occurrence date
+  const lastOccurrence = occurrences?.length
+    ? occurrences.reduce((a, b) => (a.scheduled_for > b.scheduled_for ? a : b))
+    : null;
+  const scheduledThrough = lastOccurrence
+    ? new Date(lastOccurrence.scheduled_for).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : null;
+
   function startEdit() {
     if (!series) return;
     setEditTitle(series.title);
@@ -108,6 +120,7 @@ export function SeriesView() {
     setEditLink(series.default_online_link ?? "");
     setEditTime(series.default_time ?? "");
     setEditDuration(series.default_duration_minutes?.toString() ?? "");
+    setEditExtendDate("");
     setEditing(true);
     setEditError(null);
   }
@@ -128,6 +141,10 @@ export function SeriesView() {
         default_duration_minutes: editDuration ? parseInt(editDuration, 10) : undefined,
       });
       setSeries(updated);
+      if (editExtendDate) {
+        const newOcc = await generateOccurrences(seriesId, editExtendDate);
+        setOccurrences(newOcc);
+      }
       setEditing(false);
     } catch (err) {
       setEditError(err instanceof Error ? err.message : "Failed to save");
@@ -139,12 +156,13 @@ export function SeriesView() {
   async function handleGenerate() {
     if (!seriesId) return;
     setGenerating(true);
-    setGenerateError(null);
     try {
-      const newOcc = await generateOccurrences(seriesId, 60);
+      const end = new Date();
+      end.setDate(end.getDate() + 60);
+      const newOcc = await generateOccurrences(seriesId, end.toISOString().slice(0, 10));
       setOccurrences(newOcc);
     } catch (err) {
-      setGenerateError(err instanceof Error ? err.message : "Failed to generate");
+      alert(err instanceof Error ? err.message : "Failed to generate");
     } finally {
       setGenerating(false);
     }
@@ -202,6 +220,7 @@ export function SeriesView() {
             {formatScheduleRule(series.schedule_rule)}
             {series.default_time && ` at ${series.default_time}`}
             {series.default_duration_minutes && ` (${series.default_duration_minutes}m)`}
+            {scheduledThrough && <> · Through {scheduledThrough}</>}
           </p>
         )}
         {series?.description && (
@@ -325,6 +344,21 @@ export function SeriesView() {
               placeholder="https://zoom.us/j/..."
             />
           </div>
+          <div className="form-field">
+            <label htmlFor="edit-extend">Extend schedule to</label>
+            <input
+              id="edit-extend"
+              type="date"
+              className="form-input"
+              value={editExtendDate}
+              onChange={(e) => setEditExtendDate(e.target.value)}
+              disabled={editSubmitting}
+              min={new Date().toISOString().slice(0, 10)}
+            />
+            {scheduledThrough && !editExtendDate && (
+              <span className="form-hint">Currently scheduled through {scheduledThrough}</span>
+            )}
+          </div>
           {editError && <p className="form-error">{editError}</p>}
           <div className="form-actions">
             <button
@@ -350,16 +384,7 @@ export function SeriesView() {
       <section className="section">
         <div className="section-header">
           <h2>Meetings</h2>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={handleGenerate}
-            disabled={generating}
-          >
-            {generating ? "Generating..." : "Refresh schedule"}
-          </button>
         </div>
-        {generateError && <p className="form-error">{generateError}</p>}
 
         {past.length > 0 && (() => {
           const last = past[0];

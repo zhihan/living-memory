@@ -223,13 +223,9 @@ export async function patchSeries(
 
 export async function generateOccurrences(
   seriesId: string,
-  windowDays: number = 60,
+  endDate: string,
 ): Promise<OccurrenceSummary[]> {
-  const today = new Date();
-  const end = new Date(today);
-  end.setDate(end.getDate() + windowDays);
-  const startDate = today.toISOString().slice(0, 10);
-  const endDate = end.toISOString().slice(0, 10);
+  const startDate = new Date().toISOString().slice(0, 10);
   const resp = await apiFetch(`/v2/series/${seriesId}/occurrences/generate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

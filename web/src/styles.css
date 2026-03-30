@@ -626,6 +626,12 @@ details[open] .chevron { transform: rotate(90deg); }
   gap: 0.5rem;
 }
 
+.form-hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+}
+
 .form-error {
   color: #c00;
   font-size: 0.85rem;

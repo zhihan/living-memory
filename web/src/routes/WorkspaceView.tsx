@@ -155,7 +155,9 @@ export function WorkspaceView() {
   async function handleGenerate(seriesId: string) {
     setGeneratingId(seriesId);
     try {
-      await generateOccurrences(seriesId, 60);
+      const end = new Date();
+      end.setDate(end.getDate() + 60);
+      await generateOccurrences(seriesId, end.toISOString().slice(0, 10));
       navigate(`/w/${workspaceId}/series/${seriesId}`);
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to generate occurrences");
