@@ -6,15 +6,12 @@ import {
   patchSeries,
   patchOccurrence,
   generateOccurrences,
-  getWorkspace,
   type SeriesSummary,
   type OccurrenceSummary,
   type ScheduleRule,
-  type WorkspaceSummary,
 } from "../api";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ErrorMessage } from "../components/ErrorMessage";
-import { AssistantChat } from "../AssistantChat";
 import { Markdown } from "../components/Markdown";
 
 function formatDate(iso: string, timezone?: string): string {
@@ -58,7 +55,6 @@ export function SeriesView() {
   }>();
 
   const [series, setSeries] = useState<SeriesSummary | null>(null);
-  const [workspace, setWorkspace] = useState<WorkspaceSummary | null>(null);
   const [occurrences, setOccurrences] = useState<OccurrenceSummary[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -82,22 +78,18 @@ export function SeriesView() {
   const [agendaText, setAgendaText] = useState("");
   const [agendaSaving, setAgendaSaving] = useState(false);
 
-  // Assistant
-  const [showAssistant, setShowAssistant] = useState(false);
 
   const load = useCallback(async () => {
     if (!seriesId || !workspaceId) return;
     setLoading(true);
     setError(null);
     try {
-      const [s, occ, ws] = await Promise.all([
+      const [s, occ] = await Promise.all([
         getSeries(seriesId),
         getSeriesOccurrences(seriesId),
-        getWorkspace(workspaceId),
       ]);
       setSeries(s);
       setOccurrences(occ);
-      setWorkspace(ws);
     } catch (err) {
       setError(err as Error);
     } finally {
@@ -462,46 +454,6 @@ export function SeriesView() {
         )}
       </section>
 
-      {/* AI Assistant */}
-      <section className="section">
-        <div className="section-header">
-          <h2>AI Assistant</h2>
-          <button
-            className="btn btn-secondary btn-sm"
-            onClick={() => setShowAssistant((v) => !v)}
-          >
-            {showAssistant ? "Hide Assistant" : "Open Assistant"}
-          </button>
-        </div>
-        {showAssistant && workspaceId && (
-          <AssistantChat
-            workspaceId={workspaceId}
-            context={{
-              series: series ? {
-                series_id: series.series_id,
-                title: series.title,
-                description: series.description,
-                schedule_rule: series.schedule_rule,
-                default_time: series.default_time,
-                default_duration_minutes: series.default_duration_minutes,
-                default_location: series.default_location,
-                default_online_link: series.default_online_link,
-              } : undefined,
-              workspace: workspace ? {
-                workspace_id: workspace.workspace_id,
-                title: workspace.title,
-                timezone: workspace.timezone,
-              } : undefined,
-              upcoming_count: upcoming.length,
-              next_meeting: upcoming[0] ? {
-                occurrence_id: upcoming[0].occurrence_id,
-                scheduled_for: upcoming[0].scheduled_for,
-                notes: upcoming[0].overrides?.notes,
-              } : undefined,
-            }}
-          />
-        )}
-      </section>
 
     </div>
   );

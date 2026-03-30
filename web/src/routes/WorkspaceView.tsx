@@ -15,7 +15,6 @@ import {
 import { useAuth } from "../auth";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ErrorMessage } from "../components/ErrorMessage";
-import { AssistantChat } from "../AssistantChat";
 import { Markdown } from "../components/Markdown";
 
 const FREQ_OPTIONS = [
@@ -65,7 +64,6 @@ export function WorkspaceView() {
   const [formError, setFormError] = useState<string | null>(null);
 
   const [generatingId, setGeneratingId] = useState<string | null>(null);
-  const [showAssistant, setShowAssistant] = useState(false);
 
   // Members
   const [members, setMembers] = useState<Record<string, string> | null>(null);
@@ -536,20 +534,6 @@ export function WorkspaceView() {
         )}
       </section>
 
-      <section className="section">
-        <div className="section-header">
-          <h2>AI Assistant</h2>
-          <button
-            className="btn btn-secondary btn-sm"
-            onClick={() => setShowAssistant((v) => !v)}
-          >
-            {showAssistant ? "Hide Assistant" : "Open Assistant"}
-          </button>
-        </div>
-        {showAssistant && workspaceId && (
-          <AssistantChat workspaceId={workspaceId} />
-        )}
-      </section>
     </div>
   );
 }

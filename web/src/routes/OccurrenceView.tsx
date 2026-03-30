@@ -15,7 +15,6 @@ import {
 import { useAuth } from "../auth";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ErrorMessage } from "../components/ErrorMessage";
-import { AssistantChat } from "../AssistantChat";
 
 const OCCURRENCE_STATUSES = ["scheduled", "rescheduled", "completed", "cancelled"];
 
@@ -57,8 +56,6 @@ export function OccurrenceView() {
   // Check-in
   const [checkingIn, setCheckingIn] = useState(false);
 
-  // Assistant
-  const [showAssistant, setShowAssistant] = useState(false);
 
   const load = useCallback(async () => {
     if (!occurrenceId) return;
@@ -396,42 +393,6 @@ export function OccurrenceView() {
         )}
       </section>
 
-      {/* AI Assistant */}
-      <section className="section">
-        <div className="section-header">
-          <h2>AI Assistant</h2>
-          <button
-            className="btn btn-secondary btn-sm"
-            onClick={() => setShowAssistant((v) => !v)}
-          >
-            {showAssistant ? "Hide Assistant" : "Open Assistant"}
-          </button>
-        </div>
-        {showAssistant && occurrence?.workspace_id && (
-          <AssistantChat
-            workspaceId={occurrence.workspace_id}
-            context={{
-              series: series ? {
-                series_id: series.series_id,
-                title: series.title,
-                description: series.description,
-                schedule_rule: series.schedule_rule,
-                default_time: series.default_time,
-                default_duration_minutes: series.default_duration_minutes,
-              } : undefined,
-              occurrence: {
-                occurrence_id: occ.occurrence_id,
-                scheduled_for: occ.scheduled_for,
-                status: occ.status,
-                title: effectiveTitle,
-                location: effectiveLocation,
-                notes: effectiveNotes,
-                duration_minutes: effectiveDuration,
-              },
-            }}
-          />
-        )}
-      </section>
 
       {/* Shareable participant summary */}
       <section className="section">
