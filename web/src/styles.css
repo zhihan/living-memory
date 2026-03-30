@@ -2129,3 +2129,13 @@ details[open] .chevron { transform: rotate(90deg); }
   margin: 0;
   white-space: pre-wrap;
 }
+
+/* Toggle row (checkbox + label) */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}

@@ -235,6 +235,19 @@ export function OccurrenceView() {
               </button>
             ))}
           </div>
+          <label className="toggle-row">
+            <input
+              type="checkbox"
+              checked={occ.enable_check_in}
+              onChange={async (e) => {
+                const updated = await patchOccurrence(occ.occurrence_id, {
+                  enable_check_in: e.target.checked,
+                });
+                setOccurrence(updated);
+              }}
+            />
+            <span>Enable self-practice check-in</span>
+          </label>
         </section>
       )}
 
