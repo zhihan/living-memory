@@ -21,17 +21,25 @@ class Workspace {
 
   factory Workspace.fromJson(Map<String, dynamic> json) {
     final roles = <String, String>{};
-    (json['member_roles'] as Map<String, dynamic>? ?? {}).forEach((k, v) {
-      roles[k] = v as String;
-    });
-    final profiles = <String, Map<String, String?>>{};
-    (json['member_profiles'] as Map<String, dynamic>? ?? {}).forEach((k, v) {
-      final m = <String, String?>{};
-      (v as Map<String, dynamic>).forEach((pk, pv) {
-        m[pk] = pv as String?;
+    final rawRoles = json['member_roles'];
+    if (rawRoles is Map) {
+      rawRoles.forEach((k, v) {
+        roles[k.toString()] = v as String;
       });
-      profiles[k] = m;
-    });
+    }
+    final profiles = <String, Map<String, String?>>{};
+    final rawProfiles = json['member_profiles'];
+    if (rawProfiles is Map) {
+      rawProfiles.forEach((k, v) {
+        final m = <String, String?>{};
+        if (v is Map) {
+          v.forEach((pk, pv) {
+            m[pk.toString()] = pv as String?;
+          });
+        }
+        profiles[k.toString()] = m;
+      });
+    }
     return Workspace(
       workspaceId: json['workspace_id'] as String,
       title: json['title'] as String,
