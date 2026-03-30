@@ -37,7 +37,7 @@ body::before {
 /* Navbar */
 .navbar {
   background: var(--navy);
-  padding: 0 2rem;
+  padding: 0 1rem;
   height: 60px;
   display: flex;
   align-items: center;
@@ -59,12 +59,13 @@ body::before {
 
 .navbar-brand {
   font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
-  font-size: 1.15rem;
+  font-size: 1rem;
   font-weight: 600;
   color: var(--gold-light);
   text-decoration: none;
   letter-spacing: 0.04em;
   transition: opacity 0.2s;
+  white-space: nowrap;
 }
 .navbar-brand:hover { opacity: 0.8; }
 
@@ -1321,6 +1322,7 @@ details[open] .chevron { transform: rotate(90deg); }
    ============================================================ */
 
 @media (min-width: 640px) {
+  .navbar { padding: 0 2rem; }
   .page-header {
     padding: 2rem 2rem 1.25rem;
   }
