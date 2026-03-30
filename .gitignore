@@ -7,3 +7,4 @@ build/
 .pytest_cache/
 site/
 .env
+.DS_Store

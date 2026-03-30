@@ -71,6 +71,43 @@ npm install
 npm run dev
 ```
 
+### Flutter Mobile App
+
+Setup:
+
+```bash
+cd flutter_app
+flutter pub get
+```
+
+Run model/unit tests (no simulator needed):
+
+```bash
+cd flutter_app
+dart test test/models/ test/shared/ test/widget_test.dart
+```
+
+Run all tests including widget tests (needs Flutter SDK with simulator):
+
+```bash
+cd flutter_app
+flutter test
+```
+
+Run the app on a simulator:
+
+```bash
+cd flutter_app
+flutter run
+```
+
+Before first run, generate Firebase config:
+
+```bash
+cd flutter_app
+flutterfire configure --project=living-memories-488001
+```
+
 ## Authentication
 
 Authenticated API routes use Firebase ID tokens. For local manual testing, use:
