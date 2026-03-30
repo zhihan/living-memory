@@ -476,3 +476,100 @@ class TestCheckInEndpoints:
             resp = participant_client.get("/v2/occurrences/occ-1/my-check-in", headers=AUTH)
         assert resp.status_code == 200
         assert resp.json()["check_in"] is None
+
+
+class TestCheckInWeekdays:
+    """Tests for check_in_weekdays on series and enable_check_in on occurrences."""
+
+    def test_create_series_with_check_in_weekdays(self, organizer_client):
+        ws = _make_workspace()
+        with patch("workspace_storage.get_workspace", return_value=ws),              patch("series_storage.create_series", side_effect=lambda s: s):
+            resp = organizer_client.post(
+                "/v2/workspaces/ws-1/series",
+                json={
+                    "kind": "meeting",
+                    "title": "Study Group",
+                    "schedule_rule": {"frequency": "weekly", "weekdays": [1, 3, 5]},
+                    "check_in_weekdays": [3, 5],
+                },
+                headers=AUTH,
+            )
+        assert resp.status_code == 201
+        assert resp.json()["check_in_weekdays"] == [3, 5]
+
+    def test_update_series_check_in_weekdays(self, organizer_client):
+        ws = _make_workspace()
+        series = _make_series(check_in_weekdays=[1])
+        updated_series = _make_series(check_in_weekdays=[1, 3])
+        with patch("series_storage.get_series", return_value=series),              patch("workspace_storage.get_workspace", return_value=ws),              patch("series_storage.update_series", return_value=updated_series),              patch("occurrence_service.apply_check_in_days"):
+            resp = organizer_client.patch(
+                "/v2/series/s-1",
+                json={"check_in_weekdays": [1, 3]},
+                headers=AUTH,
+            )
+        assert resp.status_code == 200
+        assert resp.json()["check_in_weekdays"] == [1, 3]
+
+    def test_patch_occurrence_enable_check_in(self, organizer_client):
+        ws = _make_workspace()
+        occ = _make_occurrence(enable_check_in=False)
+        updated = _make_occurrence(enable_check_in=True)
+        with patch("series_storage.get_occurrence", return_value=occ),              patch("workspace_storage.get_workspace", return_value=ws),              patch("series_storage.update_occurrence", return_value=updated):
+            resp = organizer_client.patch(
+                "/v2/occurrences/occ-1",
+                json={"enable_check_in": True},
+                headers=AUTH,
+            )
+        assert resp.status_code == 200
+        assert resp.json()["enable_check_in"] is True
+
+    def test_patch_occurrence_disable_check_in(self, organizer_client):
+        ws = _make_workspace()
+        occ = _make_occurrence(enable_check_in=True)
+        updated = _make_occurrence(enable_check_in=False)
+        with patch("series_storage.get_occurrence", return_value=occ),              patch("workspace_storage.get_workspace", return_value=ws),              patch("series_storage.update_occurrence", return_value=updated):
+            resp = organizer_client.patch(
+                "/v2/occurrences/occ-1",
+                json={"enable_check_in": False},
+                headers=AUTH,
+            )
+        assert resp.status_code == 200
+        assert resp.json()["enable_check_in"] is False
+
+
+class TestCheckInReport:
+    """Tests for GET /v2/series/{series_id}/check-in-report."""
+
+    def test_organizer_can_view_report(self, organizer_client):
+        ws = _make_workspace()
+        series = _make_series()
+        occ1 = _make_occurrence(occurrence_id="occ-1", enable_check_in=True)
+        occ2 = _make_occurrence(occurrence_id="occ-2", enable_check_in=False)
+        ci = CheckIn(
+            check_in_id="ci-1", occurrence_id="occ-1", series_id="s-1",
+            workspace_id="ws-1", user_id=PARTICIPANT_UID, status="confirmed",
+        )
+        with patch("series_storage.get_series", return_value=series),              patch("workspace_storage.get_workspace", return_value=ws),              patch("series_storage.list_occurrences_for_series", return_value=[occ1, occ2]),              patch("series_storage.list_check_ins_for_series", return_value=[ci]):
+            resp = organizer_client.get("/v2/series/s-1/check-in-report", headers=AUTH)
+        assert resp.status_code == 200
+        data = resp.json()
+        # Only the occurrence with enable_check_in=True is included
+        assert len(data["occurrences"]) == 1
+        assert data["occurrences"][0]["occurrence_id"] == "occ-1"
+        assert len(data["check_ins"]) == 1
+        assert data["members"] == ws.member_roles
+        assert "member_profiles" in data
+
+    def test_participant_cannot_view_report(self, participant_client):
+        ws = _make_workspace()
+        series = _make_series()
+        with patch("series_storage.get_series", return_value=series),              patch("workspace_storage.get_workspace", return_value=ws):
+            resp = participant_client.get("/v2/series/s-1/check-in-report", headers=AUTH)
+        assert resp.status_code == 403
+
+    def test_teacher_can_view_report(self, teacher_client):
+        ws = _make_workspace()
+        series = _make_series()
+        with patch("series_storage.get_series", return_value=series),              patch("workspace_storage.get_workspace", return_value=ws),              patch("series_storage.list_occurrences_for_series", return_value=[]),              patch("series_storage.list_check_ins_for_series", return_value=[]):
+            resp = teacher_client.get("/v2/series/s-1/check-in-report", headers=AUTH)
+        assert resp.status_code == 200
