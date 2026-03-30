@@ -3,11 +3,18 @@ import { Link, useParams } from "react-router-dom";
 import {
   getOccurrence,
   getSeries,
+  getWorkspace,
   patchOccurrence,
+  createCheckIn,
+  getOccurrenceCheckIns,
+  deleteCheckIn,
   type OccurrenceSummary,
   type SeriesSummary,
   type OccurrenceOverrides,
+  type CheckInSummary,
+  type WorkspaceSummary,
 } from "../api";
+import { useAuth } from "../auth";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ErrorMessage } from "../components/ErrorMessage";
 
@@ -28,10 +35,17 @@ function formatDate(iso: string, timezone?: string): string {
 export function OccurrenceView() {
   const { occurrenceId } = useParams<{ occurrenceId: string }>();
 
+  const { user } = useAuth();
+
   const [occurrence, setOccurrence] = useState<OccurrenceSummary | null>(null);
   const [series, setSeries] = useState<SeriesSummary | null>(null);
+  const [workspace, setWorkspace] = useState<WorkspaceSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+
+  // Check-ins
+  const [checkIns, setCheckIns] = useState<CheckInSummary[]>([]);
+  const [checkInSubmitting, setCheckInSubmitting] = useState(false);
 
   // Edit overrides
   const [editing, setEditing] = useState(false);
@@ -53,9 +67,15 @@ export function OccurrenceView() {
     setError(null);
     try {
       const occ = await getOccurrence(occurrenceId);
-      const s = await getSeries(occ.series_id);
+      const [s, ws, cis] = await Promise.all([
+        getSeries(occ.series_id),
+        getWorkspace(occ.workspace_id),
+        getOccurrenceCheckIns(occurrenceId),
+      ]);
       setOccurrence(occ);
       setSeries(s);
+      setWorkspace(ws);
+      setCheckIns(cis);
     } catch (err) {
       setError(err as Error);
     } finally {
@@ -113,6 +133,31 @@ export function OccurrenceView() {
     }
   }
 
+  async function handleCheckIn() {
+    if (!occurrenceId) return;
+    setCheckInSubmitting(true);
+    try {
+      const ci = await createCheckIn(occurrenceId, "confirmed");
+      setCheckIns((prev) => {
+        const filtered = prev.filter((c) => c.user_id !== ci.user_id);
+        return [...filtered, ci];
+      });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to check in");
+    } finally {
+      setCheckInSubmitting(false);
+    }
+  }
+
+  async function handleUndoCheckIn(checkInId: string) {
+    try {
+      await deleteCheckIn(checkInId);
+      setCheckIns((prev) => prev.filter((c) => c.check_in_id !== checkInId));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to undo");
+    }
+  }
+
   if (loading) return <LoadingSpinner message="Loading occurrence..." />;
   if (error) return <ErrorMessage error={error} onRetry={load} />;
 
@@ -122,6 +167,9 @@ export function OccurrenceView() {
   const effectiveLink = occ.overrides?.online_link ?? series?.default_online_link;
   const effectiveNotes = occ.overrides?.notes;
   const effectiveDuration = occ.overrides?.duration_minutes ?? series?.default_duration_minutes;
+  const isOrganizer = user?.uid && workspace?.member_roles[user.uid] === "organizer";
+  const isMeetingDay = !!(effectiveLocation || effectiveLink);
+  const myCheckIn = checkIns.find((c) => c.user_id === user?.uid);
 
 
   return (
@@ -134,7 +182,7 @@ export function OccurrenceView() {
           >
             &larr; Series
           </Link>
-          {!editing && (
+          {!editing && isOrganizer && (
             <div className="header-actions">
               <button
                 type="button"
@@ -158,25 +206,27 @@ export function OccurrenceView() {
         </p>
       </div>
 
-      {/* Status & Actions */}
-      <section className="section">
-        <div className="section-header">
-          <h2>Status</h2>
-        </div>
-        <div className="status-row">
-          {OCCURRENCE_STATUSES.map((s) => (
-            <button
-              key={s}
-              type="button"
-              className={`btn btn-sm ${occ.status === s ? "btn-primary" : "btn-secondary"}`}
-              onClick={() => occ.status !== s && handleStatusChange(s)}
-              disabled={statusChanging || occ.status === s}
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-      </section>
+      {/* Status & Actions (organizer only) */}
+      {isOrganizer && (
+        <section className="section">
+          <div className="section-header">
+            <h2>Status</h2>
+          </div>
+          <div className="status-row">
+            {OCCURRENCE_STATUSES.map((s) => (
+              <button
+                key={s}
+                type="button"
+                className={`btn btn-sm ${occ.status === s ? "btn-primary" : "btn-secondary"}`}
+                onClick={() => occ.status !== s && handleStatusChange(s)}
+                disabled={statusChanging || occ.status === s}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Location & Link */}
       {(effectiveLocation || effectiveLink) && (
@@ -321,21 +371,82 @@ export function OccurrenceView() {
 
 
 
+      {/* Check-in section — shown on practice/study days (no location and no online link) */}
+      {!isMeetingDay && (
+        <section className="section">
+          <div className="section-header">
+            <h2>Practice Check-in</h2>
+          </div>
+          {myCheckIn?.status === "confirmed" ? (
+            <div className="checkin-done">
+              <span className="checkin-done-label">Done</span>
+              <button
+                type="button"
+                className="btn btn-secondary btn-xs"
+                onClick={() => handleUndoCheckIn(myCheckIn.check_in_id)}
+              >
+                Undo
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={handleCheckIn}
+              disabled={checkInSubmitting}
+            >
+              {checkInSubmitting ? "Saving..." : "Mark as done"}
+            </button>
+          )}
+        </section>
+      )}
+
+      {/* Organizer: check-in report */}
+      {isOrganizer && checkIns.length > 0 && (
+        <section className="section">
+          <div className="section-header">
+            <h2>Check-ins ({checkIns.length})</h2>
+          </div>
+          <ul className="checkin-list">
+            {checkIns.map((ci) => (
+              <li key={ci.check_in_id} className="checkin-item">
+                <span className="checkin-name">
+                  {ci.display_name ?? ci.user_id.slice(0, 8)}
+                </span>
+                <span className={`badge badge-status-${ci.status === "confirmed" ? "completed" : ci.status}`}>
+                  {ci.status}
+                </span>
+                {ci.checked_in_at && (
+                  <span className="checkin-time">
+                    {new Date(ci.checked_in_at).toLocaleTimeString("en-US", {
+                      hour: "numeric",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {/* Shareable participant summary */}
-      <section className="section">
-        <div className="section-header">
-          <h2>Participant Summary</h2>
-          <Link
-            to={`/occurrences/${occurrenceId}/summary`}
-            className="btn btn-secondary btn-sm"
-          >
-            View shareable page
-          </Link>
-        </div>
-        <p className="placeholder-sm">
-          Share the summary link with participants for Zoom and location details.
-        </p>
-      </section>
+      {(effectiveLocation || effectiveLink) && (
+        <section className="section">
+          <div className="section-header">
+            <h2>Participant Summary</h2>
+            <Link
+              to={`/occurrences/${occurrenceId}/summary`}
+              className="btn btn-secondary btn-sm"
+            >
+              View shareable page
+            </Link>
+          </div>
+          <p className="placeholder-sm">
+            Share the summary link with participants for Zoom and location details.
+          </p>
+        </section>
+      )}
     </div>
   );
 }
