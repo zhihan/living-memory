@@ -3,16 +3,11 @@ import { Link, useParams } from "react-router-dom";
 import {
   getOccurrence,
   getSeries,
-  getOccurrenceCheckIns,
   patchOccurrence,
-  createCheckIn,
-  deleteCheckIn,
   type OccurrenceSummary,
   type SeriesSummary,
-  type CheckInSummary,
   type OccurrenceOverrides,
 } from "../api";
-import { useAuth } from "../auth";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ErrorMessage } from "../components/ErrorMessage";
 
@@ -32,11 +27,9 @@ function formatDate(iso: string, timezone?: string): string {
 
 export function OccurrenceView() {
   const { occurrenceId } = useParams<{ occurrenceId: string }>();
-  const { user } = useAuth();
 
   const [occurrence, setOccurrence] = useState<OccurrenceSummary | null>(null);
   const [series, setSeries] = useState<SeriesSummary | null>(null);
-  const [checkIns, setCheckIns] = useState<CheckInSummary[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
@@ -53,9 +46,6 @@ export function OccurrenceView() {
   // Status change
   const [statusChanging, setStatusChanging] = useState(false);
 
-  // Check-in
-  const [checkingIn, setCheckingIn] = useState(false);
-
 
   const load = useCallback(async () => {
     if (!occurrenceId) return;
@@ -63,13 +53,9 @@ export function OccurrenceView() {
     setError(null);
     try {
       const occ = await getOccurrence(occurrenceId);
-      const [s, ci] = await Promise.all([
-        getSeries(occ.series_id),
-        getOccurrenceCheckIns(occurrenceId),
-      ]);
+      const s = await getSeries(occ.series_id);
       setOccurrence(occ);
       setSeries(s);
-      setCheckIns(ci);
     } catch (err) {
       setError(err as Error);
     } finally {
@@ -127,28 +113,6 @@ export function OccurrenceView() {
     }
   }
 
-  async function handleCheckIn() {
-    if (!occurrenceId) return;
-    setCheckingIn(true);
-    try {
-      const ci = await createCheckIn(occurrenceId, "confirmed");
-      setCheckIns((prev) => [...(prev ?? []), ci]);
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to check in");
-    } finally {
-      setCheckingIn(false);
-    }
-  }
-
-  async function handleRemoveCheckIn(checkInId: string) {
-    try {
-      await deleteCheckIn(checkInId);
-      setCheckIns((prev) => prev?.filter((ci) => ci.check_in_id !== checkInId) ?? null);
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to remove check-in");
-    }
-  }
-
   if (loading) return <LoadingSpinner message="Loading occurrence..." />;
   if (error) return <ErrorMessage error={error} onRetry={load} />;
 
@@ -159,7 +123,6 @@ export function OccurrenceView() {
   const effectiveNotes = occ.overrides?.notes;
   const effectiveDuration = occ.overrides?.duration_minutes ?? series?.default_duration_minutes;
 
-  const alreadyCheckedIn = checkIns?.some((ci) => ci.user_id === user?.uid);
 
   return (
     <div className="workspace-view">
@@ -356,52 +319,6 @@ export function OccurrenceView() {
         </section>
       )}
 
-      {/* Check-ins */}
-      <section className="section">
-        <div className="section-header">
-          <h2>Check-ins ({checkIns?.length ?? 0})</h2>
-          {!alreadyCheckedIn && (
-            <button
-              type="button"
-              className="btn btn-primary btn-sm"
-              onClick={handleCheckIn}
-              disabled={checkingIn}
-            >
-              {checkingIn ? "Checking in..." : "Check in"}
-            </button>
-          )}
-        </div>
-        {checkIns && checkIns.length > 0 ? (
-          <ul className="checkin-list">
-            {checkIns.map((ci) => (
-              <li key={ci.check_in_id} className="checkin-item">
-                <span className={`badge badge-ci-${ci.status}`}>{ci.status}</span>
-                <span className="checkin-uid">{ci.display_name ?? ci.user_id.slice(0, 8)}</span>
-                {ci.checked_in_at && (
-                  <span className="checkin-time">
-                    {new Date(ci.checked_in_at).toLocaleTimeString([], {
-                      hour: "numeric",
-                      minute: "2-digit",
-                    })}
-                  </span>
-                )}
-                {ci.note && <span className="checkin-note">{ci.note}</span>}
-                {ci.user_id === user?.uid && (
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-xs"
-                    onClick={() => handleRemoveCheckIn(ci.check_in_id)}
-                  >
-                    Remove
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="placeholder">No check-ins yet.</p>
-        )}
-      </section>
 
 
       {/* Shareable participant summary */}
