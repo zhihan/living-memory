@@ -20,7 +20,8 @@ export function Markdown({ text, className }: { text: string; className?: string
 
 function parseLine(line: string): ReactNode[] {
   // Matches: [text](url), **bold**, *italic*, or bare https://… URLs
-  const re = /(\[([^\]]+)\]\((https?:\/\/[^)]+)\)|\*\*(.+?)\*\*|\*(.+?)\*|(https?:\/\/[^\s<]+))/g;
+  // Group 2: link text, Group 3: link url, Group 4: bold text, Group 5: italic text, Group 6: bare url
+  const re = /(\[([^\]]+)\]\(([^\s)]+)\)|\*\*(.+?)\*\*|\*(.+?)\*|(https?:\/\/[^\s<]+))/g;
   const nodes: ReactNode[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -31,8 +32,13 @@ function parseLine(line: string): ReactNode[] {
     }
     if (match[2] && match[3]) {
       // Link: [text](url)
+      // If url doesn't start with http/https, prepend it (best effort)
+      let url = match[3];
+      if (!/^https?:\/\//i.test(url)) {
+        url = "https://" + url;
+      }
       nodes.push(
-        <a key={match.index} href={match[3]} target="_blank" rel="noreferrer">
+        <a key={match.index} href={url} target="_blank" rel="noreferrer">
           {match[2]}
         </a>
       );
