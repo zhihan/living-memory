@@ -20,8 +20,8 @@ export function Markdown({ text, className }: { text: string; className?: string
 
 function parseLine(line: string): ReactNode[] {
   // Matches: [text](url), **bold**, *italic*, or bare https://… URLs
-  // Group 2: link text, Group 3: link url, Group 4: bold text, Group 5: italic text, Group 6: bare url
-  const re = /(\[([^\]]+)\]\(([^\s)]+)\)|\*\*(.+?)\*\*|\*(.+?)\*|(https?:\/\/[^\s<]+))/g;
+  // Group 2: link text, Group 3: url + optional title, Group 4: bold text, Group 5: italic text, Group 6: bare url
+  const re = /(\[([^\]]+)\]\(([^)]+)\)|\*\*(.+?)\*\*|\*(.+?)\*|(https?:\/\/[^\s<]+))/g;
   const nodes: ReactNode[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -31,14 +31,20 @@ function parseLine(line: string): ReactNode[] {
       nodes.push(line.slice(lastIndex, match.index));
     }
     if (match[2] && match[3]) {
-      // Link: [text](url)
-      // If url doesn't start with http/https, prepend it (best effort)
-      let url = match[3];
-      if (!/^https?:\/\//i.test(url)) {
+      // Link: [text](url "optional title")
+      // We split the URL part to handle optional titles in quotes
+      const urlPart = match[3].trim();
+      const spaceIndex = urlPart.search(/\s+/);
+      let url = spaceIndex > -1 ? urlPart.slice(0, spaceIndex) : urlPart;
+      const titleAttr = spaceIndex > -1 ? urlPart.slice(spaceIndex).trim().replace(/^["']|["']$/g, "") : undefined;
+
+      // Ensure URL has a protocol if it's not relative/anchor
+      if (!/^https?:\/\//i.test(url) && !url.startsWith("/") && !url.startsWith("#")) {
         url = "https://" + url;
       }
+      
       nodes.push(
-        <a key={match.index} href={url} target="_blank" rel="noreferrer">
+        <a key={match.index} href={url} title={titleAttr} target="_blank" rel="noreferrer">
           {match[2]}
         </a>
       );
