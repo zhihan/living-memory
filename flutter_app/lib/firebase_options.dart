@@ -28,7 +28,7 @@ class DefaultFirebaseOptions {
     appId: 'YOUR_IOS_APP_ID',
     messagingSenderId: 'YOUR_SENDER_ID',
     projectId: 'living-memories-488001',
-    iosBundleId: 'com.eventledger.eventLedger',
+    iosBundleId: 'net.cicmusic.meeting-assistant',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
