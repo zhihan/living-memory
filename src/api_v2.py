@@ -179,6 +179,15 @@ class ScheduleRuleIn(BaseModel):
     until: Optional[str] = None
     count: Optional[int] = None
 
+    @field_validator('weekdays')
+    @classmethod
+    def validate_weekdays(cls, v):
+        """Ensure all weekdays are valid ISO weekday values (1-7)."""
+        for day in v:
+            if not isinstance(day, int) or day < 1 or day > 7:
+                raise ValueError(f"Invalid weekday value: {day}. Must be 1-7 (1=Monday, 7=Sunday)")
+        return v
+
     def to_model(self) -> ScheduleRule:
         until_dt = None
         if self.until:
@@ -945,17 +954,22 @@ def get_series_ics(
 # ---------------------------------------------------------------------------
 
 @router.post("/channels/telegram/webhook", status_code=200)
-def telegram_webhook(raw_update: dict) -> dict:
+def telegram_webhook(raw_update: dict, x_telegram_bot_api_secret_token: str = Header(None)) -> dict:
     """Receive a Telegram Update, dispatch it through the TelegramAdapter.
 
     Telegram calls this URL when a new message arrives (webhook mode).
     The endpoint does not require a Firebase auth token because Telegram
-    does not send one — security is provided by keeping the webhook URL
-    secret (it includes the bot token or a random path component).
+    does not send one — security is provided by a secret token header.
 
     Returns {"ok": true} to tell Telegram the update was accepted.
     """
     import os
+    # Validate secret token if configured
+    webhook_secret = os.environ.get("TELEGRAM_WEBHOOK_SECRET")
+    if webhook_secret:
+        if not x_telegram_bot_api_secret_token or x_telegram_bot_api_secret_token != webhook_secret:
+            raise HTTPException(status_code=403, detail="Invalid webhook secret")
+
     try:
         from channels.telegram import TelegramAdapter
     except ImportError as exc:

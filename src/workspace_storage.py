@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import secrets
 from datetime import datetime, timedelta, timezone
 
@@ -15,6 +16,16 @@ WORKSPACE_INVITE_LOOKUP_COLLECTION = "workspace_invite_lookup"
 
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _validate_email(email: str | None) -> None:
+    """Validate email format using a simple regex. Raises ValueError if invalid."""
+    if email is None:
+        return
+    # Simple email regex: at least one char, @, at least one char, dot, at least one char
+    pattern = r'^[^@]+@[^@]+\.[^@]+$'
+    if not re.match(pattern, email):
+        raise ValueError(f"Invalid email format: {email}")
 
 
 def create_workspace(workspace: Workspace) -> Workspace:
@@ -76,7 +87,9 @@ def add_member(workspace_id: str, uid: str, role: MemberRole) -> Workspace:
     """Add or update uid role in workspace_id."""
     db = _get_client()
     ref = db.collection(WORKSPACES_COLLECTION).document(workspace_id)
-    if not ref.get().exists:
+    transaction = db.transaction()
+    snapshot = ref.get(transaction=transaction)
+    if not snapshot.exists:
         raise ValueError(f"Workspace not found: {workspace_id}")
     updates: dict = {
         f"member_roles.{uid}": role,
@@ -85,7 +98,8 @@ def add_member(workspace_id: str, uid: str, role: MemberRole) -> Workspace:
     if role == "organizer":
         from google.cloud.firestore_v1 import ArrayUnion
         updates["owner_uids"] = ArrayUnion([uid])
-    ref.update(updates)
+    transaction.update(ref, updates)
+    transaction.commit()
     return get_workspace(workspace_id)  # type: ignore[return-value]
 
 
@@ -97,6 +111,7 @@ def update_member_profile(
     email: str | None = None,
 ) -> Workspace:
     """Persist lightweight display metadata for a workspace member."""
+    _validate_email(email)
     db = _get_client()
     ref = db.collection(WORKSPACES_COLLECTION).document(workspace_id)
     if not ref.get().exists:

@@ -638,6 +638,15 @@ export function SeriesView() {
                       setEditingLocationId(o.occurrence_id);
                       setEditingLocationValue(o.location ?? "");
                     }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setEditingLocationId(o.occurrence_id);
+                        setEditingLocationValue(o.location ?? "");
+                      }
+                    }}
+                    tabIndex={0}
+                    role="button"
                     title="Click to edit"
                   >
                     {o.location || "—"}

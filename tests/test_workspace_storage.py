@@ -196,22 +196,22 @@ class TestMemberManagement:
         mock_ref = MagicMock()
         mock_ref.get.return_value = _mock_doc(data=_ws_data())
         mock_db.collection.return_value.document.return_value = mock_ref
+        mock_transaction = MagicMock()
+        mock_db.transaction.return_value = mock_transaction
 
         # get_workspace is called again after update; return updated data
         data_after = _ws_data(member_roles={"uid-alice": "organizer", "uid-bob": "participant"})
-        mock_doc_after = _mock_doc(data=data_after)
-        # First call: exists check inside add_member; second: get_workspace return
-        mock_ref.get.side_effect = [_mock_doc(data=_ws_data()), mock_doc_after]
 
         with patch("workspace_storage._get_client", return_value=mock_db):
             with patch("workspace_storage.get_workspace") as mock_get:
                 mock_get.return_value = Workspace.from_dict(data_after)
                 result = add_member("ws-1", "uid-bob", "participant")
 
-        mock_ref.update.assert_called_once()
-        update_args = mock_ref.update.call_args[0][0]
+        mock_transaction.update.assert_called_once()
+        update_args = mock_transaction.update.call_args[0][1]
         assert "member_roles.uid-bob" in update_args
         assert update_args["member_roles.uid-bob"] == "participant"
+        mock_transaction.commit.assert_called_once()
 
     def test_get_member_role_returns_none_for_nonmember(self):
         data = _ws_data(member_roles={"uid-alice": "organizer"})

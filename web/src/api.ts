@@ -7,7 +7,7 @@ async function getToken(): Promise<string> {
   return auth.currentUser.getIdToken();
 }
 
-async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
+async function apiFetch(path: string, init?: RequestInit, retryCount = 0): Promise<Response> {
   const token = await getToken();
   const headers: Record<string, string> = {
     Authorization: `Bearer ${token}`,
@@ -17,7 +17,7 @@ async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   let resp = await fetch(`${BASE_URL}${path}`, { ...init, headers });
 
   // Retry once on 401 with a fresh token
-  if (resp.status === 401) {
+  if (resp.status === 401 && retryCount === 0) {
     const freshToken = await auth.currentUser!.getIdToken(true);
     headers.Authorization = `Bearer ${freshToken}`;
     resp = await fetch(`${BASE_URL}${path}`, { ...init, headers });

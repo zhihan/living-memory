@@ -26,6 +26,28 @@ class ApiService {
     };
   }
 
+  Future<http.Response> _sendRequest(
+    String method,
+    Uri uri,
+    Map<String, String> headers,
+    Map<String, dynamic>? body,
+  ) async {
+    switch (method) {
+      case 'GET':
+        return _client.get(uri, headers: headers);
+      case 'POST':
+        return _client.post(uri,
+            headers: headers, body: body != null ? jsonEncode(body) : null);
+      case 'PATCH':
+        return _client.patch(uri,
+            headers: headers, body: body != null ? jsonEncode(body) : null);
+      case 'DELETE':
+        return _client.delete(uri, headers: headers);
+      default:
+        throw ArgumentError('Unsupported method: $method');
+    }
+  }
+
   Future<dynamic> _request(
     String method,
     String path, {
@@ -35,21 +57,7 @@ class ApiService {
     final uri = Uri.parse('$_baseUrl$path').replace(queryParameters: queryParams);
     final headers = await _headers();
 
-    http.Response response;
-    switch (method) {
-      case 'GET':
-        response = await _client.get(uri, headers: headers);
-      case 'POST':
-        response = await _client.post(uri,
-            headers: headers, body: body != null ? jsonEncode(body) : null);
-      case 'PATCH':
-        response = await _client.patch(uri,
-            headers: headers, body: body != null ? jsonEncode(body) : null);
-      case 'DELETE':
-        response = await _client.delete(uri, headers: headers);
-      default:
-        throw ArgumentError('Unsupported method: $method');
-    }
+    http.Response response = await _sendRequest(method, uri, headers, body);
 
     // Retry once on 401 with fresh token
     if (response.statusCode == 401) {
@@ -59,20 +67,7 @@ class ApiService {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $freshToken',
         };
-        switch (method) {
-          case 'GET':
-            response = await _client.get(uri, headers: retryHeaders);
-          case 'POST':
-            response = await _client.post(uri,
-                headers: retryHeaders,
-                body: body != null ? jsonEncode(body) : null);
-          case 'PATCH':
-            response = await _client.patch(uri,
-                headers: retryHeaders,
-                body: body != null ? jsonEncode(body) : null);
-          case 'DELETE':
-            response = await _client.delete(uri, headers: retryHeaders);
-        }
+        response = await _sendRequest(method, uri, retryHeaders, body);
       }
     }
 

@@ -10,6 +10,7 @@ import time
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -76,6 +77,16 @@ async def logging_middleware(request: Request, call_next) -> Response:
     logger.info("request %s %s %d %.1fms", extra["method"], extra["path"],
                 extra["status_code"], duration_ms, extra=extra)
     return response
+
+
+# ---------------------------------------------------------------------------
+# Exception handlers
+# ---------------------------------------------------------------------------
+
+@app.exception_handler(ValueError)
+async def value_error_handler(request: Request, exc: ValueError) -> JSONResponse:
+    """Convert ValueError from storage layer to 400 Bad Request."""
+    return JSONResponse(status_code=400, content={"detail": str(exc)})
 
 
 # ---------------------------------------------------------------------------

@@ -30,6 +30,8 @@ function parseLine(line: string): ReactNode[] {
     if (match.index > lastIndex) {
       nodes.push(line.slice(lastIndex, match.index));
     }
+    const content = match[2] || match[4] || match[5] || match[6] || "";
+    const uniqueKey = `${match.index}-${content.slice(0, 20)}`;
     if (match[2] && match[3]) {
       // Link: [text](url)
       // If url doesn't start with http/https, prepend it (best effort)
@@ -38,20 +40,20 @@ function parseLine(line: string): ReactNode[] {
         url = "https://" + url;
       }
       nodes.push(
-        <a key={match.index} href={url} target="_blank" rel="noreferrer">
+        <a key={uniqueKey} href={url} target="_blank" rel="noreferrer">
           {match[2]}
         </a>
       );
     } else if (match[4]) {
       // Bold: **text**
-      nodes.push(<strong key={match.index}>{match[4]}</strong>);
+      nodes.push(<strong key={uniqueKey}>{match[4]}</strong>);
     } else if (match[5]) {
       // Italic: *text*
-      nodes.push(<em key={match.index}>{match[5]}</em>);
+      nodes.push(<em key={uniqueKey}>{match[5]}</em>);
     } else if (match[6]) {
       // Bare URL
       nodes.push(
-        <a key={match.index} href={match[6]} target="_blank" rel="noreferrer">
+        <a key={uniqueKey} href={match[6]} target="_blank" rel="noreferrer">
           {match[6]}
         </a>
       );

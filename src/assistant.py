@@ -105,7 +105,12 @@ def _call_ai(prompt: str) -> dict:
     from google import genai
     from google.genai import types
 
-    api_key = os.environ["GEMINI_API_KEY"]
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        raise ValueError(
+            "GEMINI_API_KEY environment variable is required for assistant functionality. "
+            "Please set it to your Google AI API key."
+        )
     model = os.environ.get("GEMINI_MODEL", _DEFAULT_MODEL)
     client = genai.Client(api_key=api_key)
 

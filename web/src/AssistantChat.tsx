@@ -159,8 +159,8 @@ export function AssistantChat({ workspaceId, context }: Props) {
                 },
               }));
             }
-          } catch {
-            // ignore unparseable chunks
+          } catch (err) {
+            console.warn("Failed to parse SSE chunk:", trimmedLine, err);
           }
         }
       }
