@@ -6,6 +6,7 @@
   --primary: #3F51B5;
   --primary-light: #5C6BC0;
   --primary-dark: #303F9F;
+  --nav-bg: #1B2838;
   --on-primary: #ffffff;
   --surface: #ffffff;
   --surface-dim: #f5f5f5;
@@ -35,7 +36,7 @@ body {
 
 /* Navbar */
 .navbar {
-  background: var(--primary);
+  background: var(--nav-bg);
   padding: 0 12px;
   height: 56px;
   display: flex;

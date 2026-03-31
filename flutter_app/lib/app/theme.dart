@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class AppTheme {
+  static const navBg = Color(0xFF1B2838);
+
   static ThemeData get light {
     final colorScheme = ColorScheme.fromSeed(
       seedColor: Colors.indigo,
@@ -18,12 +21,18 @@ class AppTheme {
             const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         isDense: true,
       ),
-      appBarTheme: AppBarTheme(
+      appBarTheme: const AppBarTheme(
         centerTitle: false,
-        backgroundColor: colorScheme.surface,
+        backgroundColor: navBg,
+        foregroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 1,
+        systemOverlayStyle: SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.light,
+          statusBarBrightness: Brightness.dark,
+        ),
       ),
       cardTheme: CardThemeData(
         elevation: 0,
