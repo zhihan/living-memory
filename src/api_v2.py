@@ -234,13 +234,20 @@ class CreateSeriesRequest(BaseModel):
     default_duration_minutes: Optional[int] = None
     default_location: Optional[str] = None
     default_online_link: Optional[str] = None
-    location_type: Optional[str] = None  # "fixed", "per_occurrence", or "rotation"
-    location_rotation: Optional[list[str]] = None
+    location_type: Optional[str] = None  # "fixed" or "per_occurrence"
     check_in_weekdays: Optional[list[int]] = None
     rotation_mode: str = "none"  # "none", "host_only", "host_and_location"
     host_rotation: Optional[list[str]] = None
     host_addresses: Optional[dict[str, str]] = None
     description: Optional[str] = None
+
+    @field_validator('location_type')
+    @classmethod
+    def validate_location_type(cls, v):
+        """Reject deprecated 'rotation' location_type."""
+        if v == "rotation":
+            raise ValueError("location_type 'rotation' is no longer supported. Use 'fixed' or 'per_occurrence'.")
+        return v
 
     @field_validator('host_rotation')
     @classmethod
@@ -263,8 +270,7 @@ class UpdateSeriesRequest(BaseModel):
     default_duration_minutes: Optional[int] = None
     default_location: Optional[str] = None
     default_online_link: Optional[str] = None
-    location_type: Optional[str] = None  # "fixed", "per_occurrence", or "rotation"
-    location_rotation: Optional[list[str]] = None
+    location_type: Optional[str] = None  # "fixed" or "per_occurrence"
     check_in_weekdays: Optional[list[int]] = None
     rotation_mode: Optional[str] = None  # "none", "host_only", "host_and_location"
     host_rotation: Optional[list[str]] = None
@@ -272,6 +278,14 @@ class UpdateSeriesRequest(BaseModel):
     status: Optional[str] = None
     description: Optional[str] = None
     schedule_rule: Optional[ScheduleRuleIn] = None
+
+    @field_validator('location_type')
+    @classmethod
+    def validate_location_type(cls, v):
+        """Reject deprecated 'rotation' location_type."""
+        if v == "rotation":
+            raise ValueError("location_type 'rotation' is no longer supported. Use 'fixed' or 'per_occurrence'.")
+        return v
 
 
 class GenerateOccurrencesRequest(BaseModel):
@@ -516,7 +530,6 @@ def create_series(
         default_location=body.default_location,
         default_online_link=body.default_online_link,
         location_type=body.location_type or "fixed",
-        location_rotation=body.location_rotation,
         check_in_weekdays=body.check_in_weekdays,
         rotation_mode=body.rotation_mode,
         host_rotation=body.host_rotation,
@@ -584,7 +597,7 @@ def update_series(
     updates: dict = {}
     for field in ("kind", "title", "default_time", "default_duration_minutes",
                   "default_location", "default_online_link", "location_type",
-                  "location_rotation", "check_in_weekdays", "rotation_mode",
+                  "check_in_weekdays", "rotation_mode",
                   "host_rotation", "host_addresses", "status", "description"):
         val = getattr(body, field)
         if val is not None:
@@ -594,12 +607,6 @@ def update_series(
     if not updates:
         raise HTTPException(status_code=400, detail="No fields to update")
     updated = series_storage.update_series(series_id, updates)
-    # Re-apply rotation to future occurrences when rotation settings change
-    if "location_rotation" in updates or (
-        "location_type" in updates and updates["location_type"] == "rotation"
-    ):
-        from occurrence_service import apply_rotation
-        apply_rotation(series_id)
     if "check_in_weekdays" in updates:
         from occurrence_service import apply_check_in_days
         apply_check_in_days(series_id, ws.timezone)

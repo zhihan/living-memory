@@ -201,28 +201,39 @@ class _SeriesScreenState extends State<SeriesScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    initialValue: locationType,
-                    decoration:
-                        const InputDecoration(labelText: 'Location Type'),
-                    items: const [
-                      DropdownMenuItem(
-                          value: 'fixed', child: Text('Fixed')),
-                      DropdownMenuItem(
-                          value: 'per_occurrence',
-                          child: Text('Per Meeting')),
-                      DropdownMenuItem(
-                          value: 'rotation', child: Text('Rotation')),
+                  if (hostRotationMode == 'host_and_location') ...[
+                    InputDecorator(
+                      decoration:
+                          const InputDecoration(labelText: 'Location Type'),
+                      child: Text('Locations are set per host below.',
+                          style: TextStyle(
+                              fontSize: 13,
+                              color: Theme.of(ctx)
+                                  .colorScheme
+                                  .onSurfaceVariant)),
+                    ),
+                  ] else ...[
+                    DropdownButtonFormField<String>(
+                      initialValue: locationType,
+                      decoration:
+                          const InputDecoration(labelText: 'Location Type'),
+                      items: const [
+                        DropdownMenuItem(
+                            value: 'fixed', child: Text('Fixed')),
+                        DropdownMenuItem(
+                            value: 'per_occurrence',
+                            child: Text('Per Meeting')),
+                      ],
+                      onChanged: (v) =>
+                          setDialogState(() => locationType = v!),
+                    ),
+                    if (locationType == 'fixed') ...[
+                      const SizedBox(height: 12),
+                      TextField(
+                          controller: locationCtrl,
+                          decoration:
+                              const InputDecoration(labelText: 'Location')),
                     ],
-                    onChanged: (v) =>
-                        setDialogState(() => locationType = v!),
-                  ),
-                  if (locationType == 'fixed') ...[
-                    const SizedBox(height: 12),
-                    TextField(
-                        controller: locationCtrl,
-                        decoration:
-                            const InputDecoration(labelText: 'Location')),
                   ],
                   const SizedBox(height: 12),
                   TextField(
@@ -491,7 +502,7 @@ class _SeriesScreenState extends State<SeriesScreen> {
                   }
                   updates['check_in_weekdays'] = checkInWeekdays;
                   if (hostRotationMode != series.hostRotationMode) {
-                    updates['host_rotation_mode'] = hostRotationMode;
+                    updates['rotation_mode'] = hostRotationMode;
                   }
                   if (hostRotation != (series.hostRotation ?? [])) {
                     updates['host_rotation'] = hostRotation;
@@ -881,7 +892,24 @@ class _SeriesScreenState extends State<SeriesScreen> {
                       occ.effectiveTitle.isNotEmpty ? '$dateStr  $timeStr' : timeStr,
                       style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
                     ),
-                    if (occ.effectiveLocation != null) ...[
+                    if (_series?.hostRotationMode == 'host_and_location' &&
+                        occ.host != null) ...[
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Icon(Icons.person, size: 12, color: cs.primary),
+                          const SizedBox(width: 3),
+                          Expanded(
+                            child: Text(
+                                occ.effectiveLocation != null
+                                    ? '${occ.host!} · ${occ.effectiveLocation!}'
+                                    : occ.host!,
+                                style: TextStyle(fontSize: 12, color: cs.primary),
+                                overflow: TextOverflow.ellipsis),
+                          ),
+                        ],
+                      ),
+                    ] else if (occ.effectiveLocation != null) ...[
                       const SizedBox(height: 2),
                       Row(
                         children: [
@@ -939,7 +967,8 @@ class _SeriesScreenState extends State<SeriesScreen> {
                         child: Text('$dateStr  $timeStr',
                             style: TextStyle(fontSize: 13, color: cs.onSurface)),
                       ),
-                      if (occ.host != null) ...[
+                      if (occ.host != null &&
+                          _series?.hostRotationMode != 'host_and_location') ...[
                         Icon(Icons.person, size: 12, color: cs.primary),
                         const SizedBox(width: 4),
                         Text(occ.host!,
@@ -947,7 +976,25 @@ class _SeriesScreenState extends State<SeriesScreen> {
                       ],
                     ],
                   ),
-                  if (isEditingLoc)
+                  // In host+location mode, show host and location as paired unit
+                  if (_series?.hostRotationMode == 'host_and_location' &&
+                      occ.host != null)
+                    Row(
+                      children: [
+                        Icon(Icons.person, size: 12, color: cs.primary),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            occ.effectiveLocation != null
+                                ? '${occ.host!} · ${occ.effectiveLocation!}'
+                                : occ.host!,
+                            style: TextStyle(fontSize: 12, color: cs.primary),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    )
+                  else if (isEditingLoc)
                     SizedBox(
                       height: 32,
                       child: TextField(

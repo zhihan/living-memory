@@ -125,7 +125,6 @@ class _CreateSeriesDialogState extends State<CreateSeriesDialog> {
                 items: const [
                   DropdownMenuItem(value: 'fixed', child: Text('Fixed')),
                   DropdownMenuItem(value: 'per_occurrence', child: Text('Per Occurrence')),
-                  DropdownMenuItem(value: 'rotation', child: Text('Rotation')),
                 ],
                 onChanged: (v) => setState(() => _locationType = v!),
               ),

@@ -94,7 +94,7 @@ class Series {
       defaultDurationMinutes: json['default_duration_minutes'] as int?,
       defaultLocation: json['default_location'] as String?,
       defaultOnlineLink: json['default_online_link'] as String?,
-      locationType: json['location_type'] as String? ?? 'fixed',
+      locationType: _normalizeLocationType(json['location_type'] as String? ?? 'fixed'),
       locationRotation: json['location_rotation'] != null
           ? List<String>.from(json['location_rotation'])
           : null,
@@ -104,12 +104,17 @@ class Series {
           : null,
       description: json['description'] as String?,
       createdBy: json['created_by'] as String?,
-      hostRotationMode: json['host_rotation_mode'] as String? ?? 'none',
+      hostRotationMode: json['rotation_mode'] as String? ?? json['host_rotation_mode'] as String? ?? 'none',
       hostRotation: json['host_rotation'] != null
           ? List<String>.from(json['host_rotation'])
           : null,
       hostAddresses: addresses,
     );
+  }
+
+  static String _normalizeLocationType(String value) {
+    // "rotation" is deprecated; treat as "fixed" for backward compat
+    return value == 'rotation' ? 'fixed' : value;
   }
 
   String get scheduleDescription {

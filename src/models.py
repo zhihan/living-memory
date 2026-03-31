@@ -160,9 +160,8 @@ class Series:
     default_duration_minutes: int | None = None
     default_location: str | None = None
     default_online_link: str | None = None
-    # "fixed" = same location every time; "per_occurrence" = set per meeting;
-    # "rotation" = cycle through location_rotation list
-    location_type: Literal["fixed", "per_occurrence", "rotation"] = "fixed"
+    # "fixed" = same location every time; "per_occurrence" = set per meeting
+    location_type: Literal["fixed", "per_occurrence"] = "fixed"
     # Ordered list of locations for rotation mode
     location_rotation: list[str] | None = None
     status: SeriesStatus = "active"
@@ -215,7 +214,7 @@ class Series:
             default_duration_minutes=data.get("default_duration_minutes"),
             default_location=data.get("default_location"),
             default_online_link=data.get("default_online_link"),
-            location_type=data.get("location_type", "fixed"),
+            location_type="fixed" if data.get("location_type") == "rotation" else data.get("location_type", "fixed"),
             location_rotation=data.get("location_rotation"),
             status=data.get("status", "active"),
             check_in_weekdays=data.get("check_in_weekdays"),

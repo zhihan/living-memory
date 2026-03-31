@@ -65,7 +65,6 @@ export function SeriesView() {
   const [editDescription, setEditDescription] = useState("");
   const [editLocation, setEditLocation] = useState("");
   const [editLocationType, setEditLocationType] = useState<"fixed" | "per_occurrence" | "rotation">("fixed");
-  const [editRotation, setEditRotation] = useState<string[]>([]);
   const [editLink, setEditLink] = useState("");
   const [editTime, setEditTime] = useState("");
   const [editDuration, setEditDuration] = useState("");
@@ -150,7 +149,6 @@ export function SeriesView() {
     setEditDescription(series.description ?? "");
     setEditLocation(series.default_location ?? "");
     setEditLocationType(series.location_type ?? "fixed");
-    setEditRotation(series.location_rotation ?? []);
     setEditLink(series.default_online_link ?? "");
     setEditTime(series.default_time ?? "");
     setEditDuration(series.default_duration_minutes?.toString() ?? "");
@@ -196,9 +194,6 @@ export function SeriesView() {
         host_rotation: editRotationMode !== "none" ? editHostRotation.filter((h) => h.trim()) : undefined,
         host_addresses: editRotationMode === "host_and_location" ? editHostAddresses : undefined,
       };
-      if (editLocationType === "rotation") {
-        updates.location_rotation = editRotation.filter((s) => s.trim());
-      }
       const updated = await patchSeries(seriesId, updates);
       setSeries(updated);
       if (editExtendDate) {
@@ -371,36 +366,35 @@ export function SeriesView() {
               />
             </div>
           </div>
-          <div className="form-field">
-            <label>Location type</label>
-            <div className="visibility-toggle">
-              <button
-                type="button"
-                className={`btn btn-sm ${editLocationType === "fixed" ? "btn-primary" : "btn-secondary"}`}
-                onClick={() => setEditLocationType("fixed")}
-                disabled={editSubmitting}
-              >
-                Fixed
-              </button>
-              <button
-                type="button"
-                className={`btn btn-sm ${editLocationType === "rotation" ? "btn-primary" : "btn-secondary"}`}
-                onClick={() => setEditLocationType("rotation")}
-                disabled={editSubmitting}
-              >
-                Rotation
-              </button>
-              <button
-                type="button"
-                className={`btn btn-sm ${editLocationType === "per_occurrence" ? "btn-primary" : "btn-secondary"}`}
-                onClick={() => setEditLocationType("per_occurrence")}
-                disabled={editSubmitting}
-              >
-                Per meeting
-              </button>
+          {editRotationMode !== "host_and_location" && (
+            <div className="form-field">
+              <label>Location type</label>
+              <div className="visibility-toggle">
+                <button
+                  type="button"
+                  className={`btn btn-sm ${editLocationType === "fixed" ? "btn-primary" : "btn-secondary"}`}
+                  onClick={() => setEditLocationType("fixed")}
+                  disabled={editSubmitting}
+                >
+                  Fixed
+                </button>
+                <button
+                  type="button"
+                  className={`btn btn-sm ${editLocationType === "per_occurrence" ? "btn-primary" : "btn-secondary"}`}
+                  onClick={() => setEditLocationType("per_occurrence")}
+                  disabled={editSubmitting}
+                >
+                  Per meeting
+                </button>
+              </div>
             </div>
-          </div>
-          {editLocationType === "fixed" && (
+          )}
+          {editRotationMode === "host_and_location" && (
+            <div className="form-field">
+              <span className="form-hint">Locations are set per host below.</span>
+            </div>
+          )}
+          {editLocationType === "fixed" && editRotationMode !== "host_and_location" && (
             <div className="form-field">
               <label htmlFor="edit-location">Default location</label>
               <input
@@ -412,44 +406,6 @@ export function SeriesView() {
                 disabled={editSubmitting}
                 placeholder="Room or address"
               />
-            </div>
-          )}
-          {editLocationType === "rotation" && (
-            <div className="form-field">
-              <label>Rotation list</label>
-              {editRotation.map((loc, i) => (
-                <div key={i} className="rotation-row">
-                  <span className="rotation-index">{i + 1}.</span>
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={loc}
-                    onChange={(e) => {
-                      const next = [...editRotation];
-                      next[i] = e.target.value;
-                      setEditRotation(next);
-                    }}
-                    disabled={editSubmitting}
-                    placeholder="e.g. Alice's home"
-                  />
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-xs"
-                    onClick={() => setEditRotation(editRotation.filter((_, j) => j !== i))}
-                    disabled={editSubmitting}
-                  >
-                    &times;
-                  </button>
-                </div>
-              ))}
-              <button
-                type="button"
-                className="btn btn-secondary btn-xs"
-                onClick={() => setEditRotation([...editRotation, ""])}
-                disabled={editSubmitting}
-              >
-                + Add location
-              </button>
             </div>
           )}
           <div className="form-field">
@@ -748,57 +704,59 @@ export function SeriesView() {
                 <Link to={`/occurrences/${o.occurrence_id}`} className="upcoming-date">
                   {formatDate(o.scheduled_for)}
                 </Link>
-                {editingLocationId === o.occurrence_id ? (
-                  <input
-                    type="text"
-                    className="form-input form-input-sm upcoming-location-input"
-                    value={editingLocationValue}
-                    onChange={(e) => setEditingLocationValue(e.target.value)}
-                    autoFocus
-                    placeholder="Location"
-                    onBlur={async () => {
-                      const newLoc = editingLocationValue.trim();
-                      if (newLoc === (o.location ?? "")) {
+                {series?.rotation_mode !== "host_and_location" && (
+                  editingLocationId === o.occurrence_id ? (
+                    <input
+                      type="text"
+                      className="form-input form-input-sm upcoming-location-input"
+                      value={editingLocationValue}
+                      onChange={(e) => setEditingLocationValue(e.target.value)}
+                      autoFocus
+                      placeholder="Location"
+                      onBlur={async () => {
+                        const newLoc = editingLocationValue.trim();
+                        if (newLoc === (o.location ?? "")) {
+                          setEditingLocationId(null);
+                          return;
+                        }
+                        try {
+                          const updated = await patchOccurrence(o.occurrence_id, {
+                            location: newLoc || null,
+                          });
+                          setOccurrences((prev) =>
+                            prev?.map((x) => (x.occurrence_id === o.occurrence_id ? updated : x)) ?? null,
+                          );
+                        } catch (err) {
+                          alert(err instanceof Error ? err.message : "Failed to save");
+                        }
                         setEditingLocationId(null);
-                        return;
-                      }
-                      try {
-                        const updated = await patchOccurrence(o.occurrence_id, {
-                          location: newLoc || null,
-                        });
-                        setOccurrences((prev) =>
-                          prev?.map((x) => (x.occurrence_id === o.occurrence_id ? updated : x)) ?? null,
-                        );
-                      } catch (err) {
-                        alert(err instanceof Error ? err.message : "Failed to save");
-                      }
-                      setEditingLocationId(null);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-                      if (e.key === "Escape") setEditingLocationId(null);
-                    }}
-                  />
-                ) : (
-                  <span
-                    className="upcoming-location upcoming-location-clickable"
-                    onClick={() => {
-                      setEditingLocationId(o.occurrence_id);
-                      setEditingLocationValue(o.location ?? "");
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                        if (e.key === "Escape") setEditingLocationId(null);
+                      }}
+                    />
+                  ) : (
+                    <span
+                      className="upcoming-location upcoming-location-clickable"
+                      onClick={() => {
                         setEditingLocationId(o.occurrence_id);
                         setEditingLocationValue(o.location ?? "");
-                      }
-                    }}
-                    tabIndex={0}
-                    role="button"
-                    title="Click to edit"
-                  >
-                    {o.location || "—"}
-                  </span>
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setEditingLocationId(o.occurrence_id);
+                          setEditingLocationValue(o.location ?? "");
+                        }
+                      }}
+                      tabIndex={0}
+                      role="button"
+                      title="Click to edit"
+                    >
+                      {o.location || "—"}
+                    </span>
+                  )
                 )}
                 {editingHostId === o.occurrence_id ? (
                   <input
@@ -815,16 +773,28 @@ export function SeriesView() {
                         return;
                       }
                       try {
-                        const updated = await patchOccurrence(o.occurrence_id, {
+                        // Auto-sync location when host_and_location mode is active
+                        const patchPayload: Parameters<typeof patchOccurrence>[1] = {
                           host: newHost || null,
-                        });
+                        };
+                        const hostAddress =
+                          series?.rotation_mode === "host_and_location" && newHost
+                            ? series.host_addresses?.[newHost]
+                            : undefined;
+                        if (hostAddress) {
+                          patchPayload.location = hostAddress;
+                        }
+                        const updated = await patchOccurrence(o.occurrence_id, patchPayload);
                         setOccurrences((prev) =>
                           prev?.map((x) => (x.occurrence_id === o.occurrence_id ? updated : x)) ?? null,
                         );
                         // Show toast if series has rotation configured
                         if (series?.host_rotation && series.host_rotation.length > 0) {
+                          const toastMsg = hostAddress
+                            ? `Host updated to "${newHost}" · Location: ${hostAddress}`
+                            : `Host updated to "${newHost}"`;
                           setToast({
-                            message: `Host updated to "${newHost}"`,
+                            message: toastMsg,
                             action: {
                               label: "Continue rotation from here →",
                               onClick: async () => {
@@ -869,7 +839,11 @@ export function SeriesView() {
                     role="button"
                     title="Click to edit host"
                   >
-                    {o.host ? `Host: ${o.host}` : "Set host"}
+                    {o.host
+                      ? series?.rotation_mode === "host_and_location" && o.location
+                        ? `${o.host} · ${o.location}`
+                        : `Host: ${o.host}`
+                      : "Set host"}
                   </span>
                 )}
               </div>

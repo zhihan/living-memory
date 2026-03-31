@@ -30,13 +30,6 @@ from series_storage import (
 )
 
 
-def _rotation_location(series: Series, sequence_index: int) -> str | None:
-    """Return the rotation location for a given sequence index, or None."""
-    if series.location_type != "rotation" or not series.location_rotation:
-        return None
-    return series.location_rotation[sequence_index % len(series.location_rotation)]
-
-
 def _get_rotation_host(series: Series, sequence_index: int) -> str | None:
     """Return the host label for this occurrence based on rotation."""
     if not series.host_rotation or series.rotation_mode == "none":
@@ -101,8 +94,6 @@ def generate_and_save(
         if series.rotation_mode == "host_and_location" and host_label:
             # Look up host's address in the map, fall back to default
             loc = (series.host_addresses or {}).get(host_label) or series.default_location
-        elif series.location_type == "rotation":
-            loc = _rotation_location(series, seq)
         elif series.location_type == "fixed":
             loc = series.default_location
         else:
@@ -239,8 +230,6 @@ def regenerate_series(
             seq = base_seq + idx
             if series.location_type == "fixed":
                 loc = series.default_location
-            elif series.location_type == "rotation":
-                loc = _rotation_location(series, seq)
             else:
                 loc = None
             local_dt = utc_dt.astimezone(tz)
@@ -260,38 +249,6 @@ def regenerate_series(
         save_occurrences_batch(to_create)
 
     return {"created": len(to_create), "cancelled": cancelled}
-
-
-# ---------------------------------------------------------------------------
-# Rotation: re-apply location rotation to upcoming occurrences
-# ---------------------------------------------------------------------------
-
-def apply_rotation(series_id: str) -> int:
-    """Re-assign locations on all future 'scheduled' occurrences using the
-    series rotation list.  Returns the number of occurrences updated."""
-    series = get_series(series_id)
-    if series is None:
-        raise ValueError(f"Series not found: {series_id}")
-    if series.location_type != "rotation" or not series.location_rotation:
-        return 0
-
-    existing = list_occurrences_for_series(series_id)
-    now_iso = datetime.now(timezone.utc).isoformat()
-    future = [
-        o for o in existing
-        if o.status == "scheduled" and o.scheduled_for >= now_iso
-    ]
-    future.sort(key=lambda o: o.scheduled_for)
-
-    updated = 0
-    for occ in future:
-        if occ.sequence_index is None:
-            continue
-        new_loc = _rotation_location(series, occ.sequence_index)
-        if new_loc != occ.location:
-            update_occurrence(occ.occurrence_id, {"location": new_loc})
-            updated += 1
-    return updated
 
 
 # ---------------------------------------------------------------------------
