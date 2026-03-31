@@ -740,9 +740,9 @@ class _SeriesScreenState extends State<SeriesScreen> {
               Card(
                 clipBehavior: Clip.antiAlias,
                 child: Column(
-                  children: upcoming.skip(1).take(10).toList().asMap().entries.map((entry) {
+                  children: upcoming.skip(1).take(6).toList().asMap().entries.map((entry) {
                     final occ = entry.value;
-                    final isLast = entry.key == (upcoming.length - 2).clamp(0, 9);
+                    final isLast = entry.key == (upcoming.length - 2).clamp(0, 5);
                     return Column(
                       children: [
                         _occurrenceListItem(occ, cs),
@@ -935,6 +935,73 @@ class _SeriesScreenState extends State<SeriesScreen> {
     );
   }
 
+  Future<void> _showEditOccurrenceDialog(Occurrence occ) async {
+    final rotationMode = _series?.hostRotationMode ?? 'none';
+    final showHost = rotationMode == 'host_only' || rotationMode == 'host_and_location';
+    final showLocation = rotationMode == 'none' || rotationMode == 'per_occurrence' || rotationMode == 'host_and_location';
+
+    final hostCtrl = TextEditingController(text: occ.host ?? '');
+    final locCtrl = TextEditingController(text: occ.location ?? '');
+    final dt = occ.scheduledDateTime.toLocal();
+    final title = DateFormat('E, MMM d').format(dt);
+
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (showHost)
+              TextField(
+                controller: hostCtrl,
+                decoration: const InputDecoration(labelText: 'Host'),
+              ),
+            if (showHost && showLocation) const SizedBox(height: 12),
+            if (showLocation)
+              TextField(
+                controller: locCtrl,
+                decoration: const InputDecoration(labelText: 'Location'),
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final updates = <String, dynamic>{};
+              if (showHost) {
+                final h = hostCtrl.text.trim();
+                updates['host'] = h.isNotEmpty ? h : null;
+              }
+              if (showLocation) {
+                final l = locCtrl.text.trim();
+                updates['location'] = l.isNotEmpty ? l : null;
+              }
+              Navigator.pop(ctx, updates);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == null || result.isEmpty) return;
+    try {
+      await context.read<ApiService>().updateOccurrence(
+          occ.occurrenceId, result);
+      _load();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
   Widget _occurrenceListItem(Occurrence occ, ColorScheme cs) {
     final dt = occ.scheduledDateTime.toLocal();
     final dateStr = DateFormat('E, MMM d').format(dt);
@@ -1036,7 +1103,16 @@ class _SeriesScreenState extends State<SeriesScreen> {
                 ],
               ),
             ),
-            Icon(Icons.chevron_right, size: 18, color: cs.onSurfaceVariant),
+            if (_canManage)
+              IconButton(
+                icon: Icon(Icons.edit_outlined, size: 20, color: cs.onSurfaceVariant),
+                onPressed: () => _showEditOccurrenceDialog(occ),
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              )
+            else
+              Icon(Icons.chevron_right, size: 18, color: cs.onSurfaceVariant),
           ],
         ),
       ),

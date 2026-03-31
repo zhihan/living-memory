@@ -643,8 +643,145 @@ export function SeriesView() {
               <Link to={`/occurrences/${next.occurrence_id}`} className="meeting-card-date">
                 {formatDate(next.scheduled_for)}
               </Link>
-              {(next.location ?? next.overrides?.location) && (
-                <span className="meeting-card-location">{next.location ?? next.overrides?.location}</span>
+              {series?.rotation_mode !== "host_and_location" && (
+                editingLocationId === next.occurrence_id ? (
+                  <input
+                    type="text"
+                    className="form-input form-input-sm upcoming-location-input"
+                    value={editingLocationValue}
+                    onChange={(e) => setEditingLocationValue(e.target.value)}
+                    autoFocus
+                    placeholder="Location"
+                    onBlur={async () => {
+                      const newLoc = editingLocationValue.trim();
+                      if (newLoc === (next.location ?? "")) {
+                        setEditingLocationId(null);
+                        return;
+                      }
+                      try {
+                        const updated = await patchOccurrence(next.occurrence_id, {
+                          location: newLoc || null,
+                        });
+                        setOccurrences((prev) =>
+                          prev?.map((x) => (x.occurrence_id === next.occurrence_id ? updated : x)) ?? null,
+                        );
+                      } catch (err) {
+                        alert(err instanceof Error ? err.message : "Failed to save");
+                      }
+                      setEditingLocationId(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                      if (e.key === "Escape") setEditingLocationId(null);
+                    }}
+                  />
+                ) : (
+                  <span
+                    className="meeting-card-location upcoming-location-clickable"
+                    onClick={() => {
+                      setEditingLocationId(next.occurrence_id);
+                      setEditingLocationValue(next.location ?? "");
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setEditingLocationId(next.occurrence_id);
+                        setEditingLocationValue(next.location ?? "");
+                      }
+                    }}
+                    tabIndex={0}
+                    role="button"
+                    title="Click to edit"
+                  >
+                    {next.location || "Set location"}
+                  </span>
+                )
+              )}
+              {editingHostId === next.occurrence_id ? (
+                <input
+                  type="text"
+                  className="form-input form-input-sm upcoming-host-input"
+                  value={editingHostValue}
+                  onChange={(e) => setEditingHostValue(e.target.value)}
+                  autoFocus
+                  placeholder="Host"
+                  onBlur={async () => {
+                    const newHost = editingHostValue.trim();
+                    if (newHost === (next.host ?? "")) {
+                      setEditingHostId(null);
+                      return;
+                    }
+                    try {
+                      const patchPayload: Parameters<typeof patchOccurrence>[1] = {
+                        host: newHost || null,
+                      };
+                      const hostAddress =
+                        series?.rotation_mode === "host_and_location" && newHost
+                          ? series.host_addresses?.[newHost]
+                          : undefined;
+                      if (hostAddress) {
+                        patchPayload.location = hostAddress;
+                      }
+                      const updated = await patchOccurrence(next.occurrence_id, patchPayload);
+                      setOccurrences((prev) =>
+                        prev?.map((x) => (x.occurrence_id === next.occurrence_id ? updated : x)) ?? null,
+                      );
+                      if (series?.host_rotation && series.host_rotation.length > 0) {
+                        const toastMsg = hostAddress
+                          ? `Host updated to "${newHost}" · Location: ${hostAddress}`
+                          : `Host updated to "${newHost}"`;
+                        setToast({
+                          message: toastMsg,
+                          action: {
+                            label: "Continue rotation from here →",
+                            onClick: async () => {
+                              try {
+                                const result = await regenerateRotationFrom(seriesId!, next.occurrence_id);
+                                await load();
+                                setToast({
+                                  message: `Updated ${result.updated_count} upcoming occurrences`,
+                                });
+                              } catch (err) {
+                                alert(err instanceof Error ? err.message : "Failed to regenerate rotation");
+                              }
+                            },
+                          },
+                        });
+                      }
+                    } catch (err) {
+                      alert(err instanceof Error ? err.message : "Failed to save");
+                    }
+                    setEditingHostId(null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                    if (e.key === "Escape") setEditingHostId(null);
+                  }}
+                />
+              ) : (
+                <span
+                  className="upcoming-host upcoming-host-clickable"
+                  onClick={() => {
+                    setEditingHostId(next.occurrence_id);
+                    setEditingHostValue(next.host ?? "");
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setEditingHostId(next.occurrence_id);
+                      setEditingHostValue(next.host ?? "");
+                    }
+                  }}
+                  tabIndex={0}
+                  role="button"
+                  title="Click to edit host"
+                >
+                  {next.host
+                    ? series?.rotation_mode === "host_and_location" && next.location
+                      ? `${next.host} · ${next.location}`
+                      : `Host: ${next.host}`
+                    : "Set host"}
+                </span>
               )}
               {editingAgenda ? (
                 <div className="next-meeting-edit">
@@ -699,7 +836,7 @@ export function SeriesView() {
         {upcoming.length > 1 && (
           <div className="upcoming-list">
             <h3 className="upcoming-list-heading">Upcoming</h3>
-            {upcoming.slice(1, 11).map((o) => (
+            {upcoming.slice(1, 7).map((o) => (
               <div key={o.occurrence_id} className="upcoming-row">
                 <Link to={`/occurrences/${o.occurrence_id}`} className="upcoming-date">
                   {formatDate(o.scheduled_for)}
