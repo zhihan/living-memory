@@ -159,6 +159,7 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
 
     final ws = _workspace!;
     final series = _series ?? [];
+    final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
@@ -176,76 +177,239 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
+          padding: const EdgeInsets.fromLTRB(12, 4, 12, 80),
           children: [
             // Workspace info
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Timezone: ${ws.timezone}',
-                      style: Theme.of(context).textTheme.bodyMedium),
-                  if (ws.description != null && ws.description!.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(ws.description!),
-                    ),
-                ],
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Row(
+                  children: [
+                    Icon(Icons.public, size: 16, color: cs.onSurfaceVariant),
+                    const SizedBox(width: 8),
+                    Text(ws.timezone,
+                        style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+                    const Spacer(),
+                    Icon(Icons.people_outline, size: 16, color: cs.onSurfaceVariant),
+                    const SizedBox(width: 6),
+                    Text('${ws.memberRoles.length} members',
+                        style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+                  ],
+                ),
               ),
             ),
+            if (ws.description != null && ws.description!.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Text(ws.description!,
+                      style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+                ),
+              ),
+            ],
 
             // Members section
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Text('Members',
-                      style: Theme.of(context).textTheme.titleMedium),
-                  const Spacer(),
-                  if (_isOrganizer(ws))
-                    TextButton.icon(
+            const SizedBox(height: 16),
+            _SectionHeader(
+              icon: Icons.people_outline,
+              title: 'Members',
+              trailing: _isOrganizer(ws)
+                  ? TextButton.icon(
                       onPressed: _createInvite,
-                      icon: const Icon(Icons.person_add, size: 18),
+                      icon: const Icon(Icons.person_add, size: 16),
                       label: const Text('Invite'),
-                    ),
+                      style: TextButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        textStyle: const TextStyle(fontSize: 13),
+                      ),
+                    )
+                  : null,
+            ),
+            const SizedBox(height: 6),
+            Card(
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                children: [
+                  ...ws.memberRoles.entries.toList().asMap().entries.map((entry) {
+                    final e = entry.value;
+                    final isLast = entry.key == ws.memberRoles.length - 1;
+                    final profile = ws.memberProfiles[e.key];
+                    final name = profile?['display_name'] ?? e.key.substring(0, 8);
+                    final isMe = e.key == _uid;
+                    return Column(
+                      children: [
+                        ListTile(
+                          leading: CircleAvatar(
+                            radius: 16,
+                            backgroundColor: cs.primaryContainer,
+                            child: Text(
+                              (name as String).isNotEmpty ? name[0].toUpperCase() : '?',
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: cs.onPrimaryContainer),
+                            ),
+                          ),
+                          title: Text(isMe ? '$name (You)' : name,
+                              style: const TextStyle(fontSize: 14)),
+                          trailing: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: e.value == 'organizer'
+                                  ? cs.primaryContainer
+                                  : cs.surfaceContainerHighest,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(e.value,
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    color: e.value == 'organizer'
+                                        ? cs.onPrimaryContainer
+                                        : cs.onSurfaceVariant)),
+                          ),
+                        ),
+                        if (!isLast)
+                          Divider(height: 1, indent: 56,
+                              color: cs.outlineVariant.withValues(alpha: 0.4)),
+                      ],
+                    );
+                  }),
                 ],
               ),
             ),
-            ...ws.memberRoles.entries.map((e) {
-              final profile = ws.memberProfiles[e.key];
-              final name = profile?['display_name'] ?? e.key.substring(0, 8);
-              return ListTile(
-                dense: true,
-                leading: const Icon(Icons.person, size: 20),
-                title: Text(name),
-                trailing: Chip(
-                  label: Text(e.value, style: const TextStyle(fontSize: 11)),
-                  visualDensity: VisualDensity.compact,
-                ),
-              );
-            }),
-
-            const Divider(),
 
             // Series section
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Text('Series',
-                  style: Theme.of(context).textTheme.titleMedium),
-            ),
+            const SizedBox(height: 16),
+            _SectionHeader(icon: Icons.event_repeat, title: 'Series'),
+            const SizedBox(height: 6),
             if (series.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(16),
-                child: Text('No series yet.'),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Center(
+                    child: Column(
+                      children: [
+                        Icon(Icons.event_note, size: 32, color: cs.onSurfaceVariant),
+                        const SizedBox(height: 8),
+                        Text('No series yet',
+                            style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-            ...series.map((s) => ListTile(
-                  title: Text(s.title),
-                  subtitle: Text(s.scheduleDescription),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.push('/series/${s.seriesId}'),
+            ...series.map((s) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _seriesCard(s, cs),
                 )),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _seriesCard(Series s, ColorScheme cs) {
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => context.push('/series/${s.seriesId}'),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(s.title,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 15)),
+                  ),
+                  Icon(Icons.chevron_right, size: 20, color: cs.onSurfaceVariant),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Icon(Icons.schedule, size: 14, color: cs.onSurfaceVariant),
+                  const SizedBox(width: 4),
+                  Text(s.scheduleDescription,
+                      style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+                  if (s.defaultTime != null) ...[
+                    Text(' at ${s.defaultTime}',
+                        style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+                  ],
+                ],
+              ),
+              if (s.defaultLocation != null || s.defaultOnlineLink != null) ...[
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Icon(
+                      s.defaultLocation != null
+                          ? Icons.location_on_outlined
+                          : Icons.link,
+                      size: 14,
+                      color: cs.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        s.defaultLocation ?? 'Online',
+                        style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              if (s.description != null && s.description!.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(s.description!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final Widget? trailing;
+
+  const _SectionHeader({
+    required this.icon,
+    required this.title,
+    this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: cs.onSurfaceVariant),
+          const SizedBox(width: 6),
+          Text(title,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.5,
+                color: cs.onSurfaceVariant,
+              )),
+          const Spacer(),
+          if (trailing != null) trailing!,
+        ],
       ),
     );
   }

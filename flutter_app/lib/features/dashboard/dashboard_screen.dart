@@ -83,6 +83,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
+            tooltip: 'Sign out',
             onPressed: () => context.read<AuthService>().signOut(),
           ),
         ],
@@ -113,19 +114,96 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
     final workspaces = _workspaces ?? [];
     if (workspaces.isEmpty) {
-      return const Center(child: Text('No workspaces yet. Tap + to create one.'));
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.workspaces_outlined,
+                size: 48, color: Theme.of(context).colorScheme.onSurfaceVariant),
+            const SizedBox(height: 12),
+            Text('No workspaces yet',
+                style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 4),
+            Text('Tap + to create one',
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+          ],
+        ),
+      );
     }
     return RefreshIndicator(
       onRefresh: _load,
-      child: ListView.builder(
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 80),
         itemCount: workspaces.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 8),
         itemBuilder: (context, index) {
           final ws = workspaces[index];
-          return ListTile(
-            title: Text(ws.title),
-            subtitle: Text(ws.timezone),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/workspaces/${ws.workspaceId}'),
+          final memberCount = ws.memberRoles.length;
+          final colors = [
+            Colors.indigo,
+            Colors.teal,
+            Colors.deepOrange,
+            Colors.purple,
+            Colors.blue,
+          ];
+          final color = colors[index % colors.length];
+          return Card(
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: () => context.push('/workspaces/${ws.workspaceId}'),
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: color.withValues(alpha: 0.12),
+                      radius: 22,
+                      child: Text(
+                        ws.title.isNotEmpty ? ws.title[0].toUpperCase() : '?',
+                        style: TextStyle(
+                          color: color,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 18,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(ws.title,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w600, fontSize: 15)),
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              Icon(Icons.public, size: 13,
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant),
+                              const SizedBox(width: 4),
+                              Text(ws.timezone,
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                              const SizedBox(width: 12),
+                              Icon(Icons.people_outline, size: 13,
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant),
+                              const SizedBox(width: 4),
+                              Text('$memberCount',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.chevron_right,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  ],
+                ),
+              ),
+            ),
           );
         },
       ),
