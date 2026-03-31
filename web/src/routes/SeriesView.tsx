@@ -691,87 +691,89 @@ export function SeriesView() {
                   {next.location || "Set location"}
                 </span>
               )}
-              {editingHostId === next.occurrence_id ? (
-                <input
-                  type="text"
-                  className="form-input form-input-sm upcoming-host-input"
-                  value={editingHostValue}
-                  onChange={(e) => setEditingHostValue(e.target.value)}
-                  autoFocus
-                  placeholder="Host"
-                  onBlur={async () => {
-                    const newHost = editingHostValue.trim();
-                    if (newHost === (next.host ?? "")) {
-                      setEditingHostId(null);
-                      return;
-                    }
-                    try {
-                      const patchPayload: Parameters<typeof patchOccurrence>[1] = {
-                        host: newHost || null,
-                      };
-                      const hostAddress =
-                        series?.rotation_mode === "host_and_location" && newHost
-                          ? series.host_addresses?.[newHost]
-                          : undefined;
-                      if (hostAddress) {
-                        patchPayload.location = hostAddress;
+              {series?.rotation_mode && series.rotation_mode !== "none" && (
+                editingHostId === next.occurrence_id ? (
+                  <input
+                    type="text"
+                    className="form-input form-input-sm upcoming-host-input"
+                    value={editingHostValue}
+                    onChange={(e) => setEditingHostValue(e.target.value)}
+                    autoFocus
+                    placeholder="Host"
+                    onBlur={async () => {
+                      const newHost = editingHostValue.trim();
+                      if (newHost === (next.host ?? "")) {
+                        setEditingHostId(null);
+                        return;
                       }
-                      const updated = await patchOccurrence(next.occurrence_id, patchPayload);
-                      setOccurrences((prev) =>
-                        prev?.map((x) => (x.occurrence_id === next.occurrence_id ? updated : x)) ?? null,
-                      );
-                      if (series?.host_rotation && series.host_rotation.length > 0) {
-                        const toastMsg = hostAddress
-                          ? `Host updated to "${newHost}" · Location: ${hostAddress}`
-                          : `Host updated to "${newHost}"`;
-                        setToast({
-                          message: toastMsg,
-                          action: {
-                            label: "Continue rotation from here →",
-                            onClick: async () => {
-                              try {
-                                const result = await regenerateRotationFrom(seriesId!, next.occurrence_id);
-                                await load();
-                                setToast({
-                                  message: `Updated ${result.updated_count} upcoming occurrences`,
-                                });
-                              } catch (err) {
-                                alert(err instanceof Error ? err.message : "Failed to regenerate rotation");
-                              }
+                      try {
+                        const patchPayload: Parameters<typeof patchOccurrence>[1] = {
+                          host: newHost || null,
+                        };
+                        const hostAddress =
+                          series?.rotation_mode === "host_and_location" && newHost
+                            ? series.host_addresses?.[newHost]
+                            : undefined;
+                        if (hostAddress) {
+                          patchPayload.location = hostAddress;
+                        }
+                        const updated = await patchOccurrence(next.occurrence_id, patchPayload);
+                        setOccurrences((prev) =>
+                          prev?.map((x) => (x.occurrence_id === next.occurrence_id ? updated : x)) ?? null,
+                        );
+                        if (series?.host_rotation && series.host_rotation.length > 0) {
+                          const toastMsg = hostAddress
+                            ? `Host updated to "${newHost}" · Location: ${hostAddress}`
+                            : `Host updated to "${newHost}"`;
+                          setToast({
+                            message: toastMsg,
+                            action: {
+                              label: "Continue rotation from here →",
+                              onClick: async () => {
+                                try {
+                                  const result = await regenerateRotationFrom(seriesId!, next.occurrence_id);
+                                  await load();
+                                  setToast({
+                                    message: `Updated ${result.updated_count} upcoming occurrences`,
+                                  });
+                                } catch (err) {
+                                  alert(err instanceof Error ? err.message : "Failed to regenerate rotation");
+                                }
+                              },
                             },
-                          },
-                        });
+                          });
+                        }
+                      } catch (err) {
+                        alert(err instanceof Error ? err.message : "Failed to save");
                       }
-                    } catch (err) {
-                      alert(err instanceof Error ? err.message : "Failed to save");
-                    }
-                    setEditingHostId(null);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-                    if (e.key === "Escape") setEditingHostId(null);
-                  }}
-                />
-              ) : (
-                <span
-                  className="upcoming-host upcoming-host-clickable"
-                  onClick={() => {
-                    setEditingHostId(next.occurrence_id);
-                    setEditingHostValue(next.host ?? "");
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
+                      setEditingHostId(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                      if (e.key === "Escape") setEditingHostId(null);
+                    }}
+                  />
+                ) : (
+                  <span
+                    className="upcoming-host upcoming-host-clickable"
+                    onClick={() => {
                       setEditingHostId(next.occurrence_id);
                       setEditingHostValue(next.host ?? "");
-                    }
-                  }}
-                  tabIndex={0}
-                  role="button"
-                  title="Click to edit host"
-                >
-                  {next.host ? `Host: ${next.host}` : "Set host"}
-                </span>
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setEditingHostId(next.occurrence_id);
+                        setEditingHostValue(next.host ?? "");
+                      }
+                    }}
+                    tabIndex={0}
+                    role="button"
+                    title="Click to edit host"
+                  >
+                    {next.host ? `Host: ${next.host}` : "Set host"}
+                  </span>
+                )
               )}
               {editingAgenda ? (
                 <div className="next-meeting-edit">
@@ -883,89 +885,91 @@ export function SeriesView() {
                     {o.location || "—"}
                   </span>
                 )}
-                {editingHostId === o.occurrence_id ? (
-                  <input
-                    type="text"
-                    className="form-input form-input-sm upcoming-host-input"
-                    value={editingHostValue}
-                    onChange={(e) => setEditingHostValue(e.target.value)}
-                    autoFocus
-                    placeholder="Host"
-                    onBlur={async () => {
-                      const newHost = editingHostValue.trim();
-                      if (newHost === (o.host ?? "")) {
-                        setEditingHostId(null);
-                        return;
-                      }
-                      try {
-                        // Auto-sync location when host_and_location mode is active
-                        const patchPayload: Parameters<typeof patchOccurrence>[1] = {
-                          host: newHost || null,
-                        };
-                        const hostAddress =
-                          series?.rotation_mode === "host_and_location" && newHost
-                            ? series.host_addresses?.[newHost]
-                            : undefined;
-                        if (hostAddress) {
-                          patchPayload.location = hostAddress;
+                {series?.rotation_mode && series.rotation_mode !== "none" && (
+                  editingHostId === o.occurrence_id ? (
+                    <input
+                      type="text"
+                      className="form-input form-input-sm upcoming-host-input"
+                      value={editingHostValue}
+                      onChange={(e) => setEditingHostValue(e.target.value)}
+                      autoFocus
+                      placeholder="Host"
+                      onBlur={async () => {
+                        const newHost = editingHostValue.trim();
+                        if (newHost === (o.host ?? "")) {
+                          setEditingHostId(null);
+                          return;
                         }
-                        const updated = await patchOccurrence(o.occurrence_id, patchPayload);
-                        setOccurrences((prev) =>
-                          prev?.map((x) => (x.occurrence_id === o.occurrence_id ? updated : x)) ?? null,
-                        );
-                        // Show toast if series has rotation configured
-                        if (series?.host_rotation && series.host_rotation.length > 0) {
-                          const toastMsg = hostAddress
-                            ? `Host updated to "${newHost}" · Location: ${hostAddress}`
-                            : `Host updated to "${newHost}"`;
-                          setToast({
-                            message: toastMsg,
-                            action: {
-                              label: "Continue rotation from here →",
-                              onClick: async () => {
-                                try {
-                                  const result = await regenerateRotationFrom(seriesId!, o.occurrence_id);
-                                  await load();
-                                  setToast({
-                                    message: `Updated ${result.updated_count} upcoming occurrences`,
-                                  });
-                                } catch (err) {
-                                  alert(err instanceof Error ? err.message : "Failed to regenerate rotation");
-                                }
+                        try {
+                          // Auto-sync location when host_and_location mode is active
+                          const patchPayload: Parameters<typeof patchOccurrence>[1] = {
+                            host: newHost || null,
+                          };
+                          const hostAddress =
+                            series?.rotation_mode === "host_and_location" && newHost
+                              ? series.host_addresses?.[newHost]
+                              : undefined;
+                          if (hostAddress) {
+                            patchPayload.location = hostAddress;
+                          }
+                          const updated = await patchOccurrence(o.occurrence_id, patchPayload);
+                          setOccurrences((prev) =>
+                            prev?.map((x) => (x.occurrence_id === o.occurrence_id ? updated : x)) ?? null,
+                          );
+                          // Show toast if series has rotation configured
+                          if (series?.host_rotation && series.host_rotation.length > 0) {
+                            const toastMsg = hostAddress
+                              ? `Host updated to "${newHost}" · Location: ${hostAddress}`
+                              : `Host updated to "${newHost}"`;
+                            setToast({
+                              message: toastMsg,
+                              action: {
+                                label: "Continue rotation from here →",
+                                onClick: async () => {
+                                  try {
+                                    const result = await regenerateRotationFrom(seriesId!, o.occurrence_id);
+                                    await load();
+                                    setToast({
+                                      message: `Updated ${result.updated_count} upcoming occurrences`,
+                                    });
+                                  } catch (err) {
+                                    alert(err instanceof Error ? err.message : "Failed to regenerate rotation");
+                                  }
+                                },
                               },
-                            },
-                          });
+                            });
+                          }
+                        } catch (err) {
+                          alert(err instanceof Error ? err.message : "Failed to save");
                         }
-                      } catch (err) {
-                        alert(err instanceof Error ? err.message : "Failed to save");
-                      }
-                      setEditingHostId(null);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-                      if (e.key === "Escape") setEditingHostId(null);
-                    }}
-                  />
-                ) : (
-                  <span
-                    className="upcoming-host upcoming-host-clickable"
-                    onClick={() => {
-                      setEditingHostId(o.occurrence_id);
-                      setEditingHostValue(o.host ?? "");
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
+                        setEditingHostId(null);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                        if (e.key === "Escape") setEditingHostId(null);
+                      }}
+                    />
+                  ) : (
+                    <span
+                      className="upcoming-host upcoming-host-clickable"
+                      onClick={() => {
                         setEditingHostId(o.occurrence_id);
                         setEditingHostValue(o.host ?? "");
-                      }
-                    }}
-                    tabIndex={0}
-                    role="button"
-                    title="Click to edit host"
-                  >
-                    {o.host ? `Host: ${o.host}` : "Set host"}
-                  </span>
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setEditingHostId(o.occurrence_id);
+                          setEditingHostValue(o.host ?? "");
+                        }
+                      }}
+                      tabIndex={0}
+                      role="button"
+                      title="Click to edit host"
+                    >
+                      {o.host ? `Host: ${o.host}` : "Set host"}
+                    </span>
+                  )
                 )}
               </div>
             ))}

@@ -1014,6 +1014,7 @@ class _SeriesScreenState extends State<SeriesScreen> {
                             style: TextStyle(fontSize: 13, color: cs.onSurface)),
                       ),
                       if (occ.host != null &&
+                          _series?.hostRotationMode != 'none' &&
                           _series?.hostRotationMode != 'host_and_location') ...[
                         Icon(Icons.person, size: 12, color: cs.primary),
                         const SizedBox(width: 4),
