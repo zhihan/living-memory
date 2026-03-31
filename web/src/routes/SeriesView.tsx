@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import {
   getSeries,
   getSeriesOccurrences,
   getSeriesCheckInReport,
   patchSeries,
+  deleteSeries,
   patchOccurrence,
   generateOccurrences,
   type SeriesSummary,
@@ -49,6 +50,7 @@ export function SeriesView() {
     workspaceId: string;
     seriesId: string;
   }>();
+  const navigate = useNavigate();
 
   const [series, setSeries] = useState<SeriesSummary | null>(null);
   const [occurrences, setOccurrences] = useState<OccurrenceSummary[] | null>(null);
@@ -230,13 +232,25 @@ export function SeriesView() {
             &larr; Workspace
           </Link>
           {!editing && (
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={startEdit}
-            >
-              Edit
-            </button>
+            <div style={{ display: "flex", gap: 4 }}>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={startEdit}
+              >
+                Edit
+              </button>
+              <button
+                className="btn btn-sm btn-danger"
+                onClick={async () => {
+                  if (!confirm("Delete this series and all its occurrences? This cannot be undone.")) return;
+                  await deleteSeries(seriesId!);
+                  navigate(`/w/${workspaceId}`);
+                }}
+              >
+                Delete
+              </button>
+            </div>
           )}
         </div>
         <h1 className="page-title">

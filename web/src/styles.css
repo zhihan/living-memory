@@ -119,6 +119,14 @@ body {
 
 .btn-secondary:hover:not(:disabled) { background: rgba(63,81,181,0.06); }
 
+.btn-danger {
+  background: var(--error);
+  color: #ffffff;
+  border-color: var(--error);
+}
+
+.btn-danger:hover:not(:disabled) { background: #9a1f17; }
+
 .btn-sm { padding: 4px 12px; font-size: 0.8rem; }
 .btn-xs { padding: 2px 8px; font-size: 0.75rem; }
 

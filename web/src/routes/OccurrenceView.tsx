@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import {
   getOccurrence,
   getSeries,
@@ -9,6 +9,7 @@ import {
   getOccurrenceCheckIns,
   getMyOccurrenceCheckIn,
   deleteCheckIn,
+  deleteOccurrence,
   type OccurrenceSummary,
   type SeriesSummary,
   type OccurrenceOverrides,
@@ -34,6 +35,7 @@ function formatDate(iso: string, timezone?: string): string {
 
 export function OccurrenceView() {
   const { occurrenceId } = useParams<{ occurrenceId: string }>();
+  const navigate = useNavigate();
 
   const { user } = useAuth();
 
@@ -217,6 +219,18 @@ export function OccurrenceView() {
             />
             <span>Enable self-practice check-in</span>
           </label>
+          <div style={{ marginTop: 8 }}>
+            <button
+              className="btn btn-sm btn-danger"
+              onClick={async () => {
+                if (!confirm("Delete this occurrence? This cannot be undone.")) return;
+                await deleteOccurrence(occ.occurrence_id);
+                navigate(`/w/${occ.workspace_id}/series/${occ.series_id}`);
+              }}
+            >
+              Delete occurrence
+            </button>
+          </div>
         </section>
       )}
 

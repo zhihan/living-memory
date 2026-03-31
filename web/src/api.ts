@@ -317,6 +317,18 @@ export async function deleteCheckIn(checkInId: string): Promise<void> {
   await apiFetch(`/v2/check-ins/${checkInId}`, { method: "DELETE" });
 }
 
+export async function deleteOccurrence(occurrenceId: string): Promise<void> {
+  await apiFetch(`/v2/occurrences/${occurrenceId}`, { method: "DELETE" });
+}
+
+export async function deleteSeries(seriesId: string): Promise<void> {
+  await apiFetch(`/v2/series/${seriesId}`, { method: "DELETE" });
+}
+
+export async function deleteWorkspace(workspaceId: string): Promise<void> {
+  await apiFetch(`/v2/workspaces/${workspaceId}`, { method: "DELETE" });
+}
+
 // --- Members & Invites ---
 
 export async function getWorkspaceMembers(

@@ -8,6 +8,7 @@ import {
   removeMember,
   createSeries,
   patchWorkspace,
+  deleteWorkspace,
   type WorkspaceSummary,
   type SeriesSummary,
   type ScheduleRule,
@@ -585,6 +586,24 @@ export function WorkspaceView() {
           </div>
         )}
       </section>
+
+      {isOrganizer && (
+        <section className="section">
+          <div className="section-header">
+            <h2>Danger Zone</h2>
+          </div>
+          <button
+            className="btn btn-sm btn-danger"
+            onClick={async () => {
+              if (!confirm("Delete this workspace and all its data? This cannot be undone.")) return;
+              await deleteWorkspace(workspaceId!);
+              navigate("/");
+            }}
+          >
+            Delete workspace
+          </button>
+        </section>
+      )}
 
     </div>
   );
