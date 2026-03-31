@@ -7,7 +7,7 @@ export function NavBar() {
   return (
     <nav className="navbar">
       <Link to="/dashboard" className="navbar-brand">
-        Meeting Assistant
+        Event Ledger
       </Link>
       {user && (
         <div className="navbar-user">

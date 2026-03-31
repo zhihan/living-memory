@@ -32,28 +32,29 @@ export function AcceptInvite() {
 
   if (error) {
     return (
-      <div className="workspace-view" style={{ textAlign: "center", paddingTop: "4rem" }}>
+      <div className="invite-page">
         <h2>Invite Error</h2>
         <p className="form-error">{error}</p>
-        <button className="btn btn-primary btn-sm" onClick={doAccept}>
-          Retry
-        </button>
-        <button
-          className="btn btn-secondary btn-sm"
-          style={{ marginLeft: "0.5rem" }}
-          onClick={() => navigate("/dashboard")}
-        >
-          Go to Dashboard
-        </button>
+        <div className="invite-actions">
+          <button className="btn btn-primary btn-sm" onClick={doAccept}>
+            Retry
+          </button>
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => navigate("/dashboard")}
+          >
+            Go to Dashboard
+          </button>
+        </div>
       </div>
     );
   }
 
   if (!started) {
     return (
-      <div className="workspace-view" style={{ textAlign: "center", paddingTop: "4rem" }}>
+      <div className="invite-page">
         <h2>You've been invited!</h2>
-        <p style={{ margin: "1rem 0", color: "var(--muted)" }}>Click below to join this workspace.</p>
+        <p>Click below to join this workspace.</p>
         <button className="btn btn-primary" onClick={doAccept}>
           Accept Invite
         </button>

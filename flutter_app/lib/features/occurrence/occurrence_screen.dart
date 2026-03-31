@@ -229,13 +229,14 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
 
     final occ = _occurrence!;
     final series = _series!;
+    final cs = Theme.of(context).colorScheme;
     final dt = occ.scheduledDateTime.toLocal();
-    final formatted = DateFormat('EEEE, MMM d, yyyy  HH:mm').format(dt);
     final effectiveLocation = occ.effectiveLocation ?? series.defaultLocation;
     final effectiveLink =
         occ.effectiveOnlineLink ?? series.defaultOnlineLink;
     final duration =
         occ.overrides?.durationMinutes ?? series.defaultDurationMinutes;
+    final statusColor = _statusColorFor(occ.status);
 
     return Scaffold(
       appBar: AppBar(
@@ -251,20 +252,68 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
           children: [
-            // Date & time
+            // Date hero card
             Card(
               child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                padding: const EdgeInsets.all(14),
+                child: Row(
                   children: [
-                    Text(formatted,
-                        style: Theme.of(context).textTheme.titleMedium),
-                    if (duration != null) Text('Duration: $duration min'),
-                    const SizedBox(height: 8),
-                    _statusChip(occ.status),
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: cs.primaryContainer,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(DateFormat('d').format(dt),
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 20,
+                                  color: cs.onPrimaryContainer)),
+                          Text(DateFormat('MMM').format(dt),
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  color: cs.onPrimaryContainer)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(DateFormat('EEEE').format(dt),
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w600, fontSize: 15)),
+                          Text(DateFormat('MMM d, yyyy  HH:mm').format(dt),
+                              style: TextStyle(
+                                  fontSize: 13, color: cs.onSurfaceVariant)),
+                          if (duration != null)
+                            Text('$duration min',
+                                style: TextStyle(
+                                    fontSize: 12, color: cs.onSurfaceVariant)),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: statusColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Text(occ.status,
+                          style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: statusColor)),
+                    ),
                   ],
                 ),
               ),
@@ -274,40 +323,29 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
             if (effectiveLocation != null || effectiveLink != null) ...[
               const SizedBox(height: 8),
               Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (effectiveLocation != null)
-                        Row(
-                          children: [
-                            const Icon(Icons.location_on, size: 18),
-                            const SizedBox(width: 8),
-                            Expanded(child: Text(effectiveLocation)),
-                          ],
-                        ),
-                      if (effectiveLink != null) ...[
-                        const SizedBox(height: 4),
-                        InkWell(
-                          onTap: () => launchUrl(Uri.parse(effectiveLink)),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.link, size: 18),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(effectiveLink,
-                                    style: TextStyle(
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .primary)),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
+                child: Column(
+                  children: [
+                    if (effectiveLocation != null)
+                      ListTile(
+                        leading: Icon(Icons.location_on_outlined, size: 20,
+                            color: cs.onSurfaceVariant),
+                        title: Text(effectiveLocation,
+                            style: const TextStyle(fontSize: 14)),
+                      ),
+                    if (effectiveLocation != null && effectiveLink != null)
+                      Divider(height: 1, indent: 56,
+                          color: cs.outlineVariant.withValues(alpha: 0.4)),
+                    if (effectiveLink != null)
+                      ListTile(
+                        leading: Icon(Icons.videocam_outlined, size: 20,
+                            color: cs.primary),
+                        title: Text('Join online meeting',
+                            style: TextStyle(fontSize: 14, color: cs.primary)),
+                        trailing: Icon(Icons.open_in_new, size: 16,
+                            color: cs.onSurfaceVariant),
+                        onTap: () => launchUrl(Uri.parse(effectiveLink)),
+                      ),
+                  ],
                 ),
               ),
             ],
@@ -318,91 +356,146 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
               const SizedBox(height: 8),
               Card(
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(14),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Notes',
-                          style: Theme.of(context).textTheme.titleSmall),
-                      const SizedBox(height: 4),
-                      Text(occ.effectiveNotes!),
+                      Row(
+                        children: [
+                          Icon(Icons.notes, size: 16, color: cs.onSurfaceVariant),
+                          const SizedBox(width: 8),
+                          Text('Notes',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: cs.onSurfaceVariant)),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(occ.effectiveNotes!,
+                          style: const TextStyle(fontSize: 14)),
                     ],
                   ),
                 ),
               ),
             ],
 
-            // Organizer/teacher controls
-            if (_canManage) ...[
-              const SizedBox(height: 16),
-              Text('Manage',
-                  style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              // Status controls
-              Wrap(
-                spacing: 8,
-                children: [
-                  if (occ.status == 'scheduled') ...[
-                    FilledButton(
-                        onPressed: () => _updateStatus('completed'),
-                        child: const Text('Complete')),
-                    OutlinedButton(
-                        onPressed: () => _updateStatus('cancelled'),
-                        child: const Text('Cancel')),
-                  ],
-                ],
-              ),
-              const SizedBox(height: 8),
-              SwitchListTile(
-                title: const Text('Enable Check-in'),
-                value: occ.enableCheckIn,
-                onChanged: (v) => _toggleCheckIn(v),
-              ),
-            ],
-
-            // Self check-in (participant)
+            // Check-in section
             if (occ.enableCheckIn) ...[
-              const SizedBox(height: 16),
-              if (_myCheckIn == null ||
-                  _myCheckIn!.status != 'confirmed')
-                FilledButton.icon(
-                  onPressed: _checkIn,
-                  icon: const Icon(Icons.check),
-                  label: const Text('Check In'),
+              const SizedBox(height: 12),
+              if (_myCheckIn == null || _myCheckIn!.status != 'confirmed')
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _checkIn,
+                    icon: const Icon(Icons.check_circle_outline),
+                    label: const Text('Check In'),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(44),
+                    ),
+                  ),
                 )
               else
-                Row(
+                Card(
+                  color: Colors.green.shade50,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.check_circle,
+                            color: Colors.green, size: 22),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Text('Checked in',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.green)),
+                        ),
+                        TextButton(
+                            onPressed: _undoCheckIn,
+                            child: const Text('Undo')),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+
+            // Manager controls
+            if (_canManage) ...[
+              const SizedBox(height: 16),
+              _sectionLabel('Manage', cs),
+              const SizedBox(height: 6),
+              Card(
+                child: Column(
                   children: [
-                    const Icon(Icons.check_circle, color: Colors.green),
-                    const SizedBox(width: 8),
-                    const Text('Checked in'),
-                    const Spacer(),
-                    TextButton(
-                        onPressed: _undoCheckIn,
-                        child: const Text('Undo')),
+                    // Status controls
+                    if (occ.status == 'scheduled')
+                      Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: FilledButton(
+                                onPressed: () => _updateStatus('completed'),
+                                child: const Text('Complete'),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => _updateStatus('cancelled'),
+                                child: const Text('Cancel'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    SwitchListTile(
+                      title: const Text('Enable Check-in',
+                          style: TextStyle(fontSize: 14)),
+                      value: occ.enableCheckIn,
+                      onChanged: (v) => _toggleCheckIn(v),
+                    ),
                   ],
                 ),
+              ),
             ],
 
             // All check-ins (organizer/teacher)
-            if (_canManage && _allCheckIns != null) ...[
+            if (_canManage && _allCheckIns != null && _allCheckIns!.isNotEmpty) ...[
               const SizedBox(height: 16),
-              Text('Check-ins (${_allCheckIns!.length})',
-                  style: Theme.of(context).textTheme.titleMedium),
-              if (_allCheckIns!.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(8),
-                  child: Text('No check-ins yet.'),
+              _sectionLabel('Check-ins (${_allCheckIns!.length})', cs),
+              const SizedBox(height: 6),
+              Card(
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                  children: _allCheckIns!.asMap().entries.map((entry) {
+                    final ci = entry.value;
+                    final isLast = entry.key == _allCheckIns!.length - 1;
+                    return Column(
+                      children: [
+                        ListTile(
+                          leading: _checkInIcon(ci.status),
+                          title: Text(
+                              ci.displayName ?? ci.userId.substring(0, 8),
+                              style: const TextStyle(fontSize: 14)),
+                          subtitle: ci.note != null
+                              ? Text(ci.note!,
+                                  style: const TextStyle(fontSize: 12))
+                              : null,
+                          trailing: Text(ci.status,
+                              style: TextStyle(
+                                  fontSize: 12, color: cs.onSurfaceVariant)),
+                        ),
+                        if (!isLast)
+                          Divider(height: 1, indent: 56,
+                              color: cs.outlineVariant.withValues(alpha: 0.4)),
+                      ],
+                    );
+                  }).toList(),
                 ),
-              ..._allCheckIns!.map((ci) => ListTile(
-                    dense: true,
-                    leading: _checkInIcon(ci.status),
-                    title:
-                        Text(ci.displayName ?? ci.userId.substring(0, 8)),
-                    subtitle: ci.note != null ? Text(ci.note!) : null,
-                    trailing: Text(ci.status,
-                        style: const TextStyle(fontSize: 12)),
-                  )),
+              ),
             ],
           ],
         ),
@@ -410,19 +503,27 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
     );
   }
 
-  Widget _statusChip(String status) {
-    final color = switch (status) {
+  Widget _sectionLabel(String text, ColorScheme cs) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Text(text,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.5,
+            color: cs.onSurfaceVariant,
+          )),
+    );
+  }
+
+  Color _statusColorFor(String status) {
+    return switch (status) {
       'scheduled' => Colors.blue,
       'completed' => Colors.green,
       'cancelled' => Colors.grey,
       'rescheduled' => Colors.orange,
       _ => Colors.grey,
     };
-    return Chip(
-      label: Text(status),
-      backgroundColor: color.withValues(alpha: 0.15),
-      side: BorderSide.none,
-    );
   }
 
   Widget _checkInIcon(String status) {
