@@ -237,7 +237,23 @@ class CreateSeriesRequest(BaseModel):
     location_type: Optional[str] = None  # "fixed", "per_occurrence", or "rotation"
     location_rotation: Optional[list[str]] = None
     check_in_weekdays: Optional[list[int]] = None
+    rotation_mode: str = "none"  # "none", "host_only", "host_and_location"
+    host_rotation: Optional[list[str]] = None
+    host_addresses: Optional[dict[str, str]] = None
     description: Optional[str] = None
+
+    @field_validator('host_rotation')
+    @classmethod
+    def validate_host_rotation(cls, v, info):
+        """Ensure host_rotation is provided when rotation_mode is set."""
+        mode = info.data.get('rotation_mode')
+        if mode and mode != "none":
+            if not v:
+                raise ValueError("host_rotation required when rotation_mode is not 'none'")
+            # Ensure all entries are non-empty
+            if any(not host or not host.strip() for host in v):
+                raise ValueError("All host_rotation entries must be non-empty")
+        return v
 
 
 class UpdateSeriesRequest(BaseModel):
@@ -250,6 +266,9 @@ class UpdateSeriesRequest(BaseModel):
     location_type: Optional[str] = None  # "fixed", "per_occurrence", or "rotation"
     location_rotation: Optional[list[str]] = None
     check_in_weekdays: Optional[list[int]] = None
+    rotation_mode: Optional[str] = None  # "none", "host_only", "host_and_location"
+    host_rotation: Optional[list[str]] = None
+    host_addresses: Optional[dict[str, str]] = None
     status: Optional[str] = None
     description: Optional[str] = None
     schedule_rule: Optional[ScheduleRuleIn] = None
@@ -284,6 +303,7 @@ class UpdateOccurrenceRequest(BaseModel):
     status: Optional[str] = None
     scheduled_for: Optional[str] = None
     location: Optional[str] = None
+    host: Optional[str] = None
     overrides: Optional[OccurrenceOverridesIn] = None
     enable_check_in: Optional[bool] = None
 
@@ -498,6 +518,9 @@ def create_series(
         location_type=body.location_type or "fixed",
         location_rotation=body.location_rotation,
         check_in_weekdays=body.check_in_weekdays,
+        rotation_mode=body.rotation_mode,
+        host_rotation=body.host_rotation,
+        host_addresses=body.host_addresses,
         description=body.description,
         created_by=token["uid"],
     )
@@ -561,8 +584,8 @@ def update_series(
     updates: dict = {}
     for field in ("kind", "title", "default_time", "default_duration_minutes",
                   "default_location", "default_online_link", "location_type",
-                  "location_rotation", "check_in_weekdays", "status",
-                  "description"):
+                  "location_rotation", "check_in_weekdays", "rotation_mode",
+                  "host_rotation", "host_addresses", "status", "description"):
         val = getattr(body, field)
         if val is not None:
             updates[field] = val
@@ -671,6 +694,8 @@ def update_occurrence_endpoint(
     updates: dict = {}
     if body.location is not None:
         updates["location"] = body.location
+    if body.host is not None:
+        updates["host"] = body.host
     if body.enable_check_in is not None:
         updates["enable_check_in"] = body.enable_check_in
 
@@ -705,6 +730,42 @@ def delete_occurrence_endpoint(
     ws = _get_workspace_or_404(occ.workspace_id)
     _require_organizer(ws, token["uid"])
     series_storage.delete_occurrence(occurrence_id)
+
+
+@router.post("/series/{series_id}/occurrences/{occurrence_id}/regenerate-rotation", status_code=200)
+def regenerate_rotation_from_occurrence_endpoint(
+    series_id: str,
+    occurrence_id: str,
+    token: dict = Depends(_require_token),
+) -> dict:
+    """Re-apply rotation to all subsequent occurrences, continuing from the target occurrence's host.
+
+    Use case: User manually fixes one occurrence's host, then wants all following
+    occurrences to continue the rotation pattern from that point.
+
+    Example:
+      - Rotation: [A, B, C]
+      - User changes occurrence #3's host to "A"
+      - Calling this endpoint re-assigns #4+ as B, C, A, B, C...
+
+    Returns: {"updated_count": int, "starting_index": int, "message": str, "warnings": list}
+    """
+    s = _get_series_or_404(series_id)
+    ws = _get_workspace_or_404(s.workspace_id)
+    _require_role(ws, token["uid"], "organizer", "teacher")
+
+    occ = series_storage.get_occurrence(occurrence_id)
+    if occ is None:
+        raise HTTPException(status_code=404, detail="Occurrence not found")
+    if occ.series_id != series_id:
+        raise HTTPException(status_code=400, detail="Occurrence does not belong to this series")
+
+    try:
+        from occurrence_service import regenerate_rotation_from_occurrence
+        result = regenerate_rotation_from_occurrence(series_id, occurrence_id)
+        return result
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 # ---------------------------------------------------------------------------

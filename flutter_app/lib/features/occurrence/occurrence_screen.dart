@@ -192,6 +192,128 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
     }
   }
 
+  Future<void> _editHost(Occurrence occ) async {
+    final controller = TextEditingController(text: occ.host ?? '');
+    final newHost = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Edit Host'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: 'Host Name',
+            hintText: 'Team A, Alice, etc.',
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (newHost == null) return;
+    try {
+      await context.read<ApiService>().updateOccurrence(
+        widget.occurrenceId,
+        {'host': newHost.trim().isNotEmpty ? newHost.trim() : null},
+      );
+      _load();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
+  Future<void> _repopulateRotation(Occurrence occ) async {
+    final cs = Theme.of(context).colorScheme;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Re-populate rotation?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'This will update all upcoming occurrences to continue the rotation from:',
+              style: TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: cs.primaryContainer,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.person, color: cs.onPrimaryContainer),
+                  const SizedBox(width: 8),
+                  Text(
+                    occ.host ?? 'No host',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: cs.onPrimaryContainer,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Previously assigned hosts will be replaced.',
+              style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Re-populate'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final result = await context.read<ApiService>().repopulateRotation(
+        occ.seriesId,
+        occ.occurrenceId,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Updated ${result['updated_count']} occurrences'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        _load();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -294,6 +416,28 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
                 ),
               ),
             ),
+
+            // Host card
+            if (occ.host != null) ...[
+              const SizedBox(height: 8),
+              Card(
+                child: ListTile(
+                  leading: CircleAvatar(
+                    radius: 20,
+                    backgroundColor: cs.primaryContainer,
+                    child: Icon(Icons.person, size: 20, color: cs.onPrimaryContainer),
+                  ),
+                  title: const Text('Host', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  subtitle: Text(occ.host!, style: const TextStyle(fontSize: 14)),
+                  trailing: _canManage
+                      ? IconButton(
+                          icon: const Icon(Icons.edit, size: 18),
+                          onPressed: () => _editHost(occ),
+                        )
+                      : null,
+                ),
+              ),
+            ],
 
             // Location & link
             if (effectiveLocation != null || effectiveLink != null) ...[
@@ -411,6 +555,18 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
                       value: occ.enableCheckIn,
                       onChanged: (v) => _toggleCheckIn(v),
                     ),
+                    if (series.hostRotationMode != 'none') ...[
+                      const Divider(height: 1),
+                      ListTile(
+                        leading: Icon(Icons.refresh, color: cs.primary),
+                        title: const Text('Re-populate rotation from here',
+                            style: TextStyle(fontSize: 14)),
+                        subtitle: const Text(
+                            'Update upcoming occurrences to continue rotation from this host',
+                            style: TextStyle(fontSize: 12)),
+                        onTap: () => _repopulateRotation(occ),
+                      ),
+                    ],
                     const Divider(height: 1),
                     ListTile(
                       leading: const Icon(Icons.delete_outline, color: Colors.red),

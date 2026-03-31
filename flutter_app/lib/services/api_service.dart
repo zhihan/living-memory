@@ -202,6 +202,13 @@ class ApiService {
     return data as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> repopulateRotation(
+      String seriesId, String occurrenceId) async {
+    final data = await _request('POST',
+        '/v2/series/$seriesId/occurrences/$occurrenceId/regenerate-rotation');
+    return data as Map<String, dynamic>;
+  }
+
   // --- Occurrences ---
 
   Future<List<Occurrence>> listWorkspaceOccurrences(

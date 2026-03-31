@@ -156,6 +156,9 @@ class _SeriesScreenState extends State<SeriesScreen> {
     var locationType = series.locationType;
     var checkInWeekdays = List<int>.from(series.checkInWeekdays ?? []);
     String? extendDate;
+    var hostRotationMode = series.hostRotationMode;
+    var hostRotation = List<String>.from(series.hostRotation ?? []);
+    var hostAddresses = Map<String, String>.from(series.hostAddresses ?? {});
 
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
@@ -286,6 +289,165 @@ class _SeriesScreenState extends State<SeriesScreen> {
                                       .onSurfaceVariant)),
                     ),
                   ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: hostRotationMode,
+                    decoration: const InputDecoration(labelText: 'Host Rotation'),
+                    items: const [
+                      DropdownMenuItem(value: 'none', child: Text('None')),
+                      DropdownMenuItem(value: 'host_only', child: Text('Host only')),
+                      DropdownMenuItem(value: 'host_and_location', child: Text('Host + Location')),
+                    ],
+                    onChanged: (v) => setDialogState(() => hostRotationMode = v!),
+                  ),
+                  if (hostRotationMode != 'none') ...[
+                    const SizedBox(height: 12),
+                    const Text('Rotation Order', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    Container(
+                      constraints: const BoxConstraints(maxHeight: 200),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Theme.of(ctx).colorScheme.outlineVariant),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: hostRotation.isEmpty
+                          ? Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Text('No hosts added',
+                                  style: TextStyle(color: Theme.of(ctx).colorScheme.onSurfaceVariant)),
+                            )
+                          : ReorderableListView.builder(
+                              shrinkWrap: true,
+                              itemCount: hostRotation.length,
+                              onReorder: (oldIndex, newIndex) {
+                                setDialogState(() {
+                                  if (newIndex > oldIndex) newIndex--;
+                                  final host = hostRotation.removeAt(oldIndex);
+                                  hostRotation.insert(newIndex, host);
+                                });
+                              },
+                              itemBuilder: (ctx, index) {
+                                final host = hostRotation[index];
+                                return ListTile(
+                                  key: ValueKey(host + index.toString()),
+                                  leading: const Icon(Icons.drag_handle),
+                                  title: Text(host, style: const TextStyle(fontSize: 14)),
+                                  subtitle: hostRotationMode == 'host_and_location' && hostAddresses.containsKey(host)
+                                      ? Text('📍 ${hostAddresses[host]}', style: const TextStyle(fontSize: 12))
+                                      : null,
+                                  trailing: IconButton(
+                                    icon: const Icon(Icons.remove_circle_outline),
+                                    onPressed: () {
+                                      setDialogState(() {
+                                        hostRotation.removeAt(index);
+                                        hostAddresses.remove(host);
+                                      });
+                                    },
+                                  ),
+                                  onTap: hostRotationMode == 'host_and_location'
+                                      ? () async {
+                                          final locationCtrl = TextEditingController(text: hostAddresses[host] ?? '');
+                                          final location = await showDialog<String>(
+                                            context: ctx,
+                                            builder: (dialogCtx) => AlertDialog(
+                                              title: Text('Location for $host'),
+                                              content: TextField(
+                                                controller: locationCtrl,
+                                                decoration: const InputDecoration(
+                                                  labelText: 'Address',
+                                                  hintText: '123 Main St',
+                                                ),
+                                                autofocus: true,
+                                              ),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () => Navigator.pop(dialogCtx),
+                                                  child: const Text('Cancel'),
+                                                ),
+                                                FilledButton(
+                                                  onPressed: () => Navigator.pop(dialogCtx, locationCtrl.text),
+                                                  child: const Text('Save'),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                          if (location != null) {
+                                            setDialogState(() {
+                                              hostAddresses[host] = location;
+                                            });
+                                          }
+                                        }
+                                      : null,
+                                );
+                              },
+                            ),
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        final hostCtrl = TextEditingController();
+                        final locationCtrl = TextEditingController();
+                        final result = await showDialog<Map<String, String>>(
+                          context: ctx,
+                          builder: (dialogCtx) => AlertDialog(
+                            title: const Text('Add Host'),
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                TextField(
+                                  controller: hostCtrl,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Host Name',
+                                    hintText: 'Team A, Alice, etc.',
+                                  ),
+                                  autofocus: true,
+                                ),
+                                if (hostRotationMode == 'host_and_location') ...[
+                                  const SizedBox(height: 12),
+                                  TextField(
+                                    controller: locationCtrl,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Address',
+                                      hintText: '123 Main St',
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(dialogCtx),
+                                child: const Text('Cancel'),
+                              ),
+                              FilledButton(
+                                onPressed: () {
+                                  Navigator.pop(dialogCtx, {
+                                    'host': hostCtrl.text,
+                                    'location': locationCtrl.text,
+                                  });
+                                },
+                                child: const Text('Add'),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (result != null && result['host']!.trim().isNotEmpty) {
+                          setDialogState(() {
+                            final hostName = result['host']!.trim();
+                            hostRotation.add(hostName);
+                            if (hostRotationMode == 'host_and_location' && result['location']!.trim().isNotEmpty) {
+                              hostAddresses[hostName] = result['location']!.trim();
+                            }
+                          });
+                        }
+                      },
+                      icon: const Icon(Icons.person_add, size: 18),
+                      label: const Text('Add Host'),
+                      style: OutlinedButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -328,11 +490,20 @@ class _SeriesScreenState extends State<SeriesScreen> {
                     updates['location_type'] = locationType;
                   }
                   updates['check_in_weekdays'] = checkInWeekdays;
+                  if (hostRotationMode != series.hostRotationMode) {
+                    updates['host_rotation_mode'] = hostRotationMode;
+                  }
+                  if (hostRotation != (series.hostRotation ?? [])) {
+                    updates['host_rotation'] = hostRotation;
+                  }
+                  if (hostAddresses != (series.hostAddresses ?? {})) {
+                    updates['host_addresses'] = hostAddresses;
+                  }
                   if (extendDate != null) {
                     updates['_extend_date'] = extendDate;
                   }
                   Navigator.pop(
-                      ctx, updates.length <= 1 && extendDate == null ? null : updates);
+                      ctx, updates.length <= 3 && extendDate == null ? null : updates);
                 },
                 child: const Text('Save')),
           ],
@@ -762,8 +933,20 @@ class _SeriesScreenState extends State<SeriesScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('$dateStr  $timeStr',
-                      style: TextStyle(fontSize: 13, color: cs.onSurface)),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text('$dateStr  $timeStr',
+                            style: TextStyle(fontSize: 13, color: cs.onSurface)),
+                      ),
+                      if (occ.host != null) ...[
+                        Icon(Icons.person, size: 12, color: cs.primary),
+                        const SizedBox(width: 4),
+                        Text(occ.host!,
+                            style: TextStyle(fontSize: 12, color: cs.primary)),
+                      ],
+                    ],
+                  ),
                   if (isEditingLoc)
                     SizedBox(
                       height: 32,

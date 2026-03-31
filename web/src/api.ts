@@ -80,6 +80,9 @@ export interface SeriesSummary {
   location_type: "fixed" | "per_occurrence" | "rotation";
   location_rotation: string[] | null;
   check_in_weekdays: number[] | null;
+  rotation_mode?: "none" | "host_only" | "host_and_location";
+  host_rotation?: string[];
+  host_addresses?: Record<string, string>;
   status: string;
   created_at: string;
   updated_at: string;
@@ -102,6 +105,7 @@ export interface OccurrenceSummary {
   scheduled_for: string;
   status: string;
   location: string | null;
+  host?: string;
   overrides: OccurrenceOverrides;
   enable_check_in: boolean;
   created_at: string;
@@ -231,6 +235,9 @@ export async function patchSeries(
     default_online_link: string;
     location_type: "fixed" | "per_occurrence" | "rotation";
     location_rotation: string[];
+    rotation_mode: "none" | "host_only" | "host_and_location";
+    host_rotation: string[];
+    host_addresses: Record<string, string>;
     schedule_rule: ScheduleRule;
     status: string;
   }>,
@@ -275,6 +282,7 @@ export async function patchOccurrence(
   updates: {
     status?: string;
     location?: string | null;
+    host?: string | null;
     overrides?: OccurrenceOverrides;
     enable_check_in?: boolean;
   },
@@ -432,4 +440,14 @@ export async function confirmAssistantAction(
 
 export async function cancelAssistantAction(actionId: string): Promise<void> {
   await apiFetch(`/v2/assistant/actions/${actionId}/cancel`, { method: "POST" });
+}
+
+export async function regenerateRotationFrom(
+  seriesId: string,
+  occurrenceId: string,
+): Promise<{ updated_count: number }> {
+  const resp = await apiFetch(`/v2/series/${seriesId}/occurrences/${occurrenceId}/regenerate-rotation`, {
+    method: "POST",
+  });
+  return resp.json();
 }

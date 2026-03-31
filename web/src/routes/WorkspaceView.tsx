@@ -474,6 +474,13 @@ export function WorkspaceView() {
                   {s.default_time && ` at ${s.default_time}`}
                   {s.default_duration_minutes && ` (${s.default_duration_minutes}m)`}
                 </p>
+                {s.rotation_mode && s.rotation_mode !== "none" && (
+                  <p className="series-card-meta">
+                    <span className="rotation-chip">
+                      🔄 {s.rotation_mode === "host_only" ? "Host rotation" : "Host + location rotation"}: {s.host_rotation?.length || 0} {s.host_rotation?.length === 1 ? "host" : "hosts"}
+                    </span>
+                  </p>
+                )}
                 {s.description && <Markdown text={s.description} className="series-card-desc" />}
                 {(s.default_location || s.default_online_link) && (
                   <p className="series-card-location">

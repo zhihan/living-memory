@@ -37,6 +37,13 @@ def _rotation_location(series: Series, sequence_index: int) -> str | None:
     return series.location_rotation[sequence_index % len(series.location_rotation)]
 
 
+def _get_rotation_host(series: Series, sequence_index: int) -> str | None:
+    """Return the host label for this occurrence based on rotation."""
+    if not series.host_rotation or series.rotation_mode == "none":
+        return None
+    return series.host_rotation[sequence_index % len(series.host_rotation)]
+
+
 def _to_workspace_tz(series: Series, workspace_timezone: str) -> ZoneInfo:
     return ZoneInfo(workspace_timezone)
 
@@ -86,12 +93,21 @@ def generate_and_save(
         if scheduled_for in existing_times:
             continue
         seq = existing_count + len(new_occurrences)
-        if series.location_type == "fixed":
-            loc = series.default_location
+
+        # Determine host from rotation
+        host_label = _get_rotation_host(series, seq)
+
+        # Determine location
+        if series.rotation_mode == "host_and_location" and host_label:
+            # Look up host's address in the map, fall back to default
+            loc = (series.host_addresses or {}).get(host_label) or series.default_location
         elif series.location_type == "rotation":
             loc = _rotation_location(series, seq)
+        elif series.location_type == "fixed":
+            loc = series.default_location
         else:
             loc = None
+
         # Determine check-in from local weekday (ISO: 1=Mon..7=Sun)
         local_dt = utc_dt.astimezone(tz)
         iso_weekday = local_dt.isoweekday()
@@ -102,6 +118,7 @@ def generate_and_save(
             scheduled_for=scheduled_for,
             status="scheduled",
             location=loc,
+            host=host_label,
             sequence_index=seq,
             enable_check_in=iso_weekday in check_in_days,
         )
@@ -312,6 +329,96 @@ def apply_check_in_days(series_id: str, workspace_timezone: str) -> int:
             update_occurrence(occ.occurrence_id, {"enable_check_in": should_enable})
             updated += 1
     return updated
+
+
+# ---------------------------------------------------------------------------
+# Rotation regeneration
+# ---------------------------------------------------------------------------
+
+def regenerate_rotation_from_occurrence(
+    series_id: str,
+    occurrence_id: str,
+) -> dict:
+    """Re-apply rotation to subsequent occurrences, continuing from the given occurrence's host.
+
+    Use case: User manually fixes one occurrence's host, then wants all following
+    occurrences to continue the rotation pattern from that point.
+
+    Returns: {"updated_count": int, "starting_index": int, "message": str, "warnings": list[str]}
+    """
+    series = get_series(series_id)
+    if series is None:
+        raise ValueError(f"Series not found: {series_id}")
+
+    if series.rotation_mode == "none" or not series.host_rotation:
+        raise ValueError("Series has no rotation configured")
+
+    # Get the target occurrence
+    from series_storage import get_occurrence as _get_occurrence
+    target_occ = _get_occurrence(occurrence_id)
+    if target_occ is None:
+        raise ValueError(f"Occurrence not found: {occurrence_id}")
+
+    # Find the target occurrence's host in the rotation list
+    current_host = target_occ.host
+    if not current_host:
+        raise ValueError("Target occurrence has no host set")
+
+    try:
+        starting_index = series.host_rotation.index(current_host)
+        warnings = []
+    except ValueError:
+        # Host not in rotation list - still allow regeneration, start from beginning
+        starting_index = 0
+        warnings = [f"Host '{current_host}' not found in rotation list. Starting from beginning."]
+
+    # Get all subsequent scheduled occurrences
+    all_occs = list_occurrences_for_series(series_id)
+    all_occs.sort(key=lambda o: o.scheduled_for)
+
+    # Find occurrences after the target
+    target_idx = next((i for i, o in enumerate(all_occs) if o.occurrence_id == occurrence_id), None)
+    if target_idx is None:
+        raise ValueError("Could not locate target occurrence in series")
+
+    subsequent = [
+        o for o in all_occs[target_idx + 1:]
+        if o.status == "scheduled"
+    ]
+
+    if not subsequent:
+        return {
+            "updated_count": 0,
+            "starting_index": starting_index,
+            "message": "No subsequent scheduled occurrences to update",
+            "warnings": warnings,
+        }
+
+    # Re-assign hosts (and locations if needed) starting from next position in rotation
+    rotation_len = len(series.host_rotation)
+    updated_count = 0
+
+    for i, occ in enumerate(subsequent):
+        # Next position in rotation (starting_index + 1 for first, +2 for second, etc.)
+        rotation_position = (starting_index + 1 + i) % rotation_len
+        new_host = series.host_rotation[rotation_position]
+
+        updates: dict = {"host": new_host}
+
+        # Update location if in host_and_location mode
+        if series.rotation_mode == "host_and_location":
+            new_location = (series.host_addresses or {}).get(new_host) or series.default_location
+            updates["location"] = new_location
+
+        update_occurrence(occ.occurrence_id, updates)
+        updated_count += 1
+
+    return {
+        "updated_count": updated_count,
+        "starting_index": starting_index,
+        "message": f"Updated {updated_count} occurrence(s) continuing rotation from '{current_host}'",
+        "warnings": warnings,
+    }
 
 
 # ---------------------------------------------------------------------------

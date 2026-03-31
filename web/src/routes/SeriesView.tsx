@@ -8,6 +8,7 @@ import {
   deleteSeries,
   patchOccurrence,
   generateOccurrences,
+  regenerateRotationFrom,
   type SeriesSummary,
   type OccurrenceSummary,
   type CheckInReport,
@@ -16,6 +17,7 @@ import {
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { Markdown } from "../components/Markdown";
+import { Toast } from "../components/Toast";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const DAY_VALUES = [1, 2, 3, 4, 5, 6, 7];
@@ -74,6 +76,14 @@ export function SeriesView() {
   const [editingLocationId, setEditingLocationId] = useState<string | null>(null);
   const [editingLocationValue, setEditingLocationValue] = useState("");
   const [generating, setGenerating] = useState(false);
+
+  // Host rotation state
+  const [editRotationMode, setEditRotationMode] = useState<"none" | "host_only" | "host_and_location">("none");
+  const [editHostRotation, setEditHostRotation] = useState<string[]>([]);
+  const [editHostAddresses, setEditHostAddresses] = useState<Record<string, string>>({});
+  const [editingHostId, setEditingHostId] = useState<string | null>(null);
+  const [editingHostValue, setEditingHostValue] = useState("");
+  const [toast, setToast] = useState<{ message: string; action?: { label: string; onClick: () => void } } | null>(null);
 
   // Next meeting agenda
   const [editingAgenda, setEditingAgenda] = useState(false);
@@ -145,6 +155,9 @@ export function SeriesView() {
     setEditTime(series.default_time ?? "");
     setEditDuration(series.default_duration_minutes?.toString() ?? "");
     setEditExtendDate("");
+    setEditRotationMode(series.rotation_mode ?? "none");
+    setEditHostRotation(series.host_rotation ?? []);
+    setEditHostAddresses(series.host_addresses ?? {});
     setEditing(true);
     setEditError(null);
   }
@@ -152,6 +165,21 @@ export function SeriesView() {
   async function handleSaveEdit(e: React.FormEvent) {
     e.preventDefault();
     if (!seriesId) return;
+
+    // Validation
+    if (editRotationMode !== "none") {
+      const validHosts = editHostRotation.filter((h) => h.trim());
+      if (validHosts.length === 0) {
+        setEditError("Rotation requires at least one host entry");
+        return;
+      }
+      // Check all host labels are non-empty
+      if (editHostRotation.some((h) => !h.trim())) {
+        setEditError("All host labels must be non-empty");
+        return;
+      }
+    }
+
     setEditSubmitting(true);
     setEditError(null);
     try {
@@ -164,6 +192,9 @@ export function SeriesView() {
         location_type: editLocationType,
         default_time: editTime || undefined,
         default_duration_minutes: editDuration ? parseInt(editDuration, 10) : undefined,
+        rotation_mode: editRotationMode,
+        host_rotation: editRotationMode !== "none" ? editHostRotation.filter((h) => h.trim()) : undefined,
+        host_addresses: editRotationMode === "host_and_location" ? editHostAddresses : undefined,
       };
       if (editLocationType === "rotation") {
         updates.location_rotation = editRotation.filter((s) => s.trim());
@@ -433,6 +464,123 @@ export function SeriesView() {
               placeholder="https://zoom.us/j/..."
             />
           </div>
+          <div className="form-field">
+            <label>Host Rotation</label>
+            <div className="visibility-toggle">
+              <button
+                type="button"
+                className={`btn btn-sm ${editRotationMode === "none" ? "btn-primary" : "btn-secondary"}`}
+                onClick={() => setEditRotationMode("none")}
+                disabled={editSubmitting}
+              >
+                No rotation
+              </button>
+              <button
+                type="button"
+                className={`btn btn-sm ${editRotationMode === "host_only" ? "btn-primary" : "btn-secondary"}`}
+                onClick={() => setEditRotationMode("host_only")}
+                disabled={editSubmitting}
+              >
+                Rotating hosts
+              </button>
+              <button
+                type="button"
+                className={`btn btn-sm ${editRotationMode === "host_and_location" ? "btn-primary" : "btn-secondary"}`}
+                onClick={() => setEditRotationMode("host_and_location")}
+                disabled={editSubmitting}
+              >
+                Hosts + locations
+              </button>
+            </div>
+          </div>
+          {editRotationMode !== "none" && (
+            <div className="form-field">
+              <label>Host rotation order</label>
+              {editHostRotation.map((hostLabel, i) => (
+                <div key={i} className="rotation-row">
+                  <span className="rotation-index">{i + 1}.</span>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={hostLabel}
+                    onChange={(e) => {
+                      const next = [...editHostRotation];
+                      next[i] = e.target.value;
+                      setEditHostRotation(next);
+                    }}
+                    disabled={editSubmitting}
+                    placeholder="e.g. Team A, Alice, Bob's family"
+                  />
+                  {editRotationMode === "host_and_location" && (
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={editHostAddresses[hostLabel] || ""}
+                      onChange={(e) => {
+                        setEditHostAddresses({
+                          ...editHostAddresses,
+                          [hostLabel]: e.target.value,
+                        });
+                      }}
+                      disabled={editSubmitting}
+                      placeholder="Location address"
+                    />
+                  )}
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-xs"
+                    onClick={() => {
+                      setEditHostRotation(editHostRotation.filter((_, j) => j !== i));
+                      if (editRotationMode === "host_and_location") {
+                        const next = { ...editHostAddresses };
+                        delete next[hostLabel];
+                        setEditHostAddresses(next);
+                      }
+                    }}
+                    disabled={editSubmitting}
+                  >
+                    &times;
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-xs"
+                    onClick={() => {
+                      if (i > 0) {
+                        const next = [...editHostRotation];
+                        [next[i - 1], next[i]] = [next[i], next[i - 1]];
+                        setEditHostRotation(next);
+                      }
+                    }}
+                    disabled={editSubmitting || i === 0}
+                  >
+                    ↑
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-xs"
+                    onClick={() => {
+                      if (i < editHostRotation.length - 1) {
+                        const next = [...editHostRotation];
+                        [next[i], next[i + 1]] = [next[i + 1], next[i]];
+                        setEditHostRotation(next);
+                      }
+                    }}
+                    disabled={editSubmitting || i === editHostRotation.length - 1}
+                  >
+                    ↓
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                className="btn btn-secondary btn-xs"
+                onClick={() => setEditHostRotation([...editHostRotation, ""])}
+                disabled={editSubmitting}
+              >
+                + Add host
+              </button>
+            </div>
+          )}
           {series && series.schedule_rule.weekdays && series.schedule_rule.weekdays.length > 0 && (
             <div className="form-field">
               <label>Self-practice days (enable check-in)</label>
@@ -652,6 +800,78 @@ export function SeriesView() {
                     {o.location || "—"}
                   </span>
                 )}
+                {editingHostId === o.occurrence_id ? (
+                  <input
+                    type="text"
+                    className="form-input form-input-sm upcoming-host-input"
+                    value={editingHostValue}
+                    onChange={(e) => setEditingHostValue(e.target.value)}
+                    autoFocus
+                    placeholder="Host"
+                    onBlur={async () => {
+                      const newHost = editingHostValue.trim();
+                      if (newHost === (o.host ?? "")) {
+                        setEditingHostId(null);
+                        return;
+                      }
+                      try {
+                        const updated = await patchOccurrence(o.occurrence_id, {
+                          host: newHost || null,
+                        });
+                        setOccurrences((prev) =>
+                          prev?.map((x) => (x.occurrence_id === o.occurrence_id ? updated : x)) ?? null,
+                        );
+                        // Show toast if series has rotation configured
+                        if (series?.host_rotation && series.host_rotation.length > 0) {
+                          setToast({
+                            message: `Host updated to "${newHost}"`,
+                            action: {
+                              label: "Continue rotation from here →",
+                              onClick: async () => {
+                                try {
+                                  const result = await regenerateRotationFrom(seriesId!, o.occurrence_id);
+                                  await load();
+                                  setToast({
+                                    message: `Updated ${result.updated_count} upcoming occurrences`,
+                                  });
+                                } catch (err) {
+                                  alert(err instanceof Error ? err.message : "Failed to regenerate rotation");
+                                }
+                              },
+                            },
+                          });
+                        }
+                      } catch (err) {
+                        alert(err instanceof Error ? err.message : "Failed to save");
+                      }
+                      setEditingHostId(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                      if (e.key === "Escape") setEditingHostId(null);
+                    }}
+                  />
+                ) : (
+                  <span
+                    className="upcoming-host upcoming-host-clickable"
+                    onClick={() => {
+                      setEditingHostId(o.occurrence_id);
+                      setEditingHostValue(o.host ?? "");
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setEditingHostId(o.occurrence_id);
+                        setEditingHostValue(o.host ?? "");
+                      }
+                    }}
+                    tabIndex={0}
+                    role="button"
+                    title="Click to edit host"
+                  >
+                    {o.host ? `Host: ${o.host}` : "Set host"}
+                  </span>
+                )}
               </div>
             ))}
           </div>
@@ -749,6 +969,8 @@ export function SeriesView() {
           );
         })()}
       </section>
+
+      {toast && <Toast {...toast} onDismiss={() => setToast(null)} />}
 
     </div>
   );

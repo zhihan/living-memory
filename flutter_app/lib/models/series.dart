@@ -48,6 +48,9 @@ class Series {
   final List<int>? checkInWeekdays;
   final String? description;
   final String? createdBy;
+  final String hostRotationMode;
+  final List<String>? hostRotation;
+  final Map<String, String>? hostAddresses;
 
   const Series({
     required this.seriesId,
@@ -65,9 +68,21 @@ class Series {
     this.checkInWeekdays,
     this.description,
     this.createdBy,
+    this.hostRotationMode = 'none',
+    this.hostRotation,
+    this.hostAddresses,
   });
 
   factory Series.fromJson(Map<String, dynamic> json) {
+    Map<String, String>? addresses;
+    final rawAddresses = json['host_addresses'];
+    if (rawAddresses is Map) {
+      addresses = {};
+      rawAddresses.forEach((k, v) {
+        addresses![k.toString()] = v as String;
+      });
+    }
+
     return Series(
       seriesId: json['series_id'] as String,
       workspaceId: json['workspace_id'] as String,
@@ -89,6 +104,11 @@ class Series {
           : null,
       description: json['description'] as String?,
       createdBy: json['created_by'] as String?,
+      hostRotationMode: json['host_rotation_mode'] as String? ?? 'none',
+      hostRotation: json['host_rotation'] != null
+          ? List<String>.from(json['host_rotation'])
+          : null,
+      hostAddresses: addresses,
     );
   }
 

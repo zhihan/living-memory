@@ -168,6 +168,10 @@ class Series:
     status: SeriesStatus = "active"
     # ISO weekdays (1=Mon … 7=Sun) on which check-in is enabled; empty/None = no check-ins
     check_in_weekdays: list[int] | None = None
+    # Host rotation fields
+    rotation_mode: str = "none"  # "none", "host_only", "host_and_location"
+    host_rotation: list[str] | None = None  # List of host labels
+    host_addresses: dict[str, str] | None = None  # Maps host names to addresses
     created_at: datetime | None = None
     updated_at: datetime | None = None
     description: str | None = None
@@ -190,6 +194,9 @@ class Series:
             "location_rotation": self.location_rotation,
             "status": self.status,
             "check_in_weekdays": self.check_in_weekdays,
+            "rotation_mode": self.rotation_mode,
+            "host_rotation": self.host_rotation,
+            "host_addresses": self.host_addresses,
             "created_at": self.created_at or now,
             "updated_at": self.updated_at or now,
             "description": self.description,
@@ -212,6 +219,9 @@ class Series:
             location_rotation=data.get("location_rotation"),
             status=data.get("status", "active"),
             check_in_weekdays=data.get("check_in_weekdays"),
+            rotation_mode=data.get("rotation_mode", "none"),
+            host_rotation=data.get("host_rotation"),
+            host_addresses=data.get("host_addresses"),
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),
             description=data.get("description"),
@@ -275,6 +285,8 @@ class Occurrence:
     status: OccurrenceStatus = "scheduled"
     # Per-occurrence location (always present; set from series default or per-occurrence)
     location: str | None = None
+    # Host for this occurrence (from rotation or manual assignment)
+    host: str | None = None
     overrides: OccurrenceOverrides | None = None
     # Optional FK to a ContentPacket document (added in later phase)
     content_packet_id: str | None = None
@@ -294,6 +306,7 @@ class Occurrence:
             "scheduled_for": self.scheduled_for,
             "status": self.status,
             "location": self.location,
+            "host": self.host,
             "overrides": self.overrides.to_dict() if self.overrides else None,
             "content_packet_id": self.content_packet_id,
             "created_at": self.created_at or now,
@@ -312,6 +325,7 @@ class Occurrence:
             scheduled_for=data["scheduled_for"],
             status=data.get("status", "scheduled"),
             location=data.get("location"),
+            host=data.get("host"),
             overrides=OccurrenceOverrides.from_dict(raw_overrides) if raw_overrides else None,
             content_packet_id=data.get("content_packet_id"),
             created_at=data.get("created_at"),

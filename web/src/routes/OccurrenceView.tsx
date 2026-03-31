@@ -234,6 +234,16 @@ export function OccurrenceView() {
         </section>
       )}
 
+      {/* Host */}
+      {occurrence?.host && (
+        <section className="section">
+          <div className="host-banner">
+            <span className="host-label">Hosted by</span>
+            <span className="host-name">{occurrence.host}</span>
+          </div>
+        </section>
+      )}
+
       {/* Location & Link */}
       {(effectiveLocation || effectiveLink) && (
         <section className="section">
