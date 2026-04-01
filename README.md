@@ -75,7 +75,7 @@ Run a single test:
 | `GEMINI_API_KEY` | Required for AI-backed flows | Gemini API key |
 | `GOOGLE_CLOUD_PROJECT` | Usually required outside tests | GCP project ID |
 | `LIVING_MEMORY_FIRESTORE_DATABASE` | Optional | Firestore database name |
-| `TELEGRAM_BOT_TOKEN` | Optional | Telegram webhook and bot integration |
+| `TELEGRAM_BOT_TOKEN` | Optional | Legacy Telegram adapter only; room bots are configured via the API |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` | Optional | Email notification delivery |
 | `FROM_EMAIL` | Optional | Sender address for email notifications |
 | `APP_BASE_URL` | Optional | Base URL used in links and ICS output |

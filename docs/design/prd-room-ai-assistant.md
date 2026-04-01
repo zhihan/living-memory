@@ -336,4 +336,4 @@ Main handler for incoming Telegram messages:
 
 5. **Participant access.** Should participants (non-organizers) be able to query the bot for read-only info like "when's the next meeting"? **Current recommendation: organizer-only in Phase 1, consider read-only participant access later.**
 
-6. **Existing global Telegram webhook.** Keep the old `POST /v2/channels/telegram/webhook` during transition. Deprecate after migration. The current adapter has stub implementations (`_fetch_occurrences`, `_post_check_in` return empty) — those can be removed.
+6. **Existing global Telegram webhook.** Migration is complete. The old `POST /v2/channels/telegram/webhook` path is now retired, and room bots use `POST /v2/channels/telegram/webhook/{bot_id}` instead. The old adapter remains only as legacy code and should not be used for new setup.

@@ -3,13 +3,16 @@
 Run as:
     python -m src.jobs.telegram_bot
 
+Deprecated: this runner uses the legacy `channels.telegram.TelegramAdapter`
+flow. The current product uses per-room Telegram bots configured through
+`POST /v2/rooms/{room_id}/telegram-bot`.
+
 Uses long-polling (getUpdates) so no public webhook URL is required
 during local development or testing.
 
 Set TELEGRAM_BOT_TOKEN in the environment before starting.
 
-For production: deploy as a webhook receiver instead.
-  See POST /v2/channels/telegram/webhook in api_v2.py.
+For production: use the per-room webhook registration flow instead.
 """
 
 from __future__ import annotations

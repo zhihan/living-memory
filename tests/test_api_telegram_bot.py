@@ -571,3 +571,14 @@ class TestWebhookEndpoint:
 
         assert resp.status_code == 200
         assert resp.json()["ok"] is True
+
+
+class TestLegacyWebhookEndpoint:
+    def test_legacy_webhook_is_gone(self, organizer_client):
+        resp = organizer_client.post(
+            "/v2/channels/telegram/webhook",
+            json={"message": {"from": {"id": 1}, "chat": {"id": 1}, "text": "/start"}},
+        )
+
+        assert resp.status_code == 410
+        assert "retired" in resp.json()["detail"].lower()
