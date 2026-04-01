@@ -79,6 +79,14 @@ Respond with a single JSON object (no markdown fences):
     }
   }
 }
+
+When multiple occurrences need the same action type (e.g. updating notes for several
+meetings at once), set "payload" to an ARRAY of payload objects:
+  "payload": [
+    {"occurrence_id": "...", "notes": "..."},
+    {"occurrence_id": "...", "notes": "..."}
+  ]
+All items will be executed together when the user confirms.
 """
 
 
