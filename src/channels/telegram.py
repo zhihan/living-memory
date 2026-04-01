@@ -43,7 +43,7 @@ class TelegramAdapter(ChannelAdapter):
         return h(command, incoming)
 
     def _start(self, cmd, inc):
-        return OutgoingMessage(recipient_id=inc.sender_id, text="Welcome to Meeting Assistant!" + chr(92) + "n/meetings /next /confirm <id>")
+        return OutgoingMessage(recipient_id=inc.sender_id, text="Welcome to Small Group!" + chr(92) + "n/meetings /next /confirm <id>")
 
     def _meetings(self, cmd, inc):
         occs = self._fetch_occurrences(inc.sender_id)

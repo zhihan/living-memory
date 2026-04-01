@@ -444,6 +444,65 @@ export async function cancelAssistantAction(actionId: string): Promise<void> {
   await apiFetch(`/v2/assistant/actions/${actionId}/cancel`, { method: "POST" });
 }
 
+// ============================================================
+// Telegram Bot
+// ============================================================
+
+export interface TelegramBotInfo {
+  bot_id: string;
+  bot_username: string;
+  mode: "read_only" | "read_write";
+  active: boolean;
+}
+
+export async function connectTelegramBot(
+  roomId: string,
+  botToken: string,
+  mode?: string,
+): Promise<TelegramBotInfo> {
+  const resp = await apiFetch(`/v2/rooms/${roomId}/telegram-bot`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ bot_token: botToken, mode: mode ?? "read_only" }),
+  });
+  return resp.json();
+}
+
+export async function getTelegramBot(roomId: string): Promise<TelegramBotInfo | null> {
+  try {
+    const resp = await apiFetch(`/v2/rooms/${roomId}/telegram-bot`);
+    return resp.json();
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return null;
+    throw err;
+  }
+}
+
+export async function updateTelegramBotMode(
+  roomId: string,
+  mode: string,
+): Promise<TelegramBotInfo> {
+  const resp = await apiFetch(`/v2/rooms/${roomId}/telegram-bot`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mode }),
+  });
+  return resp.json();
+}
+
+export async function deleteTelegramBot(roomId: string): Promise<void> {
+  await apiFetch(`/v2/rooms/${roomId}/telegram-bot`, { method: "DELETE" });
+}
+
+export async function generateTelegramLinkCode(
+  roomId: string,
+): Promise<{ code: string; expires_in: number }> {
+  const resp = await apiFetch(`/v2/rooms/${roomId}/telegram-bot/link-code`, {
+    method: "POST",
+  });
+  return resp.json();
+}
+
 export async function regenerateRotationFrom(
   seriesId: string,
   occurrenceId: string,

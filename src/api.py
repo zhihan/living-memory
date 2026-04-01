@@ -1,4 +1,4 @@
-"""HTTP API for Meeting Assistant — deployed to Cloud Run.
+"""HTTP API for Small Group — deployed to Cloud Run.
 
 Uses Firebase ID token auth for all authenticated endpoints.
 """
@@ -15,7 +15,7 @@ from fastapi.responses import JSONResponse
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Meeting Assistant API")
+app = FastAPI(title="Small Group API")
 
 app.add_middleware(
     CORSMiddleware,

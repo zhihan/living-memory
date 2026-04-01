@@ -9,9 +9,15 @@ import {
   createSeries,
   patchRoom,
   deleteRoom,
+  getTelegramBot,
+  connectTelegramBot,
+  updateTelegramBotMode,
+  deleteTelegramBot,
+  generateTelegramLinkCode,
   type RoomSummary,
   type SeriesSummary,
   type ScheduleRule,
+  type TelegramBotInfo,
 } from "../api";
 import { useAuth } from "../auth";
 import { LoadingSpinner } from "../components/LoadingSpinner";
@@ -76,6 +82,16 @@ export function RoomView() {
   const [inviteCreating, setInviteCreating] = useState(false);
   const [removingUid, setRemovingUid] = useState<string | null>(null);
 
+  // Telegram bot
+  const [tgBot, setTgBot] = useState<TelegramBotInfo | null>(null);
+  const [tgLoading, setTgLoading] = useState(true);
+  const [tgToken, setTgToken] = useState("");
+  const [tgMode, setTgMode] = useState<"read_only" | "read_write">("read_only");
+  const [tgConnecting, setTgConnecting] = useState(false);
+  const [tgError, setTgError] = useState<string | null>(null);
+  const [tgLinkCode, setTgLinkCode] = useState<string | null>(null);
+  const [tgLinkExpiry, setTgLinkExpiry] = useState(0);
+
   const load = useCallback(async () => {
     if (!roomId) return;
     setLoading(true);
@@ -97,6 +113,8 @@ export function RoomView() {
           ]),
         ),
       );
+      // Load telegram bot (non-blocking)
+      getTelegramBot(roomId).then(setTgBot).catch(() => {}).finally(() => setTgLoading(false));
     } catch (err) {
       setError(err as Error);
     } finally {
@@ -211,6 +229,73 @@ export function RoomView() {
       alert(err instanceof Error ? err.message : "Failed to remove member");
     } finally {
       setRemovingUid(null);
+    }
+  }
+
+  // Telegram link code countdown
+  useEffect(() => {
+    if (tgLinkExpiry <= 0) return;
+    const timer = setInterval(() => {
+      setTgLinkExpiry((prev) => {
+        if (prev <= 1) {
+          setTgLinkCode(null);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [tgLinkExpiry > 0]);
+
+  async function handleConnectBot(e: React.FormEvent) {
+    e.preventDefault();
+    if (!roomId || !tgToken.trim()) return;
+    setTgConnecting(true);
+    setTgError(null);
+    try {
+      const bot = await connectTelegramBot(roomId, tgToken.trim(), tgMode);
+      setTgBot(bot);
+      setTgToken("");
+    } catch (err) {
+      setTgError(err instanceof Error ? err.message : "Failed to connect bot");
+    } finally {
+      setTgConnecting(false);
+    }
+  }
+
+  async function handleUpdateBotMode(mode: "read_only" | "read_write") {
+    if (!roomId) return;
+    setTgError(null);
+    try {
+      const bot = await updateTelegramBotMode(roomId, mode);
+      setTgBot(bot);
+    } catch (err) {
+      setTgError(err instanceof Error ? err.message : "Failed to update mode");
+    }
+  }
+
+  async function handleDisconnectBot() {
+    if (!roomId || !window.confirm("Disconnect the Telegram bot? Chat linking will stop.")) return;
+    setTgError(null);
+    try {
+      await deleteTelegramBot(roomId);
+      setTgBot(null);
+      setTgLinkCode(null);
+      setTgLinkExpiry(0);
+    } catch (err) {
+      setTgError(err instanceof Error ? err.message : "Failed to disconnect bot");
+    }
+  }
+
+  async function handleGenerateLinkCode() {
+    if (!roomId) return;
+    setTgError(null);
+    try {
+      const { code, expires_in } = await generateTelegramLinkCode(roomId);
+      setTgLinkCode(code);
+      setTgLinkExpiry(expires_in);
+    } catch (err) {
+      setTgError(err instanceof Error ? err.message : "Failed to generate link code");
     }
   }
 
@@ -601,6 +686,148 @@ export function RoomView() {
           </div>
         )}
       </section>
+
+      {isOrganizer && (
+        <section className="section">
+          <div className="section-header">
+            <h2>AI Assistant (Telegram)</h2>
+          </div>
+          {tgLoading ? (
+            <p className="placeholder">Loading bot settings...</p>
+          ) : tgBot ? (
+            <div className="telegram-bot-config">
+              <div className="telegram-bot-info">
+                <span className="telegram-bot-username">
+                  <a href={`https://t.me/${tgBot.bot_username}`} target="_blank" rel="noreferrer">
+                    @{tgBot.bot_username}
+                  </a>
+                </span>
+                <span className={`badge ${tgBot.active ? "badge-role-teacher" : "badge-role-participant"}`}>
+                  {tgBot.active ? "active" : "inactive"}
+                </span>
+              </div>
+              <div className="form-field">
+                <label>Mode</label>
+                <div className="visibility-toggle">
+                  <button
+                    type="button"
+                    className={`btn btn-sm ${tgBot.mode === "read_only" ? "btn-primary" : "btn-secondary"}`}
+                    onClick={() => handleUpdateBotMode("read_only")}
+                  >
+                    Read-only
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn btn-sm ${tgBot.mode === "read_write" ? "btn-primary" : "btn-secondary"}`}
+                    onClick={() => handleUpdateBotMode("read_write")}
+                  >
+                    Read &amp; Write
+                  </button>
+                </div>
+                <span className="form-hint">
+                  {tgBot.mode === "read_only"
+                    ? "Bot reads chat history but won\u2019t send messages"
+                    : "Bot can read and send messages in linked chats"}
+                </span>
+              </div>
+              <div className="form-field">
+                <label>Link a Telegram chat</label>
+                {tgLinkCode ? (
+                  <div className="invite-link-box">
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={tgLinkCode}
+                      readOnly
+                      onFocus={(e) => e.target.select()}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => navigator.clipboard.writeText(tgLinkCode)}
+                    >
+                      Copy
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={handleGenerateLinkCode}
+                  >
+                    Generate Link Code
+                  </button>
+                )}
+                {tgLinkCode && tgLinkExpiry > 0 && (
+                  <span className="form-hint">
+                    Send this code in your Telegram group. Expires in {Math.floor(tgLinkExpiry / 60)}:{String(tgLinkExpiry % 60).padStart(2, "0")}
+                  </span>
+                )}
+              </div>
+              {tgError && <p className="form-error">{tgError}</p>}
+              <div className="form-actions">
+                <button
+                  type="button"
+                  className="btn btn-sm btn-danger"
+                  onClick={handleDisconnectBot}
+                >
+                  Disconnect bot
+                </button>
+              </div>
+            </div>
+          ) : (
+            <form className="create-page-form" onSubmit={handleConnectBot}>
+              <div className="form-field">
+                <label htmlFor="tg-token">Bot Token</label>
+                <input
+                  id="tg-token"
+                  type="text"
+                  className="form-input"
+                  value={tgToken}
+                  onChange={(e) => setTgToken(e.target.value)}
+                  placeholder="123456:ABC-DEF..."
+                  required
+                  disabled={tgConnecting}
+                />
+                <span className="form-hint">
+                  Create a bot via <a href="https://t.me/BotFather" target="_blank" rel="noreferrer">@BotFather</a> and paste the token here
+                </span>
+              </div>
+              <div className="form-field">
+                <label>Mode</label>
+                <div className="visibility-toggle">
+                  <button
+                    type="button"
+                    className={`btn btn-sm ${tgMode === "read_only" ? "btn-primary" : "btn-secondary"}`}
+                    onClick={() => setTgMode("read_only")}
+                    disabled={tgConnecting}
+                  >
+                    Read-only
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn btn-sm ${tgMode === "read_write" ? "btn-primary" : "btn-secondary"}`}
+                    onClick={() => setTgMode("read_write")}
+                    disabled={tgConnecting}
+                  >
+                    Read &amp; Write
+                  </button>
+                </div>
+              </div>
+              {tgError && <p className="form-error">{tgError}</p>}
+              <div className="form-actions">
+                <button
+                  type="submit"
+                  className="btn btn-primary btn-sm"
+                  disabled={tgConnecting || !tgToken.trim()}
+                >
+                  {tgConnecting ? "Connecting..." : "Connect Bot"}
+                </button>
+              </div>
+            </form>
+          )}
+        </section>
+      )}
 
       {isOrganizer && (
         <section className="section">

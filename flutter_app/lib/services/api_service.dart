@@ -300,4 +300,40 @@ class ApiService {
   Future<void> deleteCheckIn(String checkInId) async {
     await _request('DELETE', '/v2/check-ins/$checkInId');
   }
+
+  // --- Telegram Bot ---
+
+  Future<Map<String, dynamic>> connectTelegramBot(
+      String roomId, String botToken, {String mode = 'read_only'}) async {
+    final data = await _request('POST', '/v2/rooms/$roomId/telegram-bot',
+        body: {'bot_token': botToken, 'mode': mode});
+    return data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>?> getTelegramBot(String roomId) async {
+    try {
+      final data = await _request('GET', '/v2/rooms/$roomId/telegram-bot');
+      return data as Map<String, dynamic>;
+    } on ApiException catch (e) {
+      if (e.statusCode == 404) return null;
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> updateTelegramBotMode(
+      String roomId, String mode) async {
+    final data = await _request('PATCH', '/v2/rooms/$roomId/telegram-bot',
+        body: {'mode': mode});
+    return data as Map<String, dynamic>;
+  }
+
+  Future<void> deleteTelegramBot(String roomId) async {
+    await _request('DELETE', '/v2/rooms/$roomId/telegram-bot');
+  }
+
+  Future<Map<String, dynamic>> generateTelegramLinkCode(String roomId) async {
+    final data =
+        await _request('POST', '/v2/rooms/$roomId/telegram-bot/link-code');
+    return data as Map<String, dynamic>;
+  }
 }

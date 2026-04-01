@@ -1274,3 +1274,27 @@ body {
   margin-top: 8px;
   font-size: 0.85rem;
 }
+
+/* Telegram bot config */
+.telegram-bot-config {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.telegram-bot-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+}
+
+.telegram-bot-username a {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.telegram-bot-username a:hover {
+  text-decoration: underline;
+}

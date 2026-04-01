@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/series.dart';
 import '../../models/room.dart';
@@ -23,10 +26,23 @@ class _RoomScreenState extends State<RoomScreen> {
   bool _loading = true;
   String? _error;
 
+  // Telegram bot state
+  Map<String, dynamic>? _tgBot;
+  bool _tgLoading = true;
+  String? _tgLinkCode;
+  int _tgLinkExpiry = 0;
+  Timer? _tgTimer;
+
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _tgTimer?.cancel();
+    super.dispose();
   }
 
   String get _uid => context.read<AuthService>().currentUser!.uid;
@@ -57,6 +73,12 @@ class _RoomScreenState extends State<RoomScreen> {
           _series = results[1] as List<Series>;
         });
       }
+      // Load telegram bot (non-blocking)
+      api.getTelegramBot(widget.roomId).then((bot) {
+        if (mounted) setState(() => _tgBot = bot);
+      }).catchError((_) {}).whenComplete(() {
+        if (mounted) setState(() => _tgLoading = false);
+      });
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {
@@ -102,7 +124,7 @@ class _RoomScreenState extends State<RoomScreen> {
           .createInvite(widget.roomId, 'participant');
       final inviteId = invite['invite_id'];
       final link =
-          'https://living-memories-488001.web.app/invites/$inviteId';
+          'https://small-group.ai/invites/$inviteId';
       if (mounted) {
         await Clipboard.setData(ClipboardData(text: link));
         ScaffoldMessenger.of(context).showSnackBar(
@@ -125,6 +147,101 @@ class _RoomScreenState extends State<RoomScreen> {
     try {
       await context.read<ApiService>().createSeries(widget.roomId, body);
       _load();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
+  Future<void> _connectTelegramBot(String token, String mode) async {
+    try {
+      final bot = await context
+          .read<ApiService>()
+          .connectTelegramBot(widget.roomId, token, mode: mode);
+      if (mounted) setState(() => _tgBot = bot);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
+  Future<void> _updateTelegramBotMode(String mode) async {
+    try {
+      final bot = await context
+          .read<ApiService>()
+          .updateTelegramBotMode(widget.roomId, mode);
+      if (mounted) setState(() => _tgBot = bot);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
+  Future<void> _disconnectTelegramBot() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Disconnect bot?'),
+        content: const Text('Chat linking will stop.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Disconnect',
+                  style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await context.read<ApiService>().deleteTelegramBot(widget.roomId);
+      if (mounted) {
+        _tgTimer?.cancel();
+        setState(() {
+          _tgBot = null;
+          _tgLinkCode = null;
+          _tgLinkExpiry = 0;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
+  Future<void> _generateLinkCode() async {
+    try {
+      final result = await context
+          .read<ApiService>()
+          .generateTelegramLinkCode(widget.roomId);
+      if (mounted) {
+        setState(() {
+          _tgLinkCode = result['code'] as String;
+          _tgLinkExpiry = result['expires_in'] as int;
+        });
+        _tgTimer?.cancel();
+        _tgTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+          if (!mounted) return;
+          setState(() {
+            _tgLinkExpiry--;
+            if (_tgLinkExpiry <= 0) {
+              _tgLinkCode = null;
+              _tgLinkExpiry = 0;
+              _tgTimer?.cancel();
+            }
+          });
+        });
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -305,6 +422,31 @@ class _RoomScreenState extends State<RoomScreen> {
               ),
             ),
 
+            // Telegram bot (organizer only)
+            if (_isOrganizer(room)) ...[
+              const SizedBox(height: 16),
+              _SectionHeader(
+                  icon: Icons.smart_toy_outlined,
+                  title: 'AI Assistant (Telegram)'),
+              const SizedBox(height: 6),
+              if (_tgLoading)
+                const Card(
+                  child: Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Center(
+                        child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child:
+                                CircularProgressIndicator(strokeWidth: 2))),
+                  ),
+                )
+              else if (_tgBot != null)
+                _telegramBotCard(_tgBot!, cs)
+              else
+                _telegramConnectCard(cs),
+            ],
+
             // Delete room (organizer only)
             if (_isOrganizer(room)) ...[
               const SizedBox(height: 24),
@@ -341,6 +483,190 @@ class _RoomScreenState extends State<RoomScreen> {
                 ),
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _telegramConnectCard(ColorScheme cs) {
+    final tokenController = TextEditingController();
+    String selectedMode = 'read_only';
+    bool connecting = false;
+
+    return StatefulBuilder(
+      builder: (context, setLocalState) => Card(
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: tokenController,
+                decoration: const InputDecoration(
+                  labelText: 'Bot Token',
+                  hintText: '123456:ABC-DEF...',
+                  helperText: 'Create a bot via @BotFather on Telegram',
+                  isDense: true,
+                ),
+                enabled: !connecting,
+              ),
+              const SizedBox(height: 12),
+              Text('Mode',
+                  style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+              const SizedBox(height: 4),
+              SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(
+                      value: 'read_only', label: Text('Read-only')),
+                  ButtonSegment(
+                      value: 'read_write', label: Text('Read & Write')),
+                ],
+                selected: {selectedMode},
+                onSelectionChanged: connecting
+                    ? null
+                    : (sel) =>
+                        setLocalState(() => selectedMode = sel.first),
+              ),
+              const SizedBox(height: 12),
+              FilledButton(
+                onPressed: connecting || tokenController.text.trim().isEmpty
+                    ? null
+                    : () async {
+                        setLocalState(() => connecting = true);
+                        await _connectTelegramBot(
+                            tokenController.text.trim(), selectedMode);
+                        if (mounted) {
+                          setLocalState(() => connecting = false);
+                        }
+                      },
+                child: Text(connecting ? 'Connecting...' : 'Connect Bot'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _telegramBotCard(Map<String, dynamic> bot, ColorScheme cs) {
+    final username = bot['bot_username'] as String;
+    final mode = bot['mode'] as String;
+    final active = bot['active'] as bool;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                InkWell(
+                  onTap: () => launchUrl(
+                      Uri.parse('https://t.me/$username'),
+                      mode: LaunchMode.externalApplication),
+                  child: Text('@$username',
+                      style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: cs.primary)),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: active
+                        ? Colors.green.withValues(alpha: 0.1)
+                        : cs.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(active ? 'active' : 'inactive',
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: active
+                              ? Colors.green
+                              : cs.onSurfaceVariant)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text('Mode',
+                style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+            const SizedBox(height: 4),
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(value: 'read_only', label: Text('Read-only')),
+                ButtonSegment(
+                    value: 'read_write', label: Text('Read & Write')),
+              ],
+              selected: {mode},
+              onSelectionChanged: (sel) =>
+                  _updateTelegramBotMode(sel.first),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              mode == 'read_only'
+                  ? 'Bot reads chat history but won\'t send messages'
+                  : 'Bot can read and send messages in linked chats',
+              style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+            ),
+            const SizedBox(height: 12),
+            Text('Link a Telegram chat',
+                style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+            const SizedBox(height: 4),
+            if (_tgLinkCode != null) ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: cs.outlineVariant),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: SelectableText(_tgLinkCode!,
+                          style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              fontFamily: 'monospace')),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.copy, size: 20),
+                    onPressed: () {
+                      Clipboard.setData(
+                          ClipboardData(text: _tgLinkCode!));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Code copied!')));
+                    },
+                  ),
+                ],
+              ),
+              if (_tgLinkExpiry > 0)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    'Send this code in your Telegram group. Expires in ${_tgLinkExpiry ~/ 60}:${(_tgLinkExpiry % 60).toString().padLeft(2, '0')}',
+                    style: TextStyle(
+                        fontSize: 11, color: cs.onSurfaceVariant),
+                  ),
+                ),
+            ] else
+              OutlinedButton(
+                onPressed: _generateLinkCode,
+                child: const Text('Generate Link Code'),
+              ),
+            const Divider(height: 24),
+            TextButton.icon(
+              onPressed: _disconnectTelegramBot,
+              icon: const Icon(Icons.link_off, size: 16, color: Colors.red),
+              label: const Text('Disconnect bot',
+                  style: TextStyle(color: Colors.red)),
+            ),
           ],
         ),
       ),

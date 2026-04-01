@@ -32,6 +32,7 @@ CheckInStatus = Literal["pending", "confirmed", "declined", "missed"]
 MemberRole = Literal["organizer", "participant", "teacher", "assistant", "student"]
 NotificationChannel = Literal["email", "in_app", "telegram", "calendar"]
 DeliveryStatus = Literal["pending", "sent", "failed", "skipped"]
+BotMode = Literal["read_only", "read_write"]
 
 
 # ---------------------------------------------------------------------------
@@ -504,4 +505,163 @@ class DeliveryLog:
             sent_at=data.get("sent_at"),
             error=data.get("error"),
             created_at=data.get("created_at"),
+        )
+
+
+# ---------------------------------------------------------------------------
+# TelegramBotConfig
+# ---------------------------------------------------------------------------
+
+@dataclass
+class TelegramBotConfig:
+    """Configuration for a room's dedicated Telegram bot.
+
+    Maps to the Firestore ``telegram_bots`` collection.
+    """
+
+    bot_id: str              # Telegram bot user ID (from getMe) — doc ID
+    room_id: str             # FK to workspaces collection
+    bot_token: str           # encrypted at rest
+    bot_username: str        # e.g. "MyMeetingBot"
+    webhook_secret: str      # auto-generated per bot
+    mode: BotMode = "read_only"
+    created_by: str = ""     # UID of organizer who configured it
+    active: bool = True
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+    def to_dict(self) -> dict:
+        now = _utcnow()
+        return {
+            "bot_id": self.bot_id,
+            "room_id": self.room_id,
+            "bot_token": self.bot_token,
+            "bot_username": self.bot_username,
+            "webhook_secret": self.webhook_secret,
+            "mode": self.mode,
+            "created_by": self.created_by,
+            "active": self.active,
+            "created_at": self.created_at or now,
+            "updated_at": self.updated_at or now,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> TelegramBotConfig:
+        return cls(
+            bot_id=data["bot_id"],
+            room_id=data["room_id"],
+            bot_token=data["bot_token"],
+            bot_username=data["bot_username"],
+            webhook_secret=data["webhook_secret"],
+            mode=data.get("mode", "read_only"),
+            created_by=data.get("created_by", ""),
+            active=bool(data.get("active", True)),
+            created_at=data.get("created_at"),
+            updated_at=data.get("updated_at"),
+        )
+
+
+# ---------------------------------------------------------------------------
+# TelegramUserLink
+# ---------------------------------------------------------------------------
+
+@dataclass
+class TelegramUserLink:
+    """Maps a Telegram user to an app user.
+
+    Maps to the Firestore ``telegram_links`` collection.
+    """
+
+    telegram_user_id: str  # doc ID
+    app_uid: str           # Firebase UID
+    display_name: str
+    linked_at: datetime | None = None
+
+    def to_dict(self) -> dict:
+        return {
+            "telegram_user_id": self.telegram_user_id,
+            "app_uid": self.app_uid,
+            "display_name": self.display_name,
+            "linked_at": self.linked_at or _utcnow(),
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> TelegramUserLink:
+        return cls(
+            telegram_user_id=data["telegram_user_id"],
+            app_uid=data["app_uid"],
+            display_name=data["display_name"],
+            linked_at=data.get("linked_at"),
+        )
+
+
+# ---------------------------------------------------------------------------
+# ChatSession / ChatTurn
+# ---------------------------------------------------------------------------
+
+@dataclass
+class ChatTurn:
+    """A single turn in a Telegram chat session."""
+
+    role: str  # "user" or "assistant"
+    text: str
+    timestamp: datetime | None = None
+    action_id: str | None = None
+
+    def to_dict(self) -> dict:
+        return {
+            "role": self.role,
+            "text": self.text,
+            "timestamp": self.timestamp or _utcnow(),
+            "action_id": self.action_id,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> ChatTurn:
+        return cls(
+            role=data["role"],
+            text=data["text"],
+            timestamp=data.get("timestamp"),
+            action_id=data.get("action_id"),
+        )
+
+
+@dataclass
+class ChatSession:
+    """Telegram chat session with conversation history.
+
+    Maps to the Firestore ``chat_sessions`` collection.
+    Session key: (room_id, telegram_chat_id).
+    """
+
+    session_id: str
+    room_id: str
+    telegram_chat_id: str
+    app_uid: str
+    turns: list[ChatTurn] = field(default_factory=list)
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+    def to_dict(self) -> dict:
+        now = _utcnow()
+        return {
+            "session_id": self.session_id,
+            "room_id": self.room_id,
+            "telegram_chat_id": self.telegram_chat_id,
+            "app_uid": self.app_uid,
+            "turns": [t.to_dict() for t in self.turns],
+            "created_at": self.created_at or now,
+            "updated_at": self.updated_at or now,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> ChatSession:
+        return cls(
+            session_id=data["session_id"],
+            room_id=data["room_id"],
+            telegram_chat_id=data["telegram_chat_id"],
+            app_uid=data["app_uid"],
+            turns=[ChatTurn.from_dict(t) for t in data.get("turns", [])],
+            created_at=data.get("created_at"),
+            updated_at=data.get("updated_at"),
         )

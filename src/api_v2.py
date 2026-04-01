@@ -43,6 +43,7 @@ from pydantic import BaseModel, field_validator
 
 import series_storage
 import room_storage
+import telegram_storage
 from assistant import run_assistant_stream
 from assistant_actions import execute_action, get_pending_action, update_pending_action_status
 from models import (
@@ -53,6 +54,8 @@ from models import (
     ScheduleRule,
     Series,
     Room,
+    TelegramBotConfig,
+    TelegramUserLink,
 )
 from occurrence_service import (
     complete_occurrence,
@@ -341,6 +344,15 @@ class UpdateOccurrenceRequest(BaseModel):
 class UpsertCheckInRequest(BaseModel):
     status: str  # "confirmed", "declined", "missed"
     note: Optional[str] = None
+
+
+class RegisterTelegramBotRequest(BaseModel):
+    bot_token: str
+    mode: str = "read_only"
+
+
+class UpdateTelegramBotRequest(BaseModel):
+    mode: str
 
 
 # ---------------------------------------------------------------------------
@@ -1040,7 +1052,315 @@ def get_series_ics(
 
 
 # ---------------------------------------------------------------------------
-# Channel / Telegram webhook endpoint
+# Telegram bot management endpoints
+# ---------------------------------------------------------------------------
+
+
+def _bot_public_dict(config: TelegramBotConfig) -> dict:
+    """Return bot config fields safe for API responses (no token or secret)."""
+    return {
+        "bot_id": config.bot_id,
+        "bot_username": config.bot_username,
+        "mode": config.mode,
+        "active": config.active,
+    }
+
+
+@router.post("/rooms/{room_id}/telegram-bot", status_code=201)
+async def register_telegram_bot(
+    room_id: str,
+    body: RegisterTelegramBotRequest,
+    token: dict = Depends(_require_token),
+) -> dict:
+    """Register a Telegram bot for a room."""
+    import os
+    import httpx
+
+    rm = _get_room_or_404(room_id)
+    _require_organizer(rm, token["uid"])
+
+    # Check no bot already exists for this room
+    existing = telegram_storage.get_bot_config_for_room(room_id)
+    if existing is not None:
+        raise HTTPException(status_code=409, detail="A bot is already configured for this room")
+
+    if body.mode not in ("read_only", "read_write"):
+        raise HTTPException(status_code=400, detail="mode must be 'read_only' or 'read_write'")
+
+    # Validate token by calling Telegram getMe
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(f"https://api.telegram.org/bot{body.bot_token}/getMe")
+    if resp.status_code != 200 or not resp.json().get("ok"):
+        raise HTTPException(status_code=400, detail="Invalid bot token: Telegram getMe failed")
+    me = resp.json()["result"]
+    bot_id = str(me["id"])
+    bot_username = me.get("username", "")
+
+    # Generate webhook secret
+    webhook_secret = str(uuid.uuid4())
+
+    # Register webhook with Telegram
+    webhook_base_url = os.environ.get("WEBHOOK_BASE_URL", "")
+    if not webhook_base_url:
+        raise HTTPException(status_code=503, detail="WEBHOOK_BASE_URL is not configured")
+    webhook_url = f"{webhook_base_url}/v2/channels/telegram/webhook/{bot_id}"
+
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            f"https://api.telegram.org/bot{body.bot_token}/setWebhook",
+            json={"url": webhook_url, "secret_token": webhook_secret},
+        )
+    if resp.status_code != 200 or not resp.json().get("ok"):
+        raise HTTPException(status_code=502, detail="Failed to register webhook with Telegram")
+
+    # Save config
+    config = TelegramBotConfig(
+        bot_id=bot_id,
+        room_id=room_id,
+        bot_token=body.bot_token,
+        bot_username=bot_username,
+        webhook_secret=webhook_secret,
+        mode=body.mode,
+        created_by=token["uid"],
+    )
+    telegram_storage.save_bot_config(config)
+
+    return _bot_public_dict(config)
+
+
+@router.get("/rooms/{room_id}/telegram-bot")
+def get_telegram_bot(
+    room_id: str,
+    token: dict = Depends(_require_token),
+) -> dict:
+    """Get the Telegram bot config for a room (without token)."""
+    rm = _get_room_or_404(room_id)
+    _require_member(rm, token["uid"])
+    config = telegram_storage.get_bot_config_for_room(room_id)
+    if config is None:
+        raise HTTPException(status_code=404, detail="No bot configured for this room")
+    return _bot_public_dict(config)
+
+
+@router.patch("/rooms/{room_id}/telegram-bot")
+def update_telegram_bot(
+    room_id: str,
+    body: UpdateTelegramBotRequest,
+    token: dict = Depends(_require_token),
+) -> dict:
+    """Update the Telegram bot mode for a room."""
+    rm = _get_room_or_404(room_id)
+    _require_organizer(rm, token["uid"])
+    config = telegram_storage.get_bot_config_for_room(room_id)
+    if config is None:
+        raise HTTPException(status_code=404, detail="No bot configured for this room")
+    if body.mode not in ("read_only", "read_write"):
+        raise HTTPException(status_code=400, detail="mode must be 'read_only' or 'read_write'")
+    config.mode = body.mode
+    telegram_storage.save_bot_config(config)
+    return _bot_public_dict(config)
+
+
+@router.delete("/rooms/{room_id}/telegram-bot", status_code=200)
+async def delete_telegram_bot(
+    room_id: str,
+    token: dict = Depends(_require_token),
+) -> dict:
+    """Delete a room's Telegram bot and unregister the webhook."""
+    import httpx
+
+    rm = _get_room_or_404(room_id)
+    _require_organizer(rm, token["uid"])
+    config = telegram_storage.get_bot_config_for_room(room_id)
+    if config is None:
+        raise HTTPException(status_code=404, detail="No bot configured for this room")
+
+    # Call Telegram deleteWebhook
+    async with httpx.AsyncClient() as client:
+        await client.post(
+            f"https://api.telegram.org/bot{config.bot_token}/deleteWebhook"
+        )
+
+    telegram_storage.delete_links_for_bot(config.bot_id)
+    telegram_storage.delete_bot_config(config.bot_id)
+    return {"deleted": True}
+
+
+@router.post("/rooms/{room_id}/telegram-bot/link-code", status_code=201)
+def generate_link_code(
+    room_id: str,
+    token: dict = Depends(_require_token),
+) -> dict:
+    """Generate a one-time link code for connecting a Telegram user to an app user."""
+    import secrets
+    from datetime import timedelta
+
+    rm = _get_room_or_404(room_id)
+    _require_organizer(rm, token["uid"])
+
+    # Verify bot exists for this room
+    config = telegram_storage.get_bot_config_for_room(room_id)
+    if config is None:
+        raise HTTPException(status_code=404, detail="No bot configured for this room")
+
+    # Generate 6-char alphanumeric code
+    code = secrets.token_hex(3).upper()  # 6 hex chars
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=5)
+    telegram_storage.save_link_code(code, room_id, token["uid"], expires_at)
+
+    return {"code": code, "expires_in": 300}
+
+
+# ---------------------------------------------------------------------------
+# Per-bot Telegram webhook endpoint
+# ---------------------------------------------------------------------------
+
+
+def _extract_telegram_user(message: dict) -> tuple[str, str, str]:
+    """Extract (telegram_user_id, display_name, chat_id) from a Telegram message."""
+    from_user = message.get("from", {})
+    telegram_user_id = str(from_user.get("id", ""))
+    first_name = from_user.get("first_name", "")
+    last_name = from_user.get("last_name", "")
+    display_name = f"{first_name} {last_name}".strip() if last_name else first_name
+    chat_id = str(message.get("chat", {}).get("id", ""))
+    return telegram_user_id, display_name, chat_id
+
+
+async def _send_telegram_message(bot_token: str, chat_id: str, text: str) -> None:
+    """Send a text message via the Telegram Bot API."""
+    import httpx
+
+    async with httpx.AsyncClient() as client:
+        await client.post(
+            f"https://api.telegram.org/bot{bot_token}/sendMessage",
+            json={"chat_id": chat_id, "text": text},
+        )
+
+
+@router.post("/channels/telegram/webhook/{bot_id}", status_code=200)
+async def telegram_bot_webhook(
+    bot_id: str,
+    raw_update: dict,
+    x_telegram_bot_api_secret_token: str = Header(None),
+) -> dict:
+    """Receive a Telegram Update for a specific bot.
+
+    Validates the per-bot webhook secret. Handles /start, /link, and
+    general messages with identity checking.
+    """
+    import logging
+
+    config = telegram_storage.get_bot_config(bot_id)
+    if config is None:
+        raise HTTPException(status_code=404, detail="Bot not found")
+    if not config.active:
+        raise HTTPException(status_code=403, detail="Bot is deactivated")
+    if not x_telegram_bot_api_secret_token or x_telegram_bot_api_secret_token != config.webhook_secret:
+        raise HTTPException(status_code=403, detail="Invalid webhook secret")
+
+    logger = logging.getLogger(__name__)
+
+    # Handle callback queries (inline button presses)
+    callback_query = raw_update.get("callback_query")
+    if callback_query:
+        from telegram_chat_handler import handle_telegram_callback
+
+        cb_from = callback_query.get("from", {})
+        cb_telegram_user_id = str(cb_from.get("id", ""))
+        if not cb_telegram_user_id:
+            return {"ok": True}
+        cb_link = telegram_storage.get_link_by_telegram_user(cb_telegram_user_id)
+        if cb_link is None:
+            # Can't process callback from unlinked user
+            return {"ok": True}
+        await handle_telegram_callback(
+            bot_config=config,
+            telegram_user_id=cb_telegram_user_id,
+            app_uid=cb_link.app_uid,
+            callback_query=callback_query,
+        )
+        return {"ok": True}
+
+    message = raw_update.get("message")
+    if not message:
+        return {"ok": True}
+
+    telegram_user_id, display_name, chat_id = _extract_telegram_user(message)
+    if not telegram_user_id or not chat_id:
+        return {"ok": True}
+
+    text = (message.get("text") or "").strip()
+
+    # Handle /start command
+    if text == "/start" or text.startswith("/start "):
+        await _send_telegram_message(
+            config.bot_token,
+            chat_id,
+            "Welcome! To link your account, go to Room Settings > AI Assistant "
+            "in the app, generate a link code, then send /link <code> here.",
+        )
+        return {"ok": True}
+
+    # Handle /link command
+    if text.startswith("/link"):
+        parts = text.split(maxsplit=1)
+        if len(parts) < 2 or not parts[1].strip():
+            await _send_telegram_message(
+                config.bot_token,
+                chat_id,
+                "Usage: /link <code>",
+            )
+            return {"ok": True}
+        code = parts[1].strip()
+        result = telegram_storage.get_and_consume_link_code(code)
+        if result is None:
+            await _send_telegram_message(
+                config.bot_token,
+                chat_id,
+                "Invalid or expired code. Please generate a new one from the app.",
+            )
+            return {"ok": True}
+        # Save the link
+        link = TelegramUserLink(
+            telegram_user_id=telegram_user_id,
+            app_uid=result["app_uid"],
+            display_name=display_name,
+        )
+        telegram_storage.save_telegram_link(link)
+        await _send_telegram_message(
+            config.bot_token,
+            chat_id,
+            f"You're now linked as {display_name}. You can manage this room's schedule.",
+        )
+        return {"ok": True}
+
+    # For all other messages, check if user is linked
+    existing_link = telegram_storage.get_link_by_telegram_user(telegram_user_id)
+    if existing_link is None:
+        await _send_telegram_message(
+            config.bot_token,
+            chat_id,
+            "Please link your account first. Generate a link code in "
+            "Room Settings > AI Assistant, then send /link <code> here.",
+        )
+        return {"ok": True}
+
+    # Linked user — route through the assistant chat handler
+    from telegram_chat_handler import handle_telegram_message
+
+    await handle_telegram_message(
+        bot_config=config,
+        telegram_user_id=telegram_user_id,
+        app_uid=existing_link.app_uid,
+        chat_id=chat_id,
+        text=text,
+    )
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# Channel / Telegram webhook endpoint (legacy global)
 # ---------------------------------------------------------------------------
 
 @router.post("/channels/telegram/webhook", status_code=200)
