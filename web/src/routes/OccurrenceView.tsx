@@ -93,6 +93,17 @@ export function OccurrenceView() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Keyboard shortcuts for prev/next navigation
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === "ArrowLeft" && occurrence?.prev_occurrence_id) navigate(`/occurrences/${occurrence.prev_occurrence_id}`);
+      if (e.key === "ArrowRight" && occurrence?.next_occurrence_id) navigate(`/occurrences/${occurrence.next_occurrence_id}`);
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [occurrence?.prev_occurrence_id, occurrence?.next_occurrence_id, navigate]);
+
   function startEdit() {
     if (!occurrence) return;
     setEditTitle(occurrence.overrides?.title ?? "");
@@ -190,7 +201,25 @@ export function OccurrenceView() {
             </div>
           )}
         </div>
-        <h1 className="page-title">{effectiveTitle}</h1>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "1rem" }}>
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => navigate(`/occurrences/${occ.prev_occurrence_id}`)}
+            disabled={!occ.prev_occurrence_id}
+            style={{ visibility: occ.prev_occurrence_id ? "visible" : "hidden" }}
+          >
+            ‹
+          </button>
+          <h1 className="page-title" style={{ margin: 0 }}>{effectiveTitle}</h1>
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => navigate(`/occurrences/${occ.next_occurrence_id}`)}
+            disabled={!occ.next_occurrence_id}
+            style={{ visibility: occ.next_occurrence_id ? "visible" : "hidden" }}
+          >
+            ›
+          </button>
+        </div>
         <p className="series-meta">{formatDate(occ.scheduled_for)}</p>
         {effectiveDuration && (
           <p className="series-meta">{effectiveDuration} minutes</p>

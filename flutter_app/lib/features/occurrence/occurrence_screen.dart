@@ -357,12 +357,32 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
             ? occ.effectiveTitle
             : series.title),
         actions: [
+          if (occ.prevOccurrenceId != null)
+            IconButton(
+              icon: const Icon(Icons.chevron_left),
+              onPressed: () => context.go('/occurrences/${occ.prevOccurrenceId}'),
+            ),
+          if (occ.nextOccurrenceId != null)
+            IconButton(
+              icon: const Icon(Icons.chevron_right),
+              onPressed: () => context.go('/occurrences/${occ.nextOccurrenceId}'),
+            ),
           if (_canManage)
             IconButton(
                 onPressed: _editOverrides, icon: const Icon(Icons.edit)),
         ],
       ),
-      body: RefreshIndicator(
+      body: GestureDetector(
+        onHorizontalDragEnd: (details) {
+          if (details.primaryVelocity != null) {
+            if (details.primaryVelocity! < -200 && occ.nextOccurrenceId != null) {
+              context.go('/occurrences/${occ.nextOccurrenceId}');
+            } else if (details.primaryVelocity! > 200 && occ.prevOccurrenceId != null) {
+              context.go('/occurrences/${occ.prevOccurrenceId}');
+            }
+          }
+        },
+        child: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
@@ -686,6 +706,7 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
             ],
           ],
         ),
+      ),
       ),
     );
   }

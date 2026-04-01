@@ -772,7 +772,23 @@ def get_occurrence(
         raise HTTPException(status_code=404, detail="Occurrence not found")
     rm = _get_room_or_404(occ.room_id)
     _require_member(rm, token["uid"])
-    return occ.to_dict()
+
+    # Compute prev/next occurrence navigation links
+    all_occs = series_storage.list_occurrences_for_series(occ.series_id)
+    prev_occurrence_id = None
+    next_occurrence_id = None
+    for i, o in enumerate(all_occs):
+        if o.occurrence_id == occurrence_id:
+            if i > 0:
+                prev_occurrence_id = all_occs[i - 1].occurrence_id
+            if i < len(all_occs) - 1:
+                next_occurrence_id = all_occs[i + 1].occurrence_id
+            break
+
+    result = occ.to_dict()
+    result["prev_occurrence_id"] = prev_occurrence_id
+    result["next_occurrence_id"] = next_occurrence_id
+    return result
 
 
 @router.patch("/occurrences/{occurrence_id}")

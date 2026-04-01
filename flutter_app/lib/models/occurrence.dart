@@ -47,6 +47,8 @@ class Occurrence {
   final int? sequenceIndex;
   final bool enableCheckIn;
   final String? host;
+  final String? prevOccurrenceId;
+  final String? nextOccurrenceId;
 
   const Occurrence({
     required this.occurrenceId,
@@ -59,6 +61,8 @@ class Occurrence {
     this.sequenceIndex,
     this.enableCheckIn = false,
     this.host,
+    this.prevOccurrenceId,
+    this.nextOccurrenceId,
   });
 
   factory Occurrence.fromJson(Map<String, dynamic> json) {
@@ -76,6 +80,8 @@ class Occurrence {
       sequenceIndex: json['sequence_index'] as int?,
       enableCheckIn: json['enable_check_in'] as bool? ?? false,
       host: json['host'] as String?,
+      prevOccurrenceId: json['prev_occurrence_id'] as String?,
+      nextOccurrenceId: json['next_occurrence_id'] as String?,
     );
   }
 

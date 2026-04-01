@@ -109,6 +109,8 @@ export interface OccurrenceSummary {
   host?: string;
   overrides: OccurrenceOverrides;
   enable_check_in: boolean;
+  prev_occurrence_id?: string | null;
+  next_occurrence_id?: string | null;
   created_at: string;
   updated_at: string;
 }
