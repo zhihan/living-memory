@@ -94,6 +94,8 @@ def _build_room_context(room_id: str) -> dict | None:
                 "status": o.status,
                 "host": o.host,
                 "location": o.location,
+                "notes": o.overrides.notes if o.overrides else None,
+                "title_override": o.overrides.title if o.overrides else None,
             }
             for o in occs[:20]
         ],

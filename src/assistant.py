@@ -86,9 +86,11 @@ def _build_prompt(
     room_context: dict[str, Any] | None,
     history: list[dict[str, str]] | None = None,
 ) -> str:
-    ctx = ""
+    from datetime import datetime, timezone
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    ctx = f"\nToday's date: {today}\n"
     if room_context:
-        ctx = "\nRoom context:\n" + json.dumps(room_context, indent=2, default=str) + "\n"
+        ctx += "\nRoom context:\n" + json.dumps(room_context, indent=2, default=str) + "\n"
     conv = ""
     if history:
         for turn in history:
