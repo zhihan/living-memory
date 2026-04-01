@@ -68,6 +68,7 @@ export interface RoomSummary {
   series_count?: number;
   series_schedule?: ScheduleRule;
   series_default_time?: string | null;
+  my_role?: string;
 }
 
 export interface SeriesSummary {

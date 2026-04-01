@@ -10,6 +10,7 @@ class Room {
   final int seriesCount;
   final Map<String, dynamic>? seriesSchedule;
   final String? seriesDefaultTime;
+  final String? myRole;
 
   const Room({
     required this.roomId,
@@ -23,6 +24,7 @@ class Room {
     this.seriesCount = 0,
     this.seriesSchedule,
     this.seriesDefaultTime,
+    this.myRole,
   });
 
   factory Room.fromJson(Map<String, dynamic> json) {
@@ -58,6 +60,7 @@ class Room {
       seriesCount: json['series_count'] as int? ?? 0,
       seriesSchedule: json['series_schedule'] as Map<String, dynamic>?,
       seriesDefaultTime: json['series_default_time'] as String?,
+      myRole: json['my_role'] as String?,
     );
   }
 

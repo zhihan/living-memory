@@ -161,10 +161,14 @@ function seriesSubtitle(room: RoomSummary): string {
 }
 
 function RoomCard({ room }: { room: RoomSummary }) {
+  const isParticipant = room.my_role && room.my_role !== "organizer";
   return (
     <li className="page-card room-card">
       <Link to={`/room/${room.room_id}`}>
         <strong>{room.title}</strong>
+        {isParticipant && (
+          <span className="role-badge role-participant">{room.my_role}</span>
+        )}
       </Link>
       <p className="page-meta-tz">{seriesSubtitle(room)}</p>
     </li>

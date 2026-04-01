@@ -431,6 +431,21 @@ body {
 
 .room-card { }
 
+.role-badge {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 500;
+  padding: 1px 6px;
+  border-radius: 8px;
+  margin-left: 6px;
+  vertical-align: middle;
+  text-transform: capitalize;
+}
+.role-participant {
+  background: var(--secondary-container, #e0e0e0);
+  color: var(--on-secondary-container, #444);
+}
+
 /* Series list */
 .series-list {
   list-style: none;

@@ -196,22 +196,23 @@ class TestMemberManagement:
         mock_ref = MagicMock()
         mock_ref.get.return_value = _mock_doc(data=_rm_data())
         mock_db.collection.return_value.document.return_value = mock_ref
-        mock_transaction = MagicMock()
-        mock_db.transaction.return_value = mock_transaction
 
         # get_room is called again after update; return updated data
         data_after = _rm_data(member_roles={"uid-alice": "organizer", "uid-bob": "participant"})
 
-        with patch("room_storage._get_client", return_value=mock_db):
-            with patch("room_storage.get_room") as mock_get:
-                mock_get.return_value = Room.from_dict(data_after)
-                result = add_member("rm-1", "uid-bob", "participant")
+        fake_firestore_v1 = types.ModuleType("google.cloud.firestore_v1")
+        fake_firestore_v1.ArrayUnion = lambda vals: ("__array_union__", vals)
+        with patch.dict(sys.modules, {"google.cloud.firestore_v1": fake_firestore_v1}):
+            with patch("room_storage._get_client", return_value=mock_db):
+                with patch("room_storage.get_room") as mock_get:
+                    mock_get.return_value = Room.from_dict(data_after)
+                    result = add_member("rm-1", "uid-bob", "participant")
 
-        mock_transaction.update.assert_called_once()
-        update_args = mock_transaction.update.call_args[0][1]
+        mock_ref.update.assert_called_once()
+        update_args = mock_ref.update.call_args[0][0]
         assert "member_roles.uid-bob" in update_args
         assert update_args["member_roles.uid-bob"] == "participant"
-        mock_transaction.commit.assert_called_once()
+        assert "member_uids" in update_args
 
     def test_get_member_role_returns_none_for_nonmember(self):
         data = _rm_data(member_roles={"uid-alice": "organizer"})
@@ -233,12 +234,14 @@ class TestMemberManagement:
         mock_db.collection.return_value.document.return_value = mock_ref
         fake_firestore_v1 = types.ModuleType("google.cloud.firestore_v1")
         fake_firestore_v1.DELETE_FIELD = object()
+        fake_firestore_v1.ArrayRemove = lambda vals: ("__array_remove__", vals)
         with patch.dict(sys.modules, {"google.cloud.firestore_v1": fake_firestore_v1}):
             with patch("room_storage._get_client", return_value=mock_db):
                 with patch("room_storage.get_room", return_value=Room.from_dict(data)):
                     remove_member("rm-1", "uid-bob")
         update_args = mock_ref.update.call_args[0][0]
         assert "member_profiles.uid-bob" in update_args
+        assert "member_uids" in update_args
 
     def test_remove_last_organizer_raises(self):
         data = _rm_data(member_roles={"uid-alice": "organizer"})

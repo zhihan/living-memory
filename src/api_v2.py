@@ -449,6 +449,7 @@ def list_rooms(
     results = []
     for rm in rooms:
         d = rm.to_dict()
+        d["my_role"] = rm.member_roles.get(uid, "participant")
         series = series_storage.list_series_for_room(rm.room_id)
         d["series_count"] = len(series)
         if len(series) == 1:

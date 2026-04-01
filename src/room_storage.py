@@ -41,7 +41,9 @@ def create_room(room: Room) -> Room:
     room.updated_at = now
     for uid in room.owner_uids:
         room.member_roles.setdefault(uid, "organizer")
-    ref.set(room.to_dict())
+    data = room.to_dict()
+    data["member_uids"] = list(room.member_roles.keys())
+    ref.set(data)
     return room
 
 
@@ -73,14 +75,18 @@ def delete_room(room_id: str) -> None:
 
 
 def list_rooms_for_user(uid: str) -> list[Room]:
-    """Return all Rooms where uid is listed as an owner."""
+    """Return all Rooms where uid is a member (any role)."""
     db = _get_client()
-    docs = (
-        db.collection(ROOMS_COLLECTION)
-        .where("owner_uids", "array_contains", uid)
-        .stream()
-    )
-    return [Room.from_dict(doc.to_dict()) for doc in docs]
+    col = db.collection(ROOMS_COLLECTION)
+    seen: dict[str, Room] = {}
+    # Primary query: member_uids array (new rooms)
+    for doc in col.where("member_uids", "array_contains", uid).stream():
+        seen[doc.id] = Room.from_dict(doc.to_dict())
+    # Fallback: owner_uids (rooms created before member_uids was added)
+    for doc in col.where("owner_uids", "array_contains", uid).stream():
+        if doc.id not in seen:
+            seen[doc.id] = Room.from_dict(doc.to_dict())
+    return list(seen.values())
 
 
 def add_member(room_id: str, uid: str, role: MemberRole) -> Room:
@@ -89,12 +95,13 @@ def add_member(room_id: str, uid: str, role: MemberRole) -> Room:
     ref = db.collection(ROOMS_COLLECTION).document(room_id)
     if not ref.get().exists:
         raise ValueError(f"Room not found: {room_id}")
+    from google.cloud.firestore_v1 import ArrayUnion
     updates: dict = {
         f"member_roles.{uid}": role,
+        "member_uids": ArrayUnion([uid]),
         "updated_at": _utcnow(),
     }
     if role == "organizer":
-        from google.cloud.firestore_v1 import ArrayUnion
         updates["owner_uids"] = ArrayUnion([uid])
     ref.update(updates)
     return get_room(room_id)  # type: ignore[return-value]
@@ -144,8 +151,9 @@ def remove_member(room_id: str, uid: str) -> Room:
         f"member_profiles.{uid}": DELETE_FIELD,
         "updated_at": _utcnow(),
     }
+    from google.cloud.firestore_v1 import ArrayRemove
+    updates["member_uids"] = ArrayRemove([uid])
     if current_role == "organizer":
-        from google.cloud.firestore_v1 import ArrayRemove
         updates["owner_uids"] = ArrayRemove([uid])
     ref.update(updates)
     return get_room(room_id)  # type: ignore[return-value]

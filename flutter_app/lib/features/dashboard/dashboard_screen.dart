@@ -210,9 +210,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(room.title,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w600, fontSize: 15)),
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(room.title,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w600, fontSize: 15),
+                                    overflow: TextOverflow.ellipsis),
+                              ),
+                              if (room.myRole != null && room.myRole != 'organizer') ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.secondaryContainer,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    room.myRole!,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w500,
+                                      color: Theme.of(context).colorScheme.onSecondaryContainer,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
                           const SizedBox(height: 2),
                           Text(room.seriesSubtitle,
                               style: TextStyle(

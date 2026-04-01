@@ -637,7 +637,9 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
                         value: occ.enableCheckIn,
                         onChanged: (v) => _toggleCheckIn(v),
                       ),
-                    if (series.hostRotationMode != 'none') ...[
+                    if (series.hostRotationMode != 'none' &&
+                        occ.host != null &&
+                        (series.hostRotation ?? []).contains(occ.host)) ...[
                       const Divider(height: 1),
                       ListTile(
                         leading: Icon(Icons.refresh, color: cs.primary),
