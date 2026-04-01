@@ -173,6 +173,15 @@ def append_turn(session_id: str, turn: ChatTurn) -> None:
     })
 
 
+def clear_session(session_id: str) -> None:
+    """Clear all turns from a chat session."""
+    db = _get_client()
+    db.collection(CHAT_SESSIONS_COLLECTION).document(session_id).update({
+        "turns": [],
+        "updated_at": _utcnow(),
+    })
+
+
 def get_recent_turns(session_id: str, limit: int = 20) -> list[ChatTurn]:
     """Return the last N turns from a chat session."""
     db = _get_client()

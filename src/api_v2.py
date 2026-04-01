@@ -1335,6 +1335,25 @@ async def telegram_bot_webhook(
         )
         return {"ok": True}
 
+    # Handle /reset command (requires linked user)
+    if text == "/reset" or text.startswith("/reset "):
+        existing_link = telegram_storage.get_link_by_telegram_user(telegram_user_id)
+        if existing_link is None:
+            await _send_telegram_message(
+                config.bot_token, chat_id,
+                "Please link your account first.",
+            )
+            return {"ok": True}
+        session = telegram_storage.get_or_create_session(
+            config.room_id, chat_id, existing_link.app_uid
+        )
+        telegram_storage.clear_session(session.session_id)
+        await _send_telegram_message(
+            config.bot_token, chat_id,
+            "Chat history cleared. Starting fresh!",
+        )
+        return {"ok": True}
+
     # For all other messages, check if user is linked
     existing_link = telegram_storage.get_link_by_telegram_user(telegram_user_id)
     if existing_link is None:
