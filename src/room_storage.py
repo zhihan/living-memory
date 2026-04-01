@@ -87,9 +87,7 @@ def add_member(room_id: str, uid: str, role: MemberRole) -> Room:
     """Add or update uid role in room_id."""
     db = _get_client()
     ref = db.collection(ROOMS_COLLECTION).document(room_id)
-    transaction = db.transaction()
-    snapshot = ref.get(transaction=transaction)
-    if not snapshot.exists:
+    if not ref.get().exists:
         raise ValueError(f"Room not found: {room_id}")
     updates: dict = {
         f"member_roles.{uid}": role,
@@ -98,8 +96,7 @@ def add_member(room_id: str, uid: str, role: MemberRole) -> Room:
     if role == "organizer":
         from google.cloud.firestore_v1 import ArrayUnion
         updates["owner_uids"] = ArrayUnion([uid])
-    transaction.update(ref, updates)
-    transaction.commit()
+    ref.update(updates)
     return get_room(room_id)  # type: ignore[return-value]
 
 
