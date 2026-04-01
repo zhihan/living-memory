@@ -164,28 +164,28 @@ _ACTION_BUILDERS = {
 }
 
 
-def _build_and_save_action(
+def _build_and_save_actions(
     intent: str, ai_action: dict, room_id: str, uid: str
-):
+) -> list:
+    """Build and persist one or more PendingActions from an AI action dict.
+
+    Returns a list of PendingAction objects (may be empty).
+    """
     builder = _ACTION_BUILDERS.get(intent)
     if builder is None:
-        return None
+        return []
     raw_payload = ai_action.get("payload", {})
-    # If the AI sent a list of payloads, process each one and return the last.
-    if isinstance(raw_payload, list):
-        last_pending = None
-        for item in raw_payload:
-            p = builder(room_id, uid, item if isinstance(item, dict) else {})
-            if ai_action.get("preview_summary") and last_pending is None:
-                p.preview_summary = ai_action["preview_summary"]
-            save_pending_action(p)
-            last_pending = p
-        return last_pending
-    pending = builder(room_id, uid, raw_payload)
-    if ai_action.get("preview_summary"):
-        pending.preview_summary = ai_action["preview_summary"]
-    save_pending_action(pending)
-    return pending
+    preview_override = ai_action.get("preview_summary")
+
+    payloads = raw_payload if isinstance(raw_payload, list) else [raw_payload]
+    results = []
+    for item in payloads:
+        p = builder(room_id, uid, item if isinstance(item, dict) else {})
+        if preview_override and not results:
+            p.preview_summary = preview_override
+        save_pending_action(p)
+        results.append(p)
+    return results
 
 
 # ---------------------------------------------------------------------------
@@ -219,8 +219,8 @@ def run_assistant_stream(
 
     if ai_action and intent != "general_question":
         try:
-            pending = _build_and_save_action(intent, ai_action, room_id, uid)
-            if pending is not None:
+            actions = _build_and_save_actions(intent, ai_action, room_id, uid)
+            for pending in actions:
                 yield {
                     "type": "action_proposal",
                     "action_id": pending.action_id,

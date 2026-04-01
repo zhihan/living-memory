@@ -144,7 +144,7 @@ async def handle_telegram_message(
 
     # Call the assistant
     response_text = ""
-    action_proposal = None
+    action_proposals: list[dict] = []
     try:
         for event in run_assistant_stream(
             message=text,
@@ -158,7 +158,7 @@ async def handle_telegram_message(
                 response_text += event.get("text", "")
             elif event_type == "action_proposal":
                 if bot_config.mode == "read_write":
-                    action_proposal = event
+                    action_proposals.append(event)
                 # In read_only mode, discard action proposals
             elif event_type == "error":
                 logger.error(
@@ -172,29 +172,28 @@ async def handle_telegram_message(
         logger.exception("Assistant stream failed for room %s", bot_config.room_id)
         response_text = "Sorry, something went wrong. Please try again."
 
-    # If read_write and there's an action proposal, send with inline buttons
-    action_id = None
-    if action_proposal:
-        preview = action_proposal.get("preview_summary", "")
-        action_id = action_proposal.get("action_id")
-
     if not response_text:
         response_text = "I'm not sure how to help with that. Could you rephrase?"
 
     # Send response via Telegram
     await _send_telegram_message(bot_config.bot_token, chat_id, response_text)
 
-    # Send action proposal as a separate message with inline buttons
-    if action_proposal and action_id and preview:
-        reply_markup = {
-            "inline_keyboard": [[
-                {"text": "\u2705 Confirm", "callback_data": f"confirm:{action_id}"},
-                {"text": "\u274c Cancel", "callback_data": f"cancel:{action_id}"},
-            ]]
-        }
-        await _send_telegram_message_with_inline_keyboard(
-            bot_config.bot_token, chat_id, f"Proposed action: {preview}", reply_markup,
-        )
+    # Send each action proposal as a separate message with inline buttons
+    action_id = None
+    for proposal in action_proposals:
+        aid = proposal.get("action_id")
+        preview = proposal.get("preview_summary", "")
+        if aid and preview:
+            action_id = aid  # track last for chat history
+            reply_markup = {
+                "inline_keyboard": [[
+                    {"text": "\u2705 Confirm", "callback_data": f"confirm:{aid}"},
+                    {"text": "\u274c Cancel", "callback_data": f"cancel:{aid}"},
+                ]]
+            }
+            await _send_telegram_message_with_inline_keyboard(
+                bot_config.bot_token, chat_id, f"Proposed action: {preview}", reply_markup,
+            )
 
     # Persist turns
     now = datetime.now(timezone.utc)
