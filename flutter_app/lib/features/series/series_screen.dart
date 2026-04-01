@@ -143,6 +143,64 @@ class _SeriesScreenState extends State<SeriesScreen> {
     }
   }
 
+  Future<void> _addOccurrence() async {
+    final series = _series;
+    final room = _room;
+    if (series == null || room == null) return;
+
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime.now().subtract(const Duration(days: 365)),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (pickedDate == null || !mounted) return;
+
+    // Default to series time, let user override
+    final defaultTime = series.defaultTime;
+    TimeOfDay initialTime;
+    if (defaultTime != null && defaultTime.contains(':')) {
+      final parts = defaultTime.split(':');
+      initialTime = TimeOfDay(
+          hour: int.tryParse(parts[0]) ?? 0,
+          minute: int.tryParse(parts[1]) ?? 0);
+    } else {
+      initialTime = const TimeOfDay(hour: 9, minute: 0);
+    }
+
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: initialTime,
+    );
+    if (pickedTime == null || !mounted) return;
+
+    // Build local datetime and convert to UTC using room timezone
+    final localDt = DateTime(
+      pickedDate.year, pickedDate.month, pickedDate.day,
+      pickedTime.hour, pickedTime.minute,
+    );
+    // Simple UTC conversion — the backend accepts ISO 8601 UTC strings
+    final scheduledFor = localDt.toUtc().toIso8601String();
+
+    try {
+      await context.read<ApiService>().createOccurrence(
+        series.seriesId,
+        scheduledFor,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Occurrence added for ${DateFormat('E, MMM d').format(pickedDate)}')),
+        );
+        _load();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
   Future<void> _editSeries() async {
     final series = _series;
     if (series == null) return;
@@ -659,6 +717,13 @@ class _SeriesScreenState extends State<SeriesScreen> {
             IconButton(onPressed: _editSeries, icon: const Icon(Icons.edit)),
         ],
       ),
+      floatingActionButton: _canManage
+          ? FloatingActionButton.small(
+              onPressed: _addOccurrence,
+              tooltip: 'Add occurrence',
+              child: const Icon(Icons.add),
+            )
+          : null,
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(

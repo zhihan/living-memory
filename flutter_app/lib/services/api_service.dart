@@ -246,6 +246,20 @@ class ApiService {
     return data as Map<String, dynamic>;
   }
 
+  Future<Occurrence> createOccurrence(
+      String seriesId, String scheduledFor,
+      {String? location, String? host, bool? enableCheckIn}) async {
+    final data = await _request(
+        'POST', '/v2/series/$seriesId/occurrences',
+        body: {
+          'scheduled_for': scheduledFor,
+          if (location != null) 'location': location,
+          if (host != null) 'host': host,
+          if (enableCheckIn != null) 'enable_check_in': enableCheckIn,
+        });
+    return Occurrence.fromJson(data as Map<String, dynamic>);
+  }
+
   Future<Occurrence> getOccurrence(String id) async {
     final data = await _request('GET', '/v2/occurrences/$id');
     return Occurrence.fromJson(data as Map<String, dynamic>);

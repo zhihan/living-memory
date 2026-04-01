@@ -275,6 +275,19 @@ export async function generateOccurrences(
   return (data.occurrences ?? []) as OccurrenceSummary[];
 }
 
+export async function createOccurrence(
+  seriesId: string,
+  scheduledFor: string,
+  opts?: { location?: string; host?: string; enable_check_in?: boolean },
+): Promise<OccurrenceSummary> {
+  const resp = await apiFetch(`/v2/series/${seriesId}/occurrences`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ scheduled_for: scheduledFor, ...opts }),
+  });
+  return resp.json();
+}
+
 export async function getSeriesOccurrences(seriesId: string): Promise<OccurrenceSummary[]> {
   const resp = await apiFetch(`/v2/series/${seriesId}/occurrences`);
   const data = await resp.json();

@@ -10,6 +10,7 @@ import pytest
 from models import Occurrence, OccurrenceOverrides, ScheduleRule, Series
 from occurrence_service import (
     complete_occurrence,
+    create_single_occurrence,
     edit_occurrence,
     generate_and_save,
     reschedule_occurrence,
@@ -92,6 +93,62 @@ class TestGenerateAndSave:
 
         ids = [o.occurrence_id for o in result]
         assert len(ids) == len(set(ids))
+
+
+class TestCreateSingleOccurrence:
+    def test_creates_and_reindexes(self):
+        """New occurrence inserted between existing ones gets correct sequence_index."""
+        series = _make_series(enable_done=True, default_location="Room A")
+        existing = [
+            Occurrence(
+                occurrence_id="occ-1", series_id="s-1", room_id="ws-1",
+                scheduled_for="2026-04-06T09:00:00+00:00", sequence_index=0,
+            ),
+            Occurrence(
+                occurrence_id="occ-3", series_id="s-1", room_id="ws-1",
+                scheduled_for="2026-04-20T09:00:00+00:00", sequence_index=1,
+            ),
+        ]
+        # After save, list_occurrences_for_series returns existing + new (sorted)
+        new_scheduled = "2026-04-13T09:00:00+00:00"
+        captured_updates: list[tuple] = []
+
+        def fake_list(sid, **kw):
+            # Return all three, simulating the state after save_occurrence
+            new_occ = Occurrence(
+                occurrence_id="occ-new", series_id="s-1", room_id="ws-1",
+                scheduled_for=new_scheduled, sequence_index=None,
+            )
+            return sorted(existing + [new_occ], key=lambda o: o.scheduled_for)
+
+        def fake_update(oid, updates):
+            captured_updates.append((oid, updates))
+            return MagicMock()
+
+        with (
+            patch("occurrence_service.get_series", return_value=series),
+            patch("occurrence_service.save_occurrence") as mock_save,
+            patch("occurrence_service.list_occurrences_for_series", side_effect=fake_list),
+            patch("occurrence_service.update_occurrence", side_effect=fake_update),
+        ):
+            result = create_single_occurrence("s-1", new_scheduled)
+
+        # Should have saved the new occurrence
+        mock_save.assert_called_once()
+        saved_occ = mock_save.call_args[0][0]
+        assert saved_occ.scheduled_for == new_scheduled
+        assert saved_occ.room_id == "ws-1"
+        assert saved_occ.enable_check_in is True
+        assert saved_occ.location == "Room A"
+
+        # Should re-index: occ-1=0 (unchanged), occ-new=1 (was None), occ-3=2 (was 1)
+        update_ids = {oid for oid, _ in captured_updates}
+        assert "occ-new" in update_ids or "occ-3" in update_ids
+
+    def test_series_not_found_raises(self):
+        with patch("occurrence_service.get_series", return_value=None):
+            with pytest.raises(ValueError, match="Series not found"):
+                create_single_occurrence("no-such", "2026-04-13T09:00:00+00:00")
 
 
 class TestSkipComplete:

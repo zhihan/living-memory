@@ -369,6 +369,62 @@ def regenerate_rotation_from_occurrence(
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+def create_single_occurrence(
+    series_id: str,
+    scheduled_for: str,
+    *,
+    location: str | None = None,
+    host: str | None = None,
+    enable_check_in: bool | None = None,
+    overrides: OccurrenceOverrides | None = None,
+) -> Occurrence:
+    """Create a single new Occurrence in a series and re-index sequence order.
+
+    The new occurrence is inserted at the correct chronological position
+    based on ``scheduled_for`` and all sequence_index values in the series
+    are recalculated so that they reflect sorted order.
+    """
+    series = get_series(series_id)
+    if series is None:
+        raise ValueError(f"Series not found: {series_id}")
+
+    # Default enable_check_in from the series if not explicitly provided
+    if enable_check_in is None:
+        enable_check_in = series.enable_done
+
+    # Default location from series if not provided
+    if location is None and series.location_type == "fixed":
+        location = series.default_location
+
+    occ = Occurrence(
+        occurrence_id=str(uuid.uuid4()),
+        series_id=series_id,
+        room_id=series.room_id,
+        scheduled_for=scheduled_for,
+        status="scheduled",
+        location=location,
+        host=host,
+        overrides=overrides,
+        enable_check_in=enable_check_in,
+    )
+    save_occurrence(occ)
+
+    # Re-index all occurrences in the series by scheduled_for order
+    all_occs = list_occurrences_for_series(series_id)
+    all_occs.sort(key=lambda o: o.scheduled_for)
+    for idx, o in enumerate(all_occs):
+        if o.sequence_index != idx:
+            update_occurrence(o.occurrence_id, {"sequence_index": idx})
+
+    # Return the occurrence with its final sequence_index
+    for o in all_occs:
+        if o.occurrence_id == occ.occurrence_id:
+            occ.sequence_index = all_occs.index(o)
+            break
+
+    return occ
+
+
 def _set_status(occurrence_id: str, status: OccurrenceStatus) -> Occurrence:
     return update_occurrence(occurrence_id, {"status": status})
 

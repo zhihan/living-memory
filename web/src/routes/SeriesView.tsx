@@ -9,6 +9,7 @@ import {
   deleteSeries,
   patchOccurrence,
   generateOccurrences,
+  createOccurrence,
   regenerateRotationFrom,
   type RoomSummary,
   type SeriesSummary,
@@ -103,6 +104,12 @@ export function SeriesView() {
   const [editingAgenda, setEditingAgenda] = useState(false);
   const [agendaText, setAgendaText] = useState("");
   const [agendaSaving, setAgendaSaving] = useState(false);
+
+  // Add occurrence
+  const [showAddOccurrence, setShowAddOccurrence] = useState(false);
+  const [addOccDate, setAddOccDate] = useState("");
+  const [addOccTime, setAddOccTime] = useState("");
+  const [addOccSubmitting, setAddOccSubmitting] = useState(false);
 
   // Check-in report
   const [showReport, setShowReport] = useState(false);
@@ -313,6 +320,33 @@ export function SeriesView() {
       alert(err instanceof Error ? err.message : "Failed to save agenda");
     } finally {
       setAgendaSaving(false);
+    }
+  }
+
+  async function handleAddOccurrence(e: React.FormEvent) {
+    e.preventDefault();
+    if (!seriesId || !addOccDate) return;
+    setAddOccSubmitting(true);
+    try {
+      const time = addOccTime || series?.default_time || "00:00";
+      const tz = room?.timezone || "UTC";
+      // Convert room-local date+time to UTC
+      const localStr = `${addOccDate}T${time}:00`;
+      const localDt = new Date(localStr);
+      const utcFromLocal = new Date(localDt.toLocaleString("en-US", { timeZone: "UTC" }));
+      const tzFromLocal = new Date(localDt.toLocaleString("en-US", { timeZone: tz }));
+      const offsetMs = utcFromLocal.getTime() - tzFromLocal.getTime();
+      const scheduledFor = new Date(localDt.getTime() + offsetMs).toISOString();
+      await createOccurrence(seriesId, scheduledFor);
+      const refreshed = await getSeriesOccurrences(seriesId);
+      setOccurrences(refreshed);
+      setShowAddOccurrence(false);
+      setAddOccDate("");
+      setAddOccTime("");
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to create occurrence");
+    } finally {
+      setAddOccSubmitting(false);
     }
   }
 
@@ -776,7 +810,48 @@ export function SeriesView() {
       <section className="section">
         <div className="section-header">
           <h2>Meetings</h2>
+          {isOrganizer && !showAddOccurrence && (
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => {
+                setAddOccTime(series?.default_time ?? "");
+                setShowAddOccurrence(true);
+              }}
+            >
+              + Add occurrence
+            </button>
+          )}
         </div>
+        {showAddOccurrence && (
+          <form className="add-occurrence-form" onSubmit={handleAddOccurrence}>
+            <div className="inline-edit-row" style={{ flexWrap: "wrap" }}>
+              <input
+                type="date"
+                className="form-input"
+                value={addOccDate}
+                onChange={(e) => setAddOccDate(e.target.value)}
+                required
+                disabled={addOccSubmitting}
+                style={{ flex: "1 1 140px" }}
+              />
+              <input
+                type="time"
+                className="form-input"
+                value={addOccTime}
+                onChange={(e) => setAddOccTime(e.target.value)}
+                disabled={addOccSubmitting}
+                style={{ flex: "0 0 110px" }}
+              />
+              <button type="submit" className="btn btn-primary btn-sm" disabled={addOccSubmitting || !addOccDate}>
+                {addOccSubmitting ? "Adding..." : "Add"}
+              </button>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowAddOccurrence(false)} disabled={addOccSubmitting}>
+                Cancel
+              </button>
+            </div>
+          </form>
+        )}
 
         {past.length > 0 && (() => {
           const last = past[past.length - 1];

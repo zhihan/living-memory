@@ -22,6 +22,7 @@ Route overview:
 
   GET    /v2/rooms/{room_id}/occurrences
   GET    /v2/series/{series_id}/occurrences
+  POST   /v2/series/{series_id}/occurrences
   POST   /v2/series/{series_id}/occurrences/generate
   GET    /v2/occurrences/{occurrence_id}
   PATCH  /v2/occurrences/{occurrence_id}
@@ -60,6 +61,7 @@ from models import (
 )
 from occurrence_service import (
     complete_occurrence,
+    create_single_occurrence,
     edit_occurrence,
     generate_and_save,
     reschedule_occurrence,
@@ -380,6 +382,14 @@ class UpdateOccurrenceRequest(BaseModel):
     host: Optional[str] = None
     overrides: Optional[OccurrenceOverridesIn] = None
     enable_check_in: Optional[bool] = None
+
+
+class CreateOccurrenceRequest(BaseModel):
+    scheduled_for: str  # ISO 8601 UTC datetime
+    location: Optional[str] = None
+    host: Optional[str] = None
+    enable_check_in: Optional[bool] = None
+    overrides: Optional[OccurrenceOverridesIn] = None
 
 
 class UpsertCheckInRequest(BaseModel):
@@ -735,6 +745,31 @@ def delete_series(
 # ---------------------------------------------------------------------------
 # Occurrence endpoints
 # ---------------------------------------------------------------------------
+
+@router.post("/series/{series_id}/occurrences", status_code=201)
+def create_occurrence_endpoint(
+    series_id: str,
+    body: CreateOccurrenceRequest,
+    token: dict = Depends(_require_token),
+) -> dict:
+    """Create a single new Occurrence in a series.
+
+    The occurrence is inserted at the correct chronological position
+    and all sequence indices are recalculated.
+    """
+    s = _get_series_or_404(series_id)
+    rm = _get_room_or_404(s.room_id)
+    _require_role(rm, token["uid"], "organizer", "teacher")
+    occ = create_single_occurrence(
+        series_id=series_id,
+        scheduled_for=body.scheduled_for,
+        location=body.location,
+        host=body.host,
+        enable_check_in=body.enable_check_in,
+        overrides=body.overrides.to_model() if body.overrides else None,
+    )
+    return occ.to_dict()
+
 
 @router.post("/series/{series_id}/occurrences/generate", status_code=201)
 def generate_occurrences_endpoint(
