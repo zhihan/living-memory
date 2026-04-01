@@ -9,6 +9,7 @@ import logging
 import time
 
 from fastapi import FastAPI, Request, Response
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -82,6 +83,16 @@ async def logging_middleware(request: Request, call_next) -> Response:
 # ---------------------------------------------------------------------------
 # Exception handlers
 # ---------------------------------------------------------------------------
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    """Log 422 validation errors with the request body for debugging."""
+    body = await request.body()
+    logger.error("Validation error on %s %s body=%s errors=%s",
+                 request.method, request.url.path, body.decode("utf-8", errors="replace"),
+                 exc.errors())
+    return JSONResponse(status_code=422, content={"detail": exc.errors()})
+
 
 @app.exception_handler(ValueError)
 async def value_error_handler(request: Request, exc: ValueError) -> JSONResponse:
