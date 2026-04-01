@@ -816,6 +816,30 @@ class _SeriesScreenState extends State<SeriesScreen> {
               ),
             ],
 
+            // Past history
+            if (past.length > 1) ...[
+              const SizedBox(height: 16),
+              _sectionLabel('Recent', cs),
+              const SizedBox(height: 6),
+              Card(
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                  children: past.skip(1).take(6).toList().asMap().entries.map((entry) {
+                    final occ = entry.value;
+                    final isLast = entry.key == (past.length - 2).clamp(0, 5);
+                    return Column(
+                      children: [
+                        _occurrenceListItem(occ, cs),
+                        if (!isLast)
+                          Divider(height: 1, indent: 16, endIndent: 16,
+                              color: cs.outlineVariant.withValues(alpha: 0.4)),
+                      ],
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
+
             // Upcoming list with inline location editing
             if (upcoming.length > 1) ...[
               const SizedBox(height: 16),

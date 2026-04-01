@@ -65,11 +65,22 @@ async def _answer_callback_query(bot_token: str, callback_query_id: str) -> None
 
 def _build_room_context(room_id: str) -> dict | None:
     """Build a room context dict for the assistant, matching the app's pattern."""
+    from datetime import timedelta
+
     room = room_storage.get_room(room_id)
     if room is None:
         return None
     all_series = series_storage.list_series_for_room(room_id)
-    occs = series_storage.list_occurrences_for_room(room_id, status="scheduled")
+
+    # Include both scheduled and recent past occurrences so the AI can
+    # update agendas for occurrences that just happened or are today.
+    all_occs = series_storage.list_occurrences_for_room(room_id)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+    occs = [
+        o for o in all_occs
+        if o.status == "scheduled" or o.scheduled_for >= cutoff
+    ]
+
     return {
         "room_id": room.room_id,
         "title": room.title,

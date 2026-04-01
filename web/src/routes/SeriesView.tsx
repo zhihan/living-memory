@@ -760,7 +760,7 @@ export function SeriesView() {
         </div>
 
         {past.length > 0 && (() => {
-          const last = past[0];
+          const last = past[past.length - 1];
           return (
             <div className="meeting-card meeting-card-past">
               <div className="meeting-card-label">Last</div>
@@ -774,6 +774,24 @@ export function SeriesView() {
             </div>
           );
         })()}
+
+        {past.length > 1 && (
+          <div className="upcoming-list">
+            <h3 className="upcoming-list-heading">Past</h3>
+            {past.slice().reverse().slice(1, 7).map((o) => (
+              <div key={o.occurrence_id} className="upcoming-row">
+                <Link to={`/occurrences/${o.occurrence_id}`} className="upcoming-date">
+                  {formatDate(o.scheduled_for)}
+                </Link>
+                {o.overrides?.notes && (
+                  <span className="meeting-card-notes" style={{ fontSize: "0.85rem", color: "#666" }}>
+                    {o.overrides.notes.length > 60 ? o.overrides.notes.slice(0, 60) + "…" : o.overrides.notes}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
 
         {upcoming.length > 0 ? (() => {
           const next = upcoming[0];
