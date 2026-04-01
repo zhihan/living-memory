@@ -170,7 +170,18 @@ def _build_and_save_action(
     builder = _ACTION_BUILDERS.get(intent)
     if builder is None:
         return None
-    pending = builder(room_id, uid, ai_action.get("payload", {}))
+    raw_payload = ai_action.get("payload", {})
+    # If the AI sent a list of payloads, process each one and return the last.
+    if isinstance(raw_payload, list):
+        last_pending = None
+        for item in raw_payload:
+            p = builder(room_id, uid, item if isinstance(item, dict) else {})
+            if ai_action.get("preview_summary") and last_pending is None:
+                p.preview_summary = ai_action["preview_summary"]
+            save_pending_action(p)
+            last_pending = p
+        return last_pending
+    pending = builder(room_id, uid, raw_payload)
     if ai_action.get("preview_summary"):
         pending.preview_summary = ai_action["preview_summary"]
     save_pending_action(pending)
