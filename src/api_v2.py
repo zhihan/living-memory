@@ -36,7 +36,7 @@ from __future__ import annotations
 
 import os
 import uuid
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Header, Request
@@ -311,6 +311,7 @@ class UpdateSeriesRequest(BaseModel):
     status: Optional[str] = None
     description: Optional[str] = None
     schedule_rule: Optional[ScheduleRuleIn] = None
+    schedule_mode: Optional[str] = None  # "adjust" or "regenerate"
 
     @field_validator('location_type')
     @classmethod
@@ -666,7 +667,39 @@ def update_series(
     if "enable_done" in updates:
         from occurrence_service import apply_check_in_days
         apply_check_in_days(series_id)
-    return updated.to_dict()
+
+    result = updated.to_dict()
+
+    if body.schedule_rule is not None and body.schedule_mode:
+        from occurrence_service import regenerate_series, generate_and_save
+
+        start_date = date.today()
+        # Use furthest existing occurrence or today + 90 days as end date
+        existing_occs = series_storage.list_occurrences_for_series(series_id)
+        if existing_occs:
+            furthest = max(o.scheduled_for for o in existing_occs)
+            furthest_date = datetime.fromisoformat(furthest).date()
+            end_date = max(furthest_date, start_date + timedelta(days=90))
+        else:
+            end_date = start_date + timedelta(days=90)
+
+        if body.schedule_mode == "adjust":
+            counts = regenerate_series(series_id, rm.timezone, start_date, end_date)
+            result["schedule_result"] = counts
+        elif body.schedule_mode == "regenerate":
+            now_iso = datetime.utcnow().isoformat()
+            cancelled_count = 0
+            for occ in existing_occs:
+                if occ.status == "scheduled" and occ.scheduled_for >= now_iso:
+                    series_storage.update_occurrence(occ.occurrence_id, {"status": "cancelled"})
+                    cancelled_count += 1
+            new_occs = generate_and_save(updated, rm.timezone, start_date, end_date)
+            result["schedule_result"] = {
+                "cancelled": cancelled_count,
+                "created": len(new_occs),
+            }
+
+    return result
 
 
 @router.delete("/series/{series_id}", status_code=204)

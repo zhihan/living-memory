@@ -161,6 +161,14 @@ class _SeriesScreenState extends State<SeriesScreen> {
     var hostRotationMode = series.hostRotationMode;
     var hostRotation = List<String>.from(series.hostRotation ?? []);
     var hostAddresses = Map<String, String>.from(series.hostAddresses ?? {});
+    var editFreq = series.scheduleRule.frequency;
+    var editWeekdays = List<int>.from(series.scheduleRule.weekdays);
+    final origFreq = series.scheduleRule.frequency;
+    final origWeekdays = List<int>.from(series.scheduleRule.weekdays);
+    const weekdayLabels = {
+      1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu',
+      5: 'Fri', 6: 'Sat', 7: 'Sun',
+    };
 
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
@@ -183,6 +191,40 @@ class _SeriesScreenState extends State<SeriesScreen> {
                       decoration:
                           const InputDecoration(labelText: 'Description'),
                       maxLines: 2),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: editFreq,
+                    decoration: const InputDecoration(labelText: 'Frequency'),
+                    items: const [
+                      DropdownMenuItem(value: 'daily', child: Text('Daily')),
+                      DropdownMenuItem(value: 'weekly', child: Text('Weekly')),
+                      DropdownMenuItem(value: 'weekdays', child: Text('Weekdays')),
+                      DropdownMenuItem(value: 'once', child: Text('One-time')),
+                    ],
+                    onChanged: (v) => setDialogState(() => editFreq = v!),
+                  ),
+                  if (editFreq == 'weekly') ...[
+                    const SizedBox(height: 12),
+                    const Text('Weekdays'),
+                    Wrap(
+                      spacing: 4,
+                      children: weekdayLabels.entries.map((e) {
+                        return FilterChip(
+                          label: Text(e.value),
+                          selected: editWeekdays.contains(e.key),
+                          onSelected: (sel) {
+                            setDialogState(() {
+                              if (sel) {
+                                editWeekdays.add(e.key);
+                              } else {
+                                editWeekdays.remove(e.key);
+                              }
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   Row(
                     children: [
@@ -456,7 +498,7 @@ class _SeriesScreenState extends State<SeriesScreen> {
                 onPressed: () => Navigator.pop(ctx),
                 child: const Text('Cancel')),
             FilledButton(
-                onPressed: () {
+                onPressed: () async {
                   final updates = <String, dynamic>{};
                   if (titleCtrl.text.trim() != series.title) {
                     updates['title'] = titleCtrl.text.trim();
@@ -503,6 +545,48 @@ class _SeriesScreenState extends State<SeriesScreen> {
                   if (extendDate != null) {
                     updates['_extend_date'] = extendDate;
                   }
+
+                  // Check if schedule changed
+                  final sortedEditWeekdays = List<int>.from(editWeekdays)..sort();
+                  final sortedOrigWeekdays = List<int>.from(origWeekdays)..sort();
+                  final scheduleChanged = editFreq != origFreq ||
+                      sortedEditWeekdays.length != sortedOrigWeekdays.length ||
+                      !List.generate(sortedEditWeekdays.length,
+                          (i) => sortedEditWeekdays[i] == sortedOrigWeekdays[i])
+                          .every((eq) => eq);
+
+                  if (scheduleChanged) {
+                    final chosenMode = await showDialog<String>(
+                      context: ctx,
+                      builder: (dialogCtx) => AlertDialog(
+                        title: const Text('Schedule changed'),
+                        content: const Text(
+                            'The frequency or weekdays have changed. How should existing occurrences be handled?'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(dialogCtx),
+                            child: const Text('Cancel'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(dialogCtx, 'regenerate'),
+                            child: const Text('Delete future & regenerate'),
+                          ),
+                          FilledButton(
+                            onPressed: () => Navigator.pop(dialogCtx, 'adjust'),
+                            child: const Text('Adjust schedule'),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (chosenMode == null) return; // user cancelled
+                    updates['schedule_rule'] = {
+                      'frequency': editFreq,
+                      if (editFreq == 'weekly') 'weekdays': sortedEditWeekdays,
+                      'interval': 1,
+                    };
+                    updates['schedule_mode'] = chosenMode;
+                  }
+
                   Navigator.pop(
                       ctx, updates.isEmpty && extendDate == null ? null : updates);
                 },

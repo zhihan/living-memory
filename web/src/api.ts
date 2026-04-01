@@ -241,6 +241,7 @@ export async function patchSeries(
     host_rotation: string[];
     host_addresses: Record<string, string>;
     schedule_rule: ScheduleRule;
+    schedule_mode: "adjust" | "regenerate";
     status: string;
   }>,
 ): Promise<SeriesSummary> {

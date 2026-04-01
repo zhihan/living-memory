@@ -43,6 +43,15 @@ function formatScheduleRule(rule: ScheduleRule): string {
   return rule.frequency;
 }
 
+const FREQ_OPTIONS = [
+  { value: "daily", label: "Daily" },
+  { value: "weekly", label: "Weekly" },
+  { value: "weekdays", label: "Weekdays (Mon-Fri)" },
+];
+
+const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const DAY_VALUES = [1, 2, 3, 4, 5, 6, 7];
+
 
 export function SeriesView() {
   const { roomId, seriesId } = useParams<{
@@ -67,6 +76,10 @@ export function SeriesView() {
   const [editDuration, setEditDuration] = useState("");
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const [editFreq, setEditFreq] = useState("weekly");
+  const [editDays, setEditDays] = useState<number[]>([1]);
+  const [editCheckInDays, setEditCheckInDays] = useState<number[]>([]);
+  const [scheduleConfirmMode, setScheduleConfirmMode] = useState<null | "pending">(null);
 
   const [editExtendDate, setEditExtendDate] = useState("");
   const [editingLocationId, setEditingLocationId] = useState<string | null>(null);
@@ -153,8 +166,33 @@ export function SeriesView() {
     setEditRotationMode(series.rotation_mode ?? "none");
     setEditHostRotation(series.host_rotation ?? []);
     setEditHostAddresses(series.host_addresses ?? {});
+    setEditFreq(series.schedule_rule?.frequency ?? "weekly");
+    setEditDays(series.schedule_rule?.weekdays ?? [1]);
+    setEditCheckInDays(series.check_in_weekdays ?? []);
+    setScheduleConfirmMode(null);
     setEditing(true);
     setEditError(null);
+  }
+
+  function toggleEditDay(d: number) {
+    setEditDays((prev) => prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort());
+  }
+  function toggleEditCheckInDay(d: number) {
+    setEditCheckInDays((prev) => prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort());
+  }
+
+  function hasScheduleChanged(): boolean {
+    if (!series) return false;
+    const origFreq = series.schedule_rule?.frequency ?? "weekly";
+    const origDays = series.schedule_rule?.weekdays ?? [];
+    if (editFreq !== origFreq) return true;
+    if (editFreq === "weekly") {
+      const sortedOrig = [...origDays].sort();
+      const sortedEdit = [...editDays].sort();
+      if (sortedOrig.length !== sortedEdit.length) return true;
+      if (sortedOrig.some((d, i) => d !== sortedEdit[i])) return true;
+    }
+    return false;
   }
 
   async function handleSaveEdit(e: React.FormEvent) {
@@ -175,9 +213,29 @@ export function SeriesView() {
       }
     }
 
+    if (hasScheduleChanged() && scheduleConfirmMode === null) {
+      setScheduleConfirmMode("pending");
+      return;
+    }
+
+    await doSave();
+  }
+
+  async function doSave(mode?: "adjust" | "regenerate") {
+    if (!seriesId) return;
+
     setEditSubmitting(true);
     setEditError(null);
     try {
+      let scheduleRule: ScheduleRule | undefined;
+      if (hasScheduleChanged()) {
+        if (editFreq === "weekly") {
+          scheduleRule = { frequency: "weekly", weekdays: editDays.length > 0 ? editDays : [1] };
+        } else {
+          scheduleRule = { frequency: editFreq };
+        }
+      }
+
       const updates: Parameters<typeof patchSeries>[1] = {
         enable_done: editEnableDone,
         title: editTitle.trim() || undefined,
@@ -192,13 +250,20 @@ export function SeriesView() {
         host_addresses: editRotationMode === "host_and_location"
           ? Object.fromEntries(Object.entries(editHostAddresses).filter(([k]) => k.trim()))
           : undefined,
+        check_in_weekdays: editCheckInDays.length > 0 ? editCheckInDays : undefined,
+        ...(scheduleRule ? { schedule_rule: scheduleRule, schedule_mode: mode } : {}),
       };
       const updated = await patchSeries(seriesId, updates);
       setSeries(updated);
       if (editExtendDate) {
         const newOcc = await generateOccurrences(seriesId, editExtendDate);
         setOccurrences(newOcc);
+      } else if (scheduleRule) {
+        // Refresh occurrences after schedule change
+        const newOcc = await getSeriesOccurrences(seriesId);
+        setOccurrences(newOcc);
       }
+      setScheduleConfirmMode(null);
       setEditing(false);
     } catch (err) {
       setEditError(err instanceof Error ? err.message : "Failed to save");
@@ -340,6 +405,63 @@ export function SeriesView() {
               rows={4}
             />
           </div>
+          <div className="form-field">
+            <label>Frequency</label>
+            <div className="visibility-toggle">
+              {FREQ_OPTIONS.map((f) => (
+                <button
+                  key={f.value}
+                  type="button"
+                  className={`btn btn-sm ${editFreq === f.value ? "btn-primary" : "btn-secondary"}`}
+                  onClick={() => setEditFreq(f.value)}
+                  disabled={editSubmitting}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          {editFreq === "weekly" && (
+            <div className="form-field">
+              <label>Days of Week</label>
+              <div className="days-toggle">
+                {DAYS.map((day, i) => (
+                  <button
+                    key={day}
+                    type="button"
+                    className={`btn btn-day ${editDays.includes(DAY_VALUES[i]) ? "btn-primary" : "btn-secondary"}`}
+                    onClick={() => toggleEditDay(DAY_VALUES[i])}
+                    disabled={editSubmitting}
+                  >
+                    {day}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {editDays.length > 0 && (
+            <div className="form-field">
+              <label>Self-practice days (enable check-in)</label>
+              <div className="days-toggle">
+                {DAYS.map((day, i) => {
+                  const dv = DAY_VALUES[i];
+                  if (!editDays.includes(dv)) return null;
+                  return (
+                    <button
+                      key={day}
+                      type="button"
+                      className={`btn btn-day ${editCheckInDays.includes(dv) ? "btn-primary" : "btn-secondary"}`}
+                      onClick={() => toggleEditCheckInDay(dv)}
+                      disabled={editSubmitting}
+                    >
+                      {day}
+                    </button>
+                  );
+                })}
+              </div>
+              <span className="form-hint">Occurrences on these days will show a check-in button</span>
+            </div>
+          )}
           <div className="form-row">
             <div className="form-field form-field-half">
               <label htmlFor="edit-time">Start Time</label>
@@ -592,6 +714,25 @@ export function SeriesView() {
             )}
           </div>
           {editError && <p className="form-error">{editError}</p>}
+          {scheduleConfirmMode === "pending" && (
+            <div className="form-field" style={{ background: "#fff8e1", padding: "1rem", borderRadius: "8px", border: "1px solid #ffe082" }}>
+              <p style={{ margin: "0 0 0.5rem", fontWeight: 600 }}>Schedule changed. How should existing occurrences be updated?</p>
+              <p style={{ margin: "0 0 1rem", fontSize: "0.9rem", color: "#666" }}>
+                Completed and modified occurrences are always preserved.
+              </p>
+              <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                <button type="button" className="btn btn-primary" onClick={() => doSave("adjust")} disabled={editSubmitting}>
+                  Adjust schedule
+                </button>
+                <button type="button" className="btn btn-secondary" style={{ color: "#c62828" }} onClick={() => doSave("regenerate")} disabled={editSubmitting}>
+                  Delete future &amp; regenerate
+                </button>
+                <button type="button" className="btn btn-secondary" onClick={() => setScheduleConfirmMode(null)} disabled={editSubmitting}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
           <div className="form-actions">
             <button
               type="submit"
