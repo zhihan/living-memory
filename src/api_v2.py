@@ -34,11 +34,12 @@ Route overview:
 
 from __future__ import annotations
 
+import os
 import uuid
 from datetime import date, datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from pydantic import BaseModel, field_validator
 
 import series_storage
@@ -122,6 +123,26 @@ def _require_member(room: Room, uid: str) -> None:
     """Any room member (any role) may access this resource."""
     if uid not in room.member_roles and uid not in room.owner_uids:
         raise HTTPException(status_code=403, detail="Not a member of this room")
+
+
+def _resolve_telegram_webhook_base_url(request: Request) -> str:
+    """Resolve the public HTTPS base URL used for Telegram webhooks."""
+    for env_name in ("WEBHOOK_BASE_URL", "APP_BASE_URL"):
+        base_url = (os.environ.get(env_name) or "").strip().rstrip("/")
+        if base_url:
+            return base_url
+
+    inferred_base_url = str(request.base_url).rstrip("/")
+    if request.url.scheme == "https":
+        return inferred_base_url
+
+    raise HTTPException(
+        status_code=503,
+        detail=(
+            "Telegram bot setup requires a public HTTPS base URL. "
+            "Set WEBHOOK_BASE_URL or APP_BASE_URL, or access the API via its public HTTPS origin."
+        ),
+    )
 
 
 def _get_member_details(member_roles: dict[str, MemberRole]) -> list[dict]:
@@ -1070,10 +1091,10 @@ def _bot_public_dict(config: TelegramBotConfig) -> dict:
 async def register_telegram_bot(
     room_id: str,
     body: RegisterTelegramBotRequest,
+    request: Request,
     token: dict = Depends(_require_token),
 ) -> dict:
     """Register a Telegram bot for a room."""
-    import os
     import httpx
 
     rm = _get_room_or_404(room_id)
@@ -1100,9 +1121,7 @@ async def register_telegram_bot(
     webhook_secret = str(uuid.uuid4())
 
     # Register webhook with Telegram
-    webhook_base_url = os.environ.get("WEBHOOK_BASE_URL", "")
-    if not webhook_base_url:
-        raise HTTPException(status_code=503, detail="WEBHOOK_BASE_URL is not configured")
+    webhook_base_url = _resolve_telegram_webhook_base_url(request)
     webhook_url = f"{webhook_base_url}/v2/channels/telegram/webhook/{bot_id}"
 
     async with httpx.AsyncClient() as client:

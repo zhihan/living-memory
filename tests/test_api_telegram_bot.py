@@ -116,6 +116,115 @@ class TestRegisterTelegramBot:
         assert data["bot_username"] == "TestBot"
         assert "bot_token" not in data
 
+    def test_register_uses_app_base_url_fallback(self, organizer_client):
+        rm = _make_room()
+        mock_get_me_resp = MagicMock()
+        mock_get_me_resp.status_code = 200
+        mock_get_me_resp.json.return_value = {
+            "ok": True,
+            "result": {"id": 123456, "username": "TestBot"},
+        }
+        mock_set_webhook_resp = MagicMock()
+        mock_set_webhook_resp.status_code = 200
+        mock_set_webhook_resp.json.return_value = {"ok": True}
+
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+        mock_client.get = AsyncMock(return_value=mock_get_me_resp)
+        mock_client.post = AsyncMock(return_value=mock_set_webhook_resp)
+
+        with (
+            patch("api_v2.room_storage.get_room", return_value=rm),
+            patch("api_v2.telegram_storage.get_bot_config_for_room", return_value=None),
+            patch("api_v2.telegram_storage.save_bot_config"),
+            patch("httpx.AsyncClient", return_value=mock_client),
+            patch.dict("os.environ", {"APP_BASE_URL": "https://app.example.com"}, clear=True),
+        ):
+            resp = organizer_client.post(
+                "/v2/rooms/rm-1/telegram-bot",
+                json={"bot_token": "fake-token", "mode": "read_only"},
+                headers=AUTH,
+            )
+
+        assert resp.status_code == 201
+        _, kwargs = mock_client.post.await_args
+        assert kwargs["json"]["url"] == "https://app.example.com/v2/channels/telegram/webhook/123456"
+
+    def test_register_uses_https_request_origin_when_env_missing(self):
+        from api import app
+        from api_v2 import _require_token
+
+        app.dependency_overrides[_require_token] = _fake_verify(ORGANIZER_UID)
+        client = TestClient(app, base_url="https://small-group.ai")
+
+        rm = _make_room()
+        mock_get_me_resp = MagicMock()
+        mock_get_me_resp.status_code = 200
+        mock_get_me_resp.json.return_value = {
+            "ok": True,
+            "result": {"id": 123456, "username": "TestBot"},
+        }
+        mock_set_webhook_resp = MagicMock()
+        mock_set_webhook_resp.status_code = 200
+        mock_set_webhook_resp.json.return_value = {"ok": True}
+
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+        mock_client.get = AsyncMock(return_value=mock_get_me_resp)
+        mock_client.post = AsyncMock(return_value=mock_set_webhook_resp)
+
+        try:
+            with (
+                patch("api_v2.room_storage.get_room", return_value=rm),
+                patch("api_v2.telegram_storage.get_bot_config_for_room", return_value=None),
+                patch("api_v2.telegram_storage.save_bot_config"),
+                patch("httpx.AsyncClient", return_value=mock_client),
+                patch.dict("os.environ", {}, clear=True),
+            ):
+                resp = client.post(
+                    "/v2/rooms/rm-1/telegram-bot",
+                    json={"bot_token": "fake-token", "mode": "read_only"},
+                    headers=AUTH,
+                )
+        finally:
+            app.dependency_overrides.clear()
+            client.close()
+
+        assert resp.status_code == 201
+        _, kwargs = mock_client.post.await_args
+        assert kwargs["json"]["url"] == "https://small-group.ai/v2/channels/telegram/webhook/123456"
+
+    def test_register_requires_public_https_base_url(self, organizer_client):
+        rm = _make_room()
+        mock_get_me_resp = MagicMock()
+        mock_get_me_resp.status_code = 200
+        mock_get_me_resp.json.return_value = {
+            "ok": True,
+            "result": {"id": 123456, "username": "TestBot"},
+        }
+
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+        mock_client.get = AsyncMock(return_value=mock_get_me_resp)
+
+        with (
+            patch("api_v2.room_storage.get_room", return_value=rm),
+            patch("api_v2.telegram_storage.get_bot_config_for_room", return_value=None),
+            patch("httpx.AsyncClient", return_value=mock_client),
+            patch.dict("os.environ", {}, clear=True),
+        ):
+            resp = organizer_client.post(
+                "/v2/rooms/rm-1/telegram-bot",
+                json={"bot_token": "fake-token", "mode": "read_only"},
+                headers=AUTH,
+            )
+
+        assert resp.status_code == 503
+        assert "public https base url" in resp.json()["detail"].lower()
+
     def test_register_bot_already_exists(self, organizer_client):
         rm = _make_room()
         existing = _make_bot_config()

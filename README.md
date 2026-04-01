@@ -79,6 +79,7 @@ Run a single test:
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` | Optional | Email notification delivery |
 | `FROM_EMAIL` | Optional | Sender address for email notifications |
 | `APP_BASE_URL` | Optional | Base URL used in links and ICS output |
+| `WEBHOOK_BASE_URL` | Optional | Public HTTPS base URL for Telegram webhooks; overrides `APP_BASE_URL` for bot setup |
 
 ### Run the API locally
 
