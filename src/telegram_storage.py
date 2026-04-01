@@ -94,12 +94,29 @@ def get_link_by_telegram_user_for_room(
     return link
 
 
-def delete_links_for_bot(bot_id: str) -> None:
-    """Delete all telegram links. Used for cleanup when a bot is removed."""
+def delete_links_for_bot(bot_id: str, room_id: str) -> None:
+    """Delete telegram links associated with a specific bot/room."""
     db = _get_client()
-    docs = db.collection(TELEGRAM_LINKS_COLLECTION).stream()
-    for doc in docs:
-        doc.reference.delete()
+    refs_to_delete: set[str] = set()
+
+    bot_docs = (
+        db.collection(TELEGRAM_LINKS_COLLECTION)
+        .where("bot_id", "==", bot_id)
+        .stream()
+    )
+    for doc in bot_docs:
+        refs_to_delete.add(doc.id)
+
+    room_docs = (
+        db.collection(TELEGRAM_LINKS_COLLECTION)
+        .where("room_id", "==", room_id)
+        .stream()
+    )
+    for doc in room_docs:
+        refs_to_delete.add(doc.id)
+
+    for doc_id in refs_to_delete:
+        db.collection(TELEGRAM_LINKS_COLLECTION).document(doc_id).delete()
 
 
 # ---------------------------------------------------------------------------

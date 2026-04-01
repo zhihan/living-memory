@@ -1181,7 +1181,7 @@ async def delete_telegram_bot(
             f"https://api.telegram.org/bot{config.bot_token}/deleteWebhook"
         )
 
-    telegram_storage.delete_links_for_bot(config.bot_id)
+    telegram_storage.delete_links_for_bot(config.bot_id, config.room_id)
     telegram_storage.delete_bot_config(config.bot_id)
     return {"deleted": True}
 

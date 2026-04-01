@@ -128,6 +128,38 @@ class TestBotConfigCRUD:
 
         mock_doc_ref.delete.assert_called_once()
 
+    def test_delete_links_for_bot_only_deletes_matching_room_or_bot(self):
+        bot_doc = MagicMock()
+        bot_doc.id = "tg-user-1"
+        room_doc = MagicMock()
+        room_doc.id = "tg-user-2"
+
+        mock_db = _mock_db()
+        mock_collection = MagicMock()
+        mock_db.collection.return_value = mock_collection
+
+        where_bot = MagicMock()
+        where_room = MagicMock()
+
+        def where_side_effect(field, op, value):
+            if field == "bot_id":
+                where_bot.stream.return_value = [bot_doc]
+                return where_bot
+            if field == "room_id":
+                where_room.stream.return_value = [room_doc]
+                return where_room
+            raise AssertionError(f"Unexpected query: {field} {op} {value}")
+
+        mock_collection.where.side_effect = where_side_effect
+
+        with patch("telegram_storage._get_client", return_value=mock_db):
+            from telegram_storage import delete_links_for_bot
+            delete_links_for_bot("123456", "rm-1")
+
+        assert mock_collection.document.call_count == 2
+        mock_collection.document.assert_any_call("tg-user-1")
+        mock_collection.document.assert_any_call("tg-user-2")
+
 
 # ---------------------------------------------------------------------------
 # User link CRUD
