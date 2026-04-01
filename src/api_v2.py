@@ -1270,7 +1270,9 @@ async def telegram_bot_webhook(
         cb_telegram_user_id = str(cb_from.get("id", ""))
         if not cb_telegram_user_id:
             return {"ok": True}
-        cb_link = telegram_storage.get_link_by_telegram_user(cb_telegram_user_id)
+        cb_link = telegram_storage.get_link_by_telegram_user_for_room(
+            cb_telegram_user_id, config.room_id,
+        )
         if cb_link is None:
             # Can't process callback from unlinked user
             return {"ok": True}
@@ -1321,11 +1323,20 @@ async def telegram_bot_webhook(
                 "Invalid or expired code. Please generate a new one from the app.",
             )
             return {"ok": True}
+        if result["room_id"] != config.room_id:
+            await _send_telegram_message(
+                config.bot_token,
+                chat_id,
+                "This link code belongs to a different room. Please generate a new one from this room.",
+            )
+            return {"ok": True}
         # Save the link
         link = TelegramUserLink(
             telegram_user_id=telegram_user_id,
             app_uid=result["app_uid"],
             display_name=display_name,
+            room_id=config.room_id,
+            bot_id=config.bot_id,
         )
         telegram_storage.save_telegram_link(link)
         await _send_telegram_message(
@@ -1337,7 +1348,9 @@ async def telegram_bot_webhook(
 
     # Handle /reset command (requires linked user)
     if text == "/reset" or text.startswith("/reset "):
-        existing_link = telegram_storage.get_link_by_telegram_user(telegram_user_id)
+        existing_link = telegram_storage.get_link_by_telegram_user_for_room(
+            telegram_user_id, config.room_id,
+        )
         if existing_link is None:
             await _send_telegram_message(
                 config.bot_token, chat_id,
@@ -1355,7 +1368,9 @@ async def telegram_bot_webhook(
         return {"ok": True}
 
     # For all other messages, check if user is linked
-    existing_link = telegram_storage.get_link_by_telegram_user(telegram_user_id)
+    existing_link = telegram_storage.get_link_by_telegram_user_for_room(
+        telegram_user_id, config.room_id,
+    )
     if existing_link is None:
         await _send_telegram_message(
             config.bot_token,

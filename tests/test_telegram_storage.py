@@ -33,6 +33,8 @@ def _make_link(**kwargs) -> TelegramUserLink:
         telegram_user_id="tg-user-1",
         app_uid="uid-alice",
         display_name="Alice",
+        room_id="rm-1",
+        bot_id="123456",
     )
     defaults.update(kwargs)
     return TelegramUserLink(**defaults)
@@ -171,6 +173,35 @@ class TestUserLinkCRUD:
         with patch("telegram_storage._get_client", return_value=mock_db):
             from telegram_storage import get_link_by_telegram_user
             result = get_link_by_telegram_user("tg-unknown")
+
+        assert result is None
+
+    def test_get_link_by_telegram_user_for_room_found(self):
+        link = _make_link(room_id="rm-1")
+        mock_db = _mock_db()
+        mock_doc = MagicMock()
+        mock_doc.exists = True
+        mock_doc.to_dict.return_value = link.to_dict()
+        mock_db.collection.return_value.document.return_value.get.return_value = mock_doc
+
+        with patch("telegram_storage._get_client", return_value=mock_db):
+            from telegram_storage import get_link_by_telegram_user_for_room
+            result = get_link_by_telegram_user_for_room("tg-user-1", "rm-1")
+
+        assert result is not None
+        assert result.room_id == "rm-1"
+
+    def test_get_link_by_telegram_user_for_room_mismatch(self):
+        link = _make_link(room_id="rm-2")
+        mock_db = _mock_db()
+        mock_doc = MagicMock()
+        mock_doc.exists = True
+        mock_doc.to_dict.return_value = link.to_dict()
+        mock_db.collection.return_value.document.return_value.get.return_value = mock_doc
+
+        with patch("telegram_storage._get_client", return_value=mock_db):
+            from telegram_storage import get_link_by_telegram_user_for_room
+            result = get_link_by_telegram_user_for_room("tg-user-1", "rm-1")
 
         assert result is None
 

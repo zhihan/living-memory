@@ -385,6 +385,33 @@ class TestWebhookEndpoint:
         assert resp.status_code == 200
         assert "linked" in mock_send.call_args[0][2].lower()
 
+    def test_webhook_link_command_rejects_other_room_code(self, organizer_client):
+        config = _make_bot_config(room_id="rm-1")
+
+        with (
+            patch("api_v2.telegram_storage.get_bot_config", return_value=config),
+            patch("api_v2.telegram_storage.get_and_consume_link_code", return_value={
+                "room_id": "rm-2", "app_uid": "uid-organizer",
+            }),
+            patch("api_v2.telegram_storage.save_telegram_link") as mock_save,
+            patch("api_v2._send_telegram_message", new_callable=AsyncMock) as mock_send,
+        ):
+            resp = organizer_client.post(
+                self._webhook_url(),
+                json={
+                    "message": {
+                        "from": {"id": 999, "first_name": "Alice"},
+                        "chat": {"id": 100},
+                        "text": "/link ABC123",
+                    }
+                },
+                headers={"X-Telegram-Bot-Api-Secret-Token": "secret-abc"},
+            )
+
+        assert resp.status_code == 200
+        assert "different room" in mock_send.call_args[0][2].lower()
+        mock_save.assert_not_called()
+
     def test_webhook_link_command_invalid_code(self, organizer_client):
         config = _make_bot_config()
 
@@ -413,7 +440,7 @@ class TestWebhookEndpoint:
 
         with (
             patch("api_v2.telegram_storage.get_bot_config", return_value=config),
-            patch("api_v2.telegram_storage.get_link_by_telegram_user", return_value=None),
+            patch("api_v2.telegram_storage.get_link_by_telegram_user_for_room", return_value=None),
             patch("api_v2._send_telegram_message", new_callable=AsyncMock) as mock_send,
         ):
             resp = organizer_client.post(
@@ -439,7 +466,7 @@ class TestWebhookEndpoint:
 
         with (
             patch("api_v2.telegram_storage.get_bot_config", return_value=config),
-            patch("api_v2.telegram_storage.get_link_by_telegram_user", return_value=link),
+            patch("api_v2.telegram_storage.get_link_by_telegram_user_for_room", return_value=link),
             patch("telegram_chat_handler.handle_telegram_message", new_callable=AsyncMock) as mock_handler,
         ):
             resp = organizer_client.post(
@@ -468,7 +495,7 @@ class TestWebhookEndpoint:
 
         with (
             patch("api_v2.telegram_storage.get_bot_config", return_value=config),
-            patch("api_v2.telegram_storage.get_link_by_telegram_user", return_value=link),
+            patch("api_v2.telegram_storage.get_link_by_telegram_user_for_room", return_value=link),
             patch("telegram_chat_handler.handle_telegram_callback", new_callable=AsyncMock) as mock_cb,
         ):
             resp = organizer_client.post(
@@ -492,7 +519,7 @@ class TestWebhookEndpoint:
 
         with (
             patch("api_v2.telegram_storage.get_bot_config", return_value=config),
-            patch("api_v2.telegram_storage.get_link_by_telegram_user", return_value=None),
+            patch("api_v2.telegram_storage.get_link_by_telegram_user_for_room", return_value=None),
         ):
             resp = organizer_client.post(
                 self._webhook_url(),

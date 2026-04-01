@@ -82,6 +82,18 @@ def get_link_by_telegram_user(telegram_user_id: str) -> TelegramUserLink | None:
     return TelegramUserLink.from_dict(doc.to_dict())
 
 
+def get_link_by_telegram_user_for_room(
+    telegram_user_id: str, room_id: str,
+) -> TelegramUserLink | None:
+    """Fetch a TelegramUserLink only when it belongs to the requested room."""
+    link = get_link_by_telegram_user(telegram_user_id)
+    if link is None:
+        return None
+    if link.room_id != room_id:
+        return None
+    return link
+
+
 def delete_links_for_bot(bot_id: str) -> None:
     """Delete all telegram links. Used for cleanup when a bot is removed."""
     db = _get_client()

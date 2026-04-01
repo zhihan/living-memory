@@ -575,6 +575,8 @@ class TelegramUserLink:
     telegram_user_id: str  # doc ID
     app_uid: str           # Firebase UID
     display_name: str
+    room_id: str | None = None
+    bot_id: str | None = None
     linked_at: datetime | None = None
 
     def to_dict(self) -> dict:
@@ -582,6 +584,8 @@ class TelegramUserLink:
             "telegram_user_id": self.telegram_user_id,
             "app_uid": self.app_uid,
             "display_name": self.display_name,
+            "room_id": self.room_id,
+            "bot_id": self.bot_id,
             "linked_at": self.linked_at or _utcnow(),
         }
 
@@ -591,6 +595,8 @@ class TelegramUserLink:
             telegram_user_id=data["telegram_user_id"],
             app_uid=data["app_uid"],
             display_name=data["display_name"],
+            room_id=data.get("room_id"),
+            bot_id=data.get("bot_id"),
             linked_at=data.get("linked_at"),
         )
 
