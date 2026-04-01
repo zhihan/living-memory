@@ -894,18 +894,6 @@ export function SeriesView() {
             <div className="meeting-card meeting-card-next">
               <div className="meeting-card-header">
                 <div className="meeting-card-label">Next</div>
-                {!editingAgenda && (
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-xs"
-                    onClick={() => {
-                      setAgendaText(nextNotes ?? "");
-                      setEditingAgenda(true);
-                    }}
-                  >
-                    {nextNotes ? "Edit agenda" : "Add agenda"}
-                  </button>
-                )}
               </div>
               <Link to={occurrencePath(next.occurrence_id)} className="meeting-card-date">
                 {formatDate(next.scheduled_for)}
@@ -1054,9 +1042,13 @@ export function SeriesView() {
                     className="form-input form-textarea"
                     value={agendaText}
                     onChange={(e) => setAgendaText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") setEditingAgenda(false);
+                    }}
                     rows={3}
                     placeholder="e.g. Chapter 5: Romans, Discussion questions..."
                     disabled={agendaSaving}
+                    autoFocus
                   />
                   <div className="form-actions">
                     <button
@@ -1078,9 +1070,27 @@ export function SeriesView() {
                   </div>
                 </div>
               ) : nextNotes ? (
-                <p className="meeting-card-notes">{nextNotes}</p>
+                <p
+                  className="meeting-card-notes page-title-editable"
+                  onClick={() => {
+                    setAgendaText(nextNotes);
+                    setEditingAgenda(true);
+                  }}
+                  title="Click to edit"
+                >
+                  {nextNotes}
+                </p>
               ) : (
-                <p className="placeholder-sm">No agenda set.</p>
+                <p
+                  className="placeholder-sm page-title-editable"
+                  onClick={() => {
+                    setAgendaText("");
+                    setEditingAgenda(true);
+                  }}
+                  title="Click to add notes"
+                >
+                  + Add notes
+                </p>
               )}
             </div>
           );
