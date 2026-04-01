@@ -40,6 +40,11 @@ _MAX_RETRIES = 2
 _SYSTEM_PROMPT = """You are an AI assistant for a meeting organizer. Help organizers manage recurring
 meetings, schedules, and materials through natural conversation.
 
+You have access to the room's current data provided in the "Room context" section below.
+Use this data to answer questions about series, occurrences, schedules, hosts, and locations.
+When the user asks about meetings or series, always check the room context first — it contains
+the complete list of series and upcoming occurrences for this room.
+
 Available actions:
   create_series            — create a new recurring meeting series
   reschedule_occurrence    — reschedule a single meeting occurrence
