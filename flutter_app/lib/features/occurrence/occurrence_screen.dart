@@ -194,18 +194,40 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
   }
 
   Future<void> _editHost(Occurrence occ) async {
-    final controller = TextEditingController(text: occ.host ?? '');
+    final series = _series;
+    final rotationList = series?.hostRotation ?? [];
+    final initialValue = occ.host ?? '';
+    String selectedHost = initialValue;
+
     final newHost = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Edit Host'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(
-            labelText: 'Host Name',
-            hintText: 'Team A, Alice, etc.',
-          ),
-          autofocus: true,
+        content: Autocomplete<String>(
+          initialValue: TextEditingValue(text: initialValue),
+          optionsBuilder: (textEditingValue) {
+            if (rotationList.isEmpty) return const Iterable<String>.empty();
+            final query = textEditingValue.text.toLowerCase();
+            if (query.isEmpty) return rotationList;
+            return rotationList.where(
+                (h) => h.toLowerCase().contains(query));
+          },
+          fieldViewBuilder: (ctx, controller, focusNode, onSubmitted) {
+            return TextField(
+              controller: controller,
+              focusNode: focusNode,
+              decoration: InputDecoration(
+                labelText: 'Host Name',
+                hintText: rotationList.isNotEmpty
+                    ? 'Type or select a host'
+                    : 'Team A, Alice, etc.',
+              ),
+              onChanged: (v) => selectedHost = v,
+              onSubmitted: (_) => onSubmitted(),
+              autofocus: true,
+            );
+          },
+          onSelected: (value) => selectedHost = value,
         ),
         actions: [
           TextButton(
@@ -213,7 +235,7 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(ctx, controller.text),
+            onPressed: () => Navigator.pop(ctx, selectedHost),
             child: const Text('Save'),
           ),
         ],
@@ -221,12 +243,30 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
     );
 
     if (newHost == null) return;
+    final trimmed = newHost.trim();
     try {
+      final updates = <String, dynamic>{
+        'host': trimmed.isNotEmpty ? trimmed : null,
+      };
+      // Auto-sync location in host_and_location mode
+      if (series?.hostRotationMode == 'host_and_location' && trimmed.isNotEmpty) {
+        final address = series?.hostAddresses?[trimmed];
+        updates['location'] = address ?? series?.defaultLocation;
+      }
       await context.read<ApiService>().updateOccurrence(
         widget.occurrenceId,
-        {'host': newHost.trim().isNotEmpty ? newHost.trim() : null},
+        updates,
       );
-      _load();
+      await _load();
+
+      // Prompt to continue rotation if host is in the rotation list
+      if (mounted && trimmed.isNotEmpty && rotationList.contains(trimmed)) {
+        // Update the occurrence reference after reload
+        final updatedOcc = _occurrence;
+        if (updatedOcc != null) {
+          await _repopulateRotation(updatedOcc);
+        }
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -441,7 +481,7 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
             ),
 
             // Host card
-            if (occ.host != null) ...[
+            if (occ.host != null || (_canManage && series.hostRotation != null && series.hostRotation!.isNotEmpty)) ...[
               const SizedBox(height: 8),
               Card(
                 child: ListTile(
@@ -451,7 +491,13 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
                     child: Icon(Icons.person, size: 20, color: cs.onPrimaryContainer),
                   ),
                   title: const Text('Host', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                  subtitle: Text(occ.host!, style: const TextStyle(fontSize: 14)),
+                  subtitle: Text(
+                    occ.host ?? 'Set host',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: occ.host != null ? null : cs.onSurfaceVariant,
+                    ),
+                  ),
                   trailing: _canManage
                       ? IconButton(
                           icon: const Icon(Icons.edit, size: 18),
