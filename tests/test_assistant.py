@@ -16,6 +16,7 @@ from assistant_actions import (
     build_draft_material_action,
     build_generate_reminder_text_action,
     build_reschedule_occurrence_action,
+    build_update_occurrence_notes_action,
     execute_action,
 )
 
@@ -156,6 +157,17 @@ class TestBuildGenerateReminderTextAction:
         assert "series-7" in action.preview_summary
 
 
+class TestBuildUpdateOccurrenceNotesAction:
+    def test_with_occurrence(self):
+        payload = {
+            "occurrence_id": "occ-42",
+            "notes": "1. Opening prayer\n2. Discussion",
+        }
+        action = build_update_occurrence_notes_action("ws-1", "uid-1", payload)
+        assert action.action_type == "update_occurrence_notes"
+        assert "occ-42" in action.preview_summary
+
+
 # ---------------------------------------------------------------------------
 # execute_action dispatch
 # ---------------------------------------------------------------------------
@@ -234,6 +246,38 @@ class TestExecuteAction:
         action.action_type = "nonexistent_action"
         with pytest.raises(ValueError, match="Unknown action type"):
             execute_action(action)
+
+    def test_execute_update_occurrence_notes_with_existing_overrides(self):
+        from models import Occurrence, OccurrenceOverrides
+
+        action = _make_pending(
+            action_type="update_occurrence_notes",
+            payload={
+                "occurrence_id": "occ-55",
+                "notes": "Updated agenda",
+            },
+        )
+        fake_occurrence = Occurrence(
+            occurrence_id="occ-55",
+            series_id="series-1",
+            room_id="ws-1",
+            scheduled_for="2026-05-01T09:00:00+00:00",
+            overrides=OccurrenceOverrides(location="Library", notes="Old agenda"),
+        )
+
+        with (
+            patch("series_storage.get_occurrence", return_value=fake_occurrence),
+            patch("series_storage.update_occurrence") as mock_update,
+        ):
+            result = execute_action(action)
+
+        mock_update.assert_called_once_with(
+            "occ-55",
+            {"overrides": {"time": None, "duration_minutes": None, "location": "Library",
+                           "online_link": None, "title": None, "notes": "Updated agenda"}},
+        )
+        assert result["updated"] == "occurrence_notes"
+        assert result["notes"] == "Updated agenda"
 
 
 # ---------------------------------------------------------------------------

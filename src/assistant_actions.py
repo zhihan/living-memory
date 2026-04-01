@@ -319,7 +319,7 @@ def execute_update_occurrence_notes(action: PendingAction) -> dict:
     if occ is None:
         raise ValueError(f"Occurrence not found: {occ_id}")
 
-    overrides = dict(occ.overrides) if occ.overrides else {}
+    overrides = occ.overrides.to_dict() if occ.overrides else {}
     overrides["notes"] = notes
     series_storage.update_occurrence(occ_id, {"overrides": overrides})
 
