@@ -310,32 +310,26 @@ export function OccurrenceView() {
             <span className="host-label">Hosted by</span>
             {editingField === "host" ? (
               <div className="inline-edit-row">
+                <input
+                  className="form-input"
+                  list="host-rotation-options"
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") saveInlineEdit("host", editValue);
+                    if (e.key === "Escape") cancelInlineEdit();
+                  }}
+                  placeholder="Type or select a host"
+                  disabled={editSubmitting}
+                  autoFocus
+                />
                 {series?.host_rotation?.length ? (
-                  <select
-                    className="form-input"
-                    value={editValue}
-                    onChange={(e) => setEditValue(e.target.value)}
-                    disabled={editSubmitting}
-                    autoFocus
-                  >
-                    <option value="">-- Select host --</option>
+                  <datalist id="host-rotation-options">
                     {series.host_rotation.map((h) => (
-                      <option key={h} value={h}>{h}</option>
+                      <option key={h} value={h} />
                     ))}
-                  </select>
-                ) : (
-                  <input
-                    className="form-input"
-                    value={editValue}
-                    onChange={(e) => setEditValue(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") saveInlineEdit("host", editValue);
-                      if (e.key === "Escape") cancelInlineEdit();
-                    }}
-                    disabled={editSubmitting}
-                    autoFocus
-                  />
-                )}
+                  </datalist>
+                ) : null}
                 <button className="btn btn-primary btn-sm" onClick={() => saveInlineEdit("host", editValue)} disabled={editSubmitting}>Save</button>
                 <button className="btn btn-secondary btn-sm" onClick={cancelInlineEdit} disabled={editSubmitting}>Cancel</button>
               </div>
