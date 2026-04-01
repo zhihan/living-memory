@@ -75,7 +75,7 @@ def _build_room_context(room_id: str) -> dict | None:
     # Include both scheduled and recent past occurrences so the AI can
     # update agendas for occurrences that just happened or are today.
     all_occs = series_storage.list_occurrences_for_room(room_id)
-    cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
     occs = [
         o for o in all_occs
         if o.status == "scheduled" or o.scheduled_for >= cutoff
