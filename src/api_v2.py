@@ -658,12 +658,16 @@ def series_check_in_report(
     series_id: str,
     token: dict = Depends(_require_token),
 ) -> dict:
-    """Return occurrences with check-in enabled and all their check-ins."""
+    """Return past occurrences with check-in enabled and all their check-ins."""
     s = _get_series_or_404(series_id)
     rm = _get_room_or_404(s.room_id)
     _require_role(rm, token["uid"], "organizer", "teacher")
+    now = datetime.now(timezone.utc).isoformat()
     occurrences = series_storage.list_occurrences_for_series(series_id)
-    practice_occs = [o for o in occurrences if o.enable_check_in]
+    practice_occs = [
+        o for o in occurrences
+        if o.enable_check_in and o.scheduled_for < now
+    ]
     practice_occs.sort(key=lambda o: o.scheduled_for)
     check_ins = series_storage.list_check_ins_for_series(series_id)
     return {

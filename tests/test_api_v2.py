@@ -577,8 +577,8 @@ class TestCheckInReport:
     def test_organizer_can_view_report(self, organizer_client):
         rm = _make_room()
         series = _make_series()
-        occ1 = _make_occurrence(occurrence_id="occ-1", enable_check_in=True)
-        occ2 = _make_occurrence(occurrence_id="occ-2", enable_check_in=False)
+        occ1 = _make_occurrence(occurrence_id="occ-1", enable_check_in=True, scheduled_for="2025-03-30T13:00:00+00:00")
+        occ2 = _make_occurrence(occurrence_id="occ-2", enable_check_in=False, scheduled_for="2025-03-30T13:00:00+00:00")
         ci = CheckIn(
             check_in_id="ci-1", occurrence_id="occ-1", series_id="s-1",
             room_id="rm-1", user_id=PARTICIPANT_UID, status="confirmed",
