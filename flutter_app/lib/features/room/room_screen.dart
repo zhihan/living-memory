@@ -10,6 +10,7 @@ import '../../models/series.dart';
 import '../../models/room.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
+import '../../shared/formatting/timezone_helpers.dart';
 import 'create_series_dialog.dart';
 
 class RoomScreen extends StatefulWidget {
@@ -25,6 +26,7 @@ class _RoomScreenState extends State<RoomScreen> {
   List<Series>? _series;
   bool _loading = true;
   String? _error;
+  String _deviceTz = 'UTC';
 
   // Telegram bot state
   Map<String, dynamic>? _tgBot;
@@ -36,7 +38,13 @@ class _RoomScreenState extends State<RoomScreen> {
   @override
   void initState() {
     super.initState();
+    _loadDeviceTz();
     _load();
+  }
+
+  Future<void> _loadDeviceTz() async {
+    final tz = await getDeviceTimezone();
+    if (mounted) setState(() => _deviceTz = tz);
   }
 
   @override
@@ -302,10 +310,12 @@ class _RoomScreenState extends State<RoomScreen> {
                 padding: const EdgeInsets.all(14),
                 child: Row(
                   children: [
-                    Icon(Icons.public, size: 16, color: cs.onSurfaceVariant),
-                    const SizedBox(width: 8),
-                    Text(room.timezone,
-                        style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+                    if (!timezonesMatch(room.timezone, _deviceTz)) ...[
+                      Icon(Icons.public, size: 16, color: cs.onSurfaceVariant),
+                      const SizedBox(width: 8),
+                      Text(room.timezone,
+                          style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+                    ],
                     const Spacer(),
                     Icon(Icons.people_outline, size: 16, color: cs.onSurfaceVariant),
                     const SizedBox(width: 6),

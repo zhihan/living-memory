@@ -11,6 +11,7 @@ import '../../models/series.dart';
 import '../../models/room.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
+import '../../shared/formatting/timezone_helpers.dart';
 
 class OccurrenceScreen extends StatefulWidget {
   final String occurrenceId;
@@ -28,11 +29,18 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
   List<CheckIn>? _allCheckIns;
   bool _loading = true;
   String? _error;
+  String _deviceTz = 'UTC';
 
   @override
   void initState() {
     super.initState();
+    _loadDeviceTz();
     _load();
+  }
+
+  Future<void> _loadDeviceTz() async {
+    final tz = await getDeviceTimezone();
+    if (mounted) setState(() => _deviceTz = tz);
   }
 
   @override
@@ -390,8 +398,10 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
 
     final occ = _occurrence!;
     final series = _series!;
+    final room = _room!;
     final cs = Theme.of(context).colorScheme;
     final dt = occ.scheduledDateTime.toLocal();
+    final showDualTz = !timezonesMatch(room.timezone, _deviceTz);
     final effectiveLocation = series.hasLocation
         ? (occ.effectiveLocation ?? series.defaultLocation)
         : occ.overrides?.location;
@@ -472,9 +482,17 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
                           Text(DateFormat('EEEE').format(dt),
                               style: const TextStyle(
                                   fontWeight: FontWeight.w600, fontSize: 15)),
-                          Text(DateFormat('MMM d, yyyy  HH:mm').format(dt),
+                          Text(
+                              showDualTz
+                                  ? '${DateFormat('MMM d, yyyy  HH:mm').format(dt)} (${dt.timeZoneName})'
+                                  : DateFormat('MMM d, yyyy  HH:mm').format(dt),
                               style: TextStyle(
                                   fontSize: 13, color: cs.onSurfaceVariant)),
+                          if (showDualTz)
+                            Text(
+                                'Room: ${room.timezone.split('/').last.replaceAll('_', ' ')}',
+                                style: TextStyle(
+                                    fontSize: 11, color: cs.onSurfaceVariant)),
                           if (duration != null)
                             Text('$duration min',
                                 style: TextStyle(

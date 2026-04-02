@@ -10,6 +10,7 @@ import '../../models/series.dart';
 import '../../models/room.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
+import '../../shared/formatting/timezone_helpers.dart';
 import '../../shared/widgets/check_in_report.dart';
 
 class SeriesScreen extends StatefulWidget {
@@ -26,6 +27,7 @@ class _SeriesScreenState extends State<SeriesScreen> {
   List<Occurrence>? _occurrences;
   bool _loading = true;
   String? _error;
+  String _deviceTz = 'UTC';
 
   // Inline location editing
   String? _editingLocationOccId;
@@ -35,7 +37,13 @@ class _SeriesScreenState extends State<SeriesScreen> {
   @override
   void initState() {
     super.initState();
+    _loadDeviceTz();
     _load();
+  }
+
+  Future<void> _loadDeviceTz() async {
+    final tz = await getDeviceTimezone();
+    if (mounted) setState(() => _deviceTz = tz);
   }
 
   @override
@@ -927,7 +935,11 @@ class _SeriesScreenState extends State<SeriesScreen> {
       {bool isNext = false, bool isPast = false}) {
     final dt = occ.scheduledDateTime.toLocal();
     final dateStr = DateFormat('E, MMM d').format(dt);
-    final timeStr = DateFormat('HH:mm').format(dt);
+    final roomTz = _room?.timezone ?? _deviceTz;
+    final showDualTz = !timezonesMatch(roomTz, _deviceTz);
+    final timeStr = showDualTz
+        ? '${DateFormat('HH:mm').format(dt)} (${dt.timeZoneName})'
+        : DateFormat('HH:mm').format(dt);
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -1102,7 +1114,11 @@ class _SeriesScreenState extends State<SeriesScreen> {
   Widget _occurrenceListItem(Occurrence occ, ColorScheme cs) {
     final dt = occ.scheduledDateTime.toLocal();
     final dateStr = DateFormat('E, MMM d').format(dt);
-    final timeStr = DateFormat('HH:mm').format(dt);
+    final roomTz = _room?.timezone ?? _deviceTz;
+    final showDualTz = !timezonesMatch(roomTz, _deviceTz);
+    final timeStr = showDualTz
+        ? '${DateFormat('HH:mm').format(dt)} (${dt.timeZoneName})'
+        : DateFormat('HH:mm').format(dt);
     final isEditingLoc = _editingLocationOccId == occ.occurrenceId;
 
     return InkWell(

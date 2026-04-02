@@ -22,17 +22,7 @@ import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { Markdown } from "../components/Markdown";
 import { Toast } from "../components/Toast";
-
-function formatDate(iso: string, timezone?: string): string {
-  return new Date(iso).toLocaleString("en-US", {
-    timeZone: timezone,
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
+import { formatDate, formatShortDate } from "../dateFormat";
 
 function formatScheduleRule(rule: ScheduleRule): string {
   if (rule.frequency === "daily") return "Every day";
@@ -162,11 +152,7 @@ export function SeriesView() {
     ? occurrences.reduce((a, b) => (a.scheduled_for > b.scheduled_for ? a : b))
     : null;
   const scheduledThrough = lastOccurrence
-    ? new Date(lastOccurrence.scheduled_for).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      })
+    ? formatShortDate(lastOccurrence.scheduled_for, room?.timezone)
     : null;
 
   function startEdit() {
@@ -858,7 +844,7 @@ export function SeriesView() {
             <div className="meeting-card meeting-card-past">
               <div className="meeting-card-label">Last</div>
               <Link to={occurrencePath(last.occurrence_id)} className="meeting-card-date">
-                {formatDate(last.scheduled_for)}
+                {formatDate(last.scheduled_for, room?.timezone)}
               </Link>
               {/* status badge hidden – issue #114 */}
               {last.overrides?.notes && (
@@ -874,7 +860,7 @@ export function SeriesView() {
             {past.slice().reverse().slice(1, 7).map((o) => (
               <div key={o.occurrence_id} className="upcoming-row">
                 <Link to={occurrencePath(o.occurrence_id)} className="upcoming-date">
-                  {formatDate(o.scheduled_for)}
+                  {formatDate(o.scheduled_for, room?.timezone)}
                 </Link>
                 {o.overrides?.notes && (
                   <span className="meeting-card-notes" style={{ fontSize: "0.85rem", color: "#666" }}>
@@ -895,7 +881,7 @@ export function SeriesView() {
                 <div className="meeting-card-label">Next</div>
               </div>
               <Link to={occurrencePath(next.occurrence_id)} className="meeting-card-date">
-                {formatDate(next.scheduled_for)}
+                {formatDate(next.scheduled_for, room?.timezone)}
               </Link>
               {(series?.location_type !== "none" || next.location) && (
                 isOrganizer && editingLocationId === next.occurrence_id ? (
@@ -1099,7 +1085,7 @@ export function SeriesView() {
             {upcoming.slice(1, 7).map((o) => (
               <div key={o.occurrence_id} className="upcoming-row">
                 <Link to={occurrencePath(o.occurrence_id)} className="upcoming-date">
-                  {formatDate(o.scheduled_for)}
+                  {formatDate(o.scheduled_for, room?.timezone)}
                 </Link>
                 {(series?.location_type !== "none" || o.location) && (
                   isOrganizer && editingLocationId === o.occurrence_id ? (
@@ -1294,10 +1280,7 @@ export function SeriesView() {
                       {occs.map((o) => (
                         <th key={o.occurrence_id} className="report-date-col">
                           <Link to={occurrencePath(o.occurrence_id)}>
-                            {new Date(o.scheduled_for).toLocaleDateString("en-US", {
-                              month: "short",
-                              day: "numeric",
-                            })}
+                            {formatShortDate(o.scheduled_for, room?.timezone)}
                           </Link>
                         </th>
                       ))}

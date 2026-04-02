@@ -19,19 +19,7 @@ import {
 import { useAuth } from "../auth";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ErrorMessage } from "../components/ErrorMessage";
-
-
-function formatDate(iso: string, timezone?: string): string {
-  return new Date(iso).toLocaleString("en-US", {
-    timeZone: timezone,
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
+import { formatDate } from "../dateFormat";
 
 export function OccurrenceView() {
   const { occurrenceId } = useParams<{ occurrenceId: string }>();
@@ -258,7 +246,7 @@ export function OccurrenceView() {
             ›
           </button>
         </div>
-        <p className="series-meta">{formatDate(occ.scheduled_for)}</p>
+        <p className="series-meta">{formatDate(occ.scheduled_for, room?.timezone, { weekday: "long", year: "numeric", month: "long", day: "numeric", hour: "numeric", minute: "2-digit" })}</p>
         {effectiveDuration && (
           <p className="series-meta">{effectiveDuration} minutes</p>
         )}

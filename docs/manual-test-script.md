@@ -190,6 +190,50 @@ which surface to test on. Unless noted otherwise, test both.
 
 **Expected:** A new occurrence appears in the timeline at the chosen date/time.
 
+### 4.9 Create a daily series
+
+1. Create a series with frequency **Daily**.
+
+**Expected:** Occurrences are generated for every day. The schedule summary shows "Daily".
+
+### 4.10 Create a weekdays-only series
+
+1. Create a series with frequency **Weekdays**.
+
+**Expected:** Occurrences appear Mon–Fri only. No Saturday/Sunday occurrences.
+
+### 4.11 Create a one-time series (app only)
+
+1. Create a series with frequency **One-time**.
+
+**Expected:** Exactly one occurrence is created.
+
+### 4.12 Series with description (markdown)
+
+1. Create or edit a series and add a multi-line description with markdown (bold, links, bullet lists).
+2. Save and view the series.
+
+**Expected:** Description renders as formatted markdown. Links are tappable.
+
+### 4.13 Location modes
+
+**Fixed location:**
+1. Create a series with location type **Fixed** and enter an address.
+2. View occurrences.
+
+**Expected:** All occurrences show the same fixed location.
+
+**Per-occurrence location:**
+1. Create a series with location type **Per occurrence** (web) / **Per Meeting** (app).
+2. Edit individual occurrence locations.
+
+**Expected:** Each occurrence can have a different location. Unset occurrences show no location.
+
+**No location:**
+1. Create a series with location type **None**.
+
+**Expected:** No location field appears on occurrences (unless manually overridden).
+
 ---
 
 ## 5 Host Rotation
@@ -288,7 +332,14 @@ which surface to test on. Unless noted otherwise, test both.
 
 **Expected:** The Done button appears or disappears for that occurrence.
 
-### 6.7 Delete an occurrence (organizer only)
+### 6.7 Occurrence status — cancelled / skipped display
+
+1. Via the API or assistant, set an occurrence status to `cancelled`.
+2. View the occurrence detail and the summary page.
+
+**Expected:** A cancelled/skipped banner is displayed on both the detail and summary pages.
+
+### 6.8 Delete an occurrence (organizer only)
 
 1. Open an occurrence.
 2. Tap **Delete occurrence**.
@@ -296,7 +347,7 @@ which surface to test on. Unless noted otherwise, test both.
 
 **Expected:** Occurrence is deleted. User navigates back.
 
-### 6.8 Inline editing in series view (web only)
+### 6.9 Inline editing in series view (web only)
 
 1. In the series view, click the host / location / notes of an occurrence.
 2. Edit inline and submit (Enter / blur / Save button).
@@ -378,8 +429,8 @@ which surface to test on. Unless noted otherwise, test both.
 
 ### 10.1 Connect a Telegram bot
 
-1. Open a room.
-2. In the Telegram section, enter a valid bot token.
+1. Open a room (as organizer).
+2. In the Telegram / AI Assistant section, enter a valid bot token.
 3. Select a mode (Read-only or Read & Write).
 4. Tap **Connect Bot**.
 
@@ -391,58 +442,120 @@ which surface to test on. Unless noted otherwise, test both.
 
 **Expected:** The mode updates immediately.
 
-### 10.3 Generate a link code
+### 10.3 Generate a link code and link a Telegram account
 
-1. Tap **Generate Link Code**.
+1. In the app, tap **Generate Link Code**.
+2. Copy the 6-character code.
+3. Open the bot in Telegram and send `/link <code>`.
 
-**Expected:** A one-time code appears with a countdown timer. The code can be copied.
+**Expected:**
+- The code appears in the app with a countdown timer (5 min expiry).
+- The bot responds in Telegram: "You're verified as [Name]. You can now manage [Room Title]."
 
-### 10.4 Disconnect a bot
+### 10.4 Unlinked user messages the bot
 
-1. Tap **Disconnect bot**.
+1. Message the bot from a Telegram account that has **not** been linked.
+
+**Expected:** The bot replies with instructions to generate a link code and send `/link <code>`.
+
+### 10.5 Chat with the bot in read-only mode
+
+1. Set the bot to **Read-only** mode.
+2. Message the bot: "When is the next meeting?"
+
+**Expected:** The bot answers with schedule information. It does **not** offer to create or modify anything.
+
+### 10.6 Chat with the bot in read-write mode
+
+1. Set the bot to **Read & Write** mode.
+2. Message the bot: "Reschedule tomorrow's meeting to 3pm."
+
+**Expected:** The bot proposes an action with **Confirm** / **Cancel** inline buttons.
+
+### 10.7 Confirm a bot action via inline button
+
+1. After the bot proposes an action (10.6), tap **Confirm** in Telegram.
+
+**Expected:** The action executes. The bot edits the message to confirm the change.
+
+### 10.8 Cancel a bot action via inline button
+
+1. After the bot proposes an action, tap **Cancel** in Telegram.
+
+**Expected:** The action is discarded. The bot edits the message to show cancellation.
+
+### 10.9 Bot conversation memory
+
+1. Send the bot a message: "Change the next meeting location to Room 202."
+2. Confirm the action.
+3. Send a follow-up: "Actually, make that Room 303 instead."
+
+**Expected:** The bot understands "that" refers to the same meeting and proposes updating the location.
+
+### 10.10 Bot in group chat (unsupported)
+
+1. Add the bot to a Telegram group chat.
+2. Send a message.
+
+**Expected:** The bot replies that it only supports private chats.
+
+### 10.11 Disconnect a bot
+
+1. Tap **Disconnect bot** in the app.
 2. Confirm.
 
-**Expected:** The bot is removed. The connect form reappears.
+**Expected:** The bot is removed. The connect form reappears. Messaging the bot in Telegram no longer works.
 
 ---
 
-## 11 Notifications (Web only)
+## 11 Notification Rules
 
-### 11.1 Create a notification rule
+### 11.1 Create a notification rule (API)
 
-*Verify via the API or any UI surface that exposes notification rules.*
+1. `POST /v2/rooms/{room_id}/notification-rules` with a rule body (e.g., remind 1 hour before).
 
-1. Create a notification rule for a room (e.g., "Remind 1 hour before each occurrence").
+**Expected:** Rule is saved. `GET /v2/rooms/{room_id}/notification-rules` returns it.
 
-**Expected:** The rule is saved and notifications are delivered at the configured time.
+### 11.2 Delete a notification rule (API)
+
+1. `DELETE /v2/notification-rules/{rule_id}`.
+
+**Expected:** Rule is removed. No longer returned in the list.
+
+### 11.3 Notification delivery
+
+1. Create a notification rule for a room with upcoming occurrences.
+2. Wait for the scheduled delivery time.
+
+**Expected:** Notification is delivered through the configured channel. Delivery log is recorded.
 
 ---
 
-## 12 ICS Export (Web)
+## 12 ICS / Calendar Export
 
 ### 12.1 Download occurrence ICS
 
-1. Navigate to an occurrence and trigger ICS download (via direct URL or UI button if available).
+1. Navigate to `GET /v2/occurrences/{id}/ics` (via browser or API).
 
-**Expected:** A valid `.ics` file downloads that can be opened in a calendar app.
+**Expected:** A valid `.ics` file downloads. It opens correctly in Google Calendar / Apple Calendar with the right date, time, location, and title.
 
 ### 12.2 Download series ICS
 
-1. Navigate to a series and trigger ICS download.
+1. Navigate to `GET /v2/series/{id}/ics`.
 
-**Expected:** A valid `.ics` file downloads containing all occurrences in the series.
+**Expected:** A valid `.ics` file downloads containing all occurrences in the series as separate events.
 
 ---
 
-## 13 AI Assistant (Organizer Only)
+## 13 AI Assistant — In-App (Web, Organizer Only)
 
 ### 13.1 Send a message to the assistant
 
-1. Open the assistant chat for a room.
+1. Open the assistant chat for a room (web).
 2. Type a message (e.g., "Schedule a meeting next Tuesday at 3pm").
 3. Submit.
 
-**Expected:** The assistant responds with a proposed action.
+**Expected:** The assistant responds with a proposed action and Confirm/Cancel buttons.
 
 ### 13.2 Confirm an assistant action
 
@@ -455,6 +568,12 @@ which surface to test on. Unless noted otherwise, test both.
 1. After the assistant proposes an action, tap **Cancel**.
 
 **Expected:** The action is discarded. No changes are made.
+
+### 13.4 Read-only queries via assistant
+
+1. Ask the assistant: "What's on the schedule this week?"
+
+**Expected:** The assistant responds with relevant schedule info without proposing changes.
 
 ---
 
@@ -473,23 +592,64 @@ which surface to test on. Unless noted otherwise, test both.
 
 **Expected:** An error message appears with a **Retry** button. Reconnecting and tapping Retry loads the data.
 
-### 14.3 Role-based access control
+### 14.3 Role-based access control — participant
 
 1. Sign in as a **participant**.
 2. Visit a room, series, and occurrence.
 
 **Expected:** No edit, delete, invite, or management controls are visible. Only "Done", "Leave", and read-only content is accessible.
 
-### 14.4 Deep links / direct URL navigation
+### 14.4 Role-based access control — teacher
 
-1. Copy the URL of an occurrence (web) and open it in a new tab.
-2. Copy an invite link and open it in a fresh browser / app instance.
+1. Sign in as a user with **teacher** role.
+2. Visit a room, series, and occurrence.
 
-**Expected:** The correct screen loads (with sign-in if needed).
+**Expected:** Teacher can edit series, edit occurrences, toggle check-in, view completion report and check-in list. Teacher **cannot** manage room settings, members, invites, or delete the room.
 
-### 14.5 Markdown rendering
+### 14.5 Deep links / direct URL navigation (web)
+
+1. Copy the URL of an occurrence and open it in a new tab.
+2. Copy an invite link and open it in a new incognito window.
+
+**Expected:** The correct screen loads (with sign-in redirect if needed).
+
+### 14.6 Deep links / invite links (app)
+
+1. Open an invite link (`https://small-group.ai/invites/{id}`) on a device with the app installed.
+
+**Expected:** The app opens to the accept-invite screen. If not signed in, the user signs in first, then accepts.
+
+### 14.7 Session restore on app launch (app only)
+
+1. Sign in to the app.
+2. Force-close and reopen the app.
+
+**Expected:** The user is automatically signed in and lands on the dashboard without needing to sign in again.
+
+### 14.8 Markdown rendering
 
 1. Add markdown content to a series description or occurrence notes (e.g., `**bold**`, `[link](https://example.com)`, bullet lists).
 2. View the series or occurrence.
 
 **Expected:** Markdown renders correctly. Links are tappable and open externally.
+
+### 14.9 Timezone handling
+
+1. Create a room with timezone set to (e.g.) `America/New_York`.
+2. Create a series with time 19:00.
+3. View the occurrence from a device in a different timezone.
+
+**Expected:** The occurrence displays the correct local time adjusted for the viewer's timezone.
+
+### 14.10 Long input validation
+
+1. Try creating a room/series with an empty title.
+
+**Expected:** Validation prevents submission (title is required).
+
+### 14.11 Concurrent editing
+
+1. Open the same series in two browser tabs (as organizer).
+2. Edit the host on one occurrence in tab A, then edit the same occurrence in tab B.
+
+**Expected:** The second save succeeds (last-write-wins). Refreshing either tab shows the final state.

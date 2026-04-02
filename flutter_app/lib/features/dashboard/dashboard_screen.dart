@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -59,11 +60,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
   ];
 
   Future<void> _createRoom() async {
+    final deviceTz = await FlutterTimezone.getLocalTimezone();
+    if (!mounted) return;
+    // Build timezone list, ensuring device timezone is always included.
+    final tzList = _timezones.contains(deviceTz)
+        ? _timezones
+        : [deviceTz, ..._timezones];
     final result = await showDialog<Map<String, String>>(
       context: context,
       builder: (ctx) {
         final controller = TextEditingController();
-        var selectedTz = 'UTC';
+        var selectedTz = deviceTz;
         return StatefulBuilder(
           builder: (ctx, setDialogState) => AlertDialog(
             title: const Text('New Room'),
@@ -79,7 +86,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 DropdownButtonFormField<String>(
                   initialValue: selectedTz,
                   decoration: const InputDecoration(labelText: 'Timezone'),
-                  items: _timezones
+                  items: tzList
                       .map((tz) => DropdownMenuItem(value: tz, child: Text(tz)))
                       .toList(),
                   onChanged: (v) => setDialogState(() => selectedTz = v!),

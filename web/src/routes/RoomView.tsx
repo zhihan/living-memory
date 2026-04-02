@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
+import { timezonesMatch } from "../dateFormat";
 import {
   getRoom,
   getRoomSeries,
@@ -347,7 +348,7 @@ export function RoomView() {
             {room?.title}
           </h1>
         )}
-        {room && (
+        {room && !timezonesMatch(room.timezone) && (
           <p className="page-meta-tz">{room.timezone}</p>
         )}
       </div>

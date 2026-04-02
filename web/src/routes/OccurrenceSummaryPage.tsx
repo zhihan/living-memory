@@ -8,17 +8,7 @@ import {
 } from "../api";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ErrorMessage } from "../components/ErrorMessage";
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleString("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
+import { formatDate } from "../dateFormat";
 
 export function OccurrenceSummaryPage() {
   const { occurrenceId } = useParams<{ occurrenceId: string }>();
@@ -75,7 +65,7 @@ export function OccurrenceSummaryPage() {
 
       <div className="summary-hero">
         <h1 className="summary-title">{effectiveTitle}</h1>
-        <p className="summary-date">{formatDate(occ.scheduled_for)}</p>
+        <p className="summary-date">{formatDate(occ.scheduled_for, undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric", hour: "numeric", minute: "2-digit" })}</p>
         {effectiveDuration && (
           <p className="summary-duration">{effectiveDuration} minutes</p>
         )}
