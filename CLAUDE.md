@@ -119,6 +119,10 @@ login whoami
 login logout
 ```
 
+## Change Review
+
+Every code change must be reviewed against the manual test script at `docs/manual-test-script.md`. Before completing a change, identify which test cases cover the affected functionality and verify the change does not break them. If a change adds new user-facing behavior, add corresponding test cases to the script.
+
 ## Documentation Guidance
 
 Prefer keeping these docs aligned with the actual code instead of historical plans:

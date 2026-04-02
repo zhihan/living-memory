@@ -43,7 +43,22 @@ which surface to test on. Unless noted otherwise, test both.
 2. Enter a room name and select a timezone.
 3. Tap **Create**.
 
-**Expected:** The new room appears in the room list. Tapping it opens the room view.
+**Expected:** The new room appears in the room list. Tapping it opens the room view. The timezone selector defaults to the device/browser's local timezone.
+
+### 2.1a Create a room — timezone auto-detection
+
+1. On a device set to (e.g.) `America/Los_Angeles`, open the create-room form.
+
+**Expected:**
+- **Web:** The timezone dropdown defaults to `America/Los_Angeles`.
+- **App:** The timezone dropdown defaults to the device's IANA timezone. If the device timezone is not in the hardcoded list, it is added to the dropdown automatically.
+
+### 2.1b Room creation limit
+
+1. Create rooms until you have 10 rooms total.
+2. Attempt to create an 11th room.
+
+**Expected:** The API returns a **429** error with the message "Room limit reached. Each user can create up to 10 rooms." The form shows this error message.
 
 ### 2.2 Rename a room (organizer only)
 
@@ -59,7 +74,7 @@ which surface to test on. Unless noted otherwise, test both.
 2. Tap **Delete room** (in Danger Zone / bottom of screen).
 3. Confirm the dialog.
 
-**Expected:** Room is removed. User is redirected to the dashboard. The room no longer appears in the list.
+**Expected:** Room is removed. User is redirected to the dashboard. The room no longer appears in the list. If the delete fails (e.g., network error), an alert is shown and the error is logged to the console.
 
 ### 2.4 Participant cannot see edit controls
 
@@ -156,7 +171,7 @@ which surface to test on. Unless noted otherwise, test both.
 2. Tap **Delete series**.
 3. Confirm.
 
-**Expected:** Series and all its occurrences are removed. User is navigated back to the room.
+**Expected:** Series and all its occurrences are removed. User is navigated back to the room. If the delete fails, an alert is shown and the error is logged.
 
 ### 4.5 Enable "Done" button
 
@@ -345,7 +360,7 @@ which surface to test on. Unless noted otherwise, test both.
 2. Tap **Delete occurrence**.
 3. Confirm.
 
-**Expected:** Occurrence is deleted. User navigates back.
+**Expected:** Occurrence is deleted. User navigates back. If the delete fails, an alert is shown and the error is logged.
 
 ### 6.9 Inline editing in series view (web only)
 
@@ -633,23 +648,54 @@ which surface to test on. Unless noted otherwise, test both.
 
 **Expected:** Markdown renders correctly. Links are tappable and open externally.
 
-### 14.9 Timezone handling
+### 14.9 Timezone display — same timezone (hidden)
 
-1. Create a room with timezone set to (e.g.) `America/New_York`.
-2. Create a series with time 19:00.
-3. View the occurrence from a device in a different timezone.
+1. Create a room with timezone matching your current device/browser timezone (e.g., if you are in `America/New_York`, set the room to `America/New_York`).
+2. View the room, series, and occurrence screens.
 
-**Expected:** The occurrence displays the correct local time adjusted for the viewer's timezone.
+**Expected:** No timezone indicator is shown anywhere. The room view does **not** display the timezone label beneath the title. Dates show a single formatted time (e.g., "Fri, Jan 3, 7:00 PM") with no timezone abbreviation.
 
-### 14.10 Long input validation
+### 14.10 Timezone display — different timezone (dual format)
+
+1. Create a room with timezone set to a **different** timezone from your device (e.g., create a room in `Asia/Tokyo` while your device is in `America/New_York`).
+2. View the series view and occurrence detail.
+
+**Expected:**
+- **Web — Room view:** The room timezone is shown beneath the title (e.g., "Asia/Tokyo").
+- **Web — Series & occurrence dates:** Dates display in dual format: `"Fri, Jan 3, 7:00 PM (JST) / Fri, Jan 3, 5:00 AM (EST)"` showing room timezone first, then the user's local timezone.
+- **App — Room view:** The timezone globe icon and label are shown.
+- **App — Series & occurrence dates:** Dates include the timezone abbreviation (e.g., "Jan 3, 2025  19:00 (JST)") and a secondary line shows "Room: Tokyo".
+
+### 14.11 Timezone — equivalent IANA zones
+
+1. Create a room with timezone `Asia/Taipei`.
+2. Set your device timezone to `Asia/Shanghai` (both are UTC+8 year-round).
+3. View the room.
+
+**Expected:** Timezone is treated as matching — no dual display, no timezone label shown. The comparison normalizes IANA zone names rather than comparing strings directly.
+
+### 14.12 Long input validation
 
 1. Try creating a room/series with an empty title.
 
 **Expected:** Validation prevents submission (title is required).
 
-### 14.11 Concurrent editing
+### 14.13 Concurrent editing
 
 1. Open the same series in two browser tabs (as organizer).
 2. Edit the host on one occurrence in tab A, then edit the same occurrence in tab B.
 
 **Expected:** The second save succeeds (last-write-wins). Refreshing either tab shows the final state.
+
+### 14.14 Error logging
+
+1. Open the browser console (web) or debug log (app).
+2. Disconnect from the network.
+3. Attempt an action that triggers an API call (e.g., create a room, mark done, delete an occurrence).
+
+**Expected:** The error is shown to the user (alert or error banner) **and** logged to the console:
+- **Web:** `console.error(...)` appears with the error details and the operation context (e.g., "Failed to create room: ...").
+- **App:** `debugPrint(...)` output appears in the debug log with `ERROR:` or `WARN:` prefix.
+- **Backend:** Python `logger.warning(...)` or `logger.error(...)` entries appear in server logs.
+
+No errors are silently swallowed — every catch block produces a log entry.
