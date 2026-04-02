@@ -368,7 +368,7 @@ export function SeriesView() {
           <Link to={`/room/${roomId}`} className="back-link">
             &larr; Room
           </Link>
-          {!editing && (
+          {isOrganizer && !editing && (
             <div style={{ display: "flex", gap: 4 }}>
               <button
                 type="button"
@@ -899,7 +899,7 @@ export function SeriesView() {
                 {formatDate(next.scheduled_for)}
               </Link>
               {(series?.location_type !== "none" || next.location) && (
-                editingLocationId === next.occurrence_id ? (
+                isOrganizer && editingLocationId === next.occurrence_id ? (
                   <input
                     type="text"
                     className="form-input form-input-sm upcoming-location-input"
@@ -932,28 +932,21 @@ export function SeriesView() {
                   />
                 ) : (
                   <span
-                    className="meeting-card-location upcoming-location-clickable"
-                    onClick={() => {
+                    className={`meeting-card-location${isOrganizer ? " upcoming-location-clickable" : ""}`}
+                    onClick={isOrganizer ? () => {
                       setEditingLocationId(next.occurrence_id);
                       setEditingLocationValue(next.location ?? "");
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        setEditingLocationId(next.occurrence_id);
-                        setEditingLocationValue(next.location ?? "");
-                      }
-                    }}
-                    tabIndex={0}
-                    role="button"
-                    title="Click to edit"
+                    } : undefined}
+                    tabIndex={isOrganizer ? 0 : undefined}
+                    role={isOrganizer ? "button" : undefined}
+                    title={isOrganizer ? "Click to edit" : undefined}
                   >
-                    {next.location || "Set location"}
+                    {next.location || (isOrganizer ? "Set location" : "")}
                   </span>
                 )
               )}
               {series?.rotation_mode && series.rotation_mode !== "none" && (
-                editingHostId === next.occurrence_id ? (
+                isOrganizer && editingHostId === next.occurrence_id ? (
                   <input
                     type="text"
                     className="form-input form-input-sm upcoming-host-input"
@@ -1016,27 +1009,20 @@ export function SeriesView() {
                   />
                 ) : (
                   <span
-                    className="upcoming-host upcoming-host-clickable"
-                    onClick={() => {
+                    className={`upcoming-host${isOrganizer ? " upcoming-host-clickable" : ""}`}
+                    onClick={isOrganizer ? () => {
                       setEditingHostId(next.occurrence_id);
                       setEditingHostValue(next.host ?? "");
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        setEditingHostId(next.occurrence_id);
-                        setEditingHostValue(next.host ?? "");
-                      }
-                    }}
-                    tabIndex={0}
-                    role="button"
-                    title="Click to edit host"
+                    } : undefined}
+                    tabIndex={isOrganizer ? 0 : undefined}
+                    role={isOrganizer ? "button" : undefined}
+                    title={isOrganizer ? "Click to edit host" : undefined}
                   >
-                    {next.host ? `Host: ${next.host}` : "Set host"}
+                    {next.host ? `Host: ${next.host}` : (isOrganizer ? "Set host" : "")}
                   </span>
                 )
               )}
-              {editingAgenda ? (
+              {isOrganizer && editingAgenda ? (
                 <div className="next-meeting-edit">
                   <textarea
                     className="form-input form-textarea"
@@ -1071,16 +1057,16 @@ export function SeriesView() {
                 </div>
               ) : nextNotes ? (
                 <p
-                  className="meeting-card-notes page-title-editable"
-                  onClick={() => {
+                  className={`meeting-card-notes${isOrganizer ? " page-title-editable" : ""}`}
+                  onClick={isOrganizer ? () => {
                     setAgendaText(nextNotes);
                     setEditingAgenda(true);
-                  }}
-                  title="Click to edit"
+                  } : undefined}
+                  title={isOrganizer ? "Click to edit" : undefined}
                 >
                   {nextNotes}
                 </p>
-              ) : (
+              ) : isOrganizer ? (
                 <p
                   className="placeholder-sm page-title-editable"
                   onClick={() => {
@@ -1091,12 +1077,12 @@ export function SeriesView() {
                 >
                   + Add notes
                 </p>
-              )}
+              ) : null}
             </div>
           );
         })() : (
           <p className="placeholder">
-            No upcoming occurrences.{" "}
+            No upcoming occurrences.{isOrganizer && (<>{" "}
             <button
               type="button"
               className="btn-link"
@@ -1104,7 +1090,7 @@ export function SeriesView() {
               disabled={generating}
             >
               Generate schedule
-            </button>
+            </button></>)}
           </p>
         )}
 
@@ -1117,7 +1103,7 @@ export function SeriesView() {
                   {formatDate(o.scheduled_for)}
                 </Link>
                 {(series?.location_type !== "none" || o.location) && (
-                  editingLocationId === o.occurrence_id ? (
+                  isOrganizer && editingLocationId === o.occurrence_id ? (
                     <input
                       type="text"
                       className="form-input form-input-sm upcoming-location-input"
@@ -1150,28 +1136,21 @@ export function SeriesView() {
                     />
                   ) : (
                     <span
-                      className="upcoming-location upcoming-location-clickable"
-                      onClick={() => {
+                      className={`upcoming-location${isOrganizer ? " upcoming-location-clickable" : ""}`}
+                      onClick={isOrganizer ? () => {
                         setEditingLocationId(o.occurrence_id);
                         setEditingLocationValue(o.location ?? "");
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          setEditingLocationId(o.occurrence_id);
-                          setEditingLocationValue(o.location ?? "");
-                        }
-                      }}
-                      tabIndex={0}
-                      role="button"
-                      title="Click to edit"
+                      } : undefined}
+                      tabIndex={isOrganizer ? 0 : undefined}
+                      role={isOrganizer ? "button" : undefined}
+                      title={isOrganizer ? "Click to edit" : undefined}
                     >
                       {o.location || "—"}
                     </span>
                   )
                 )}
                 {series?.rotation_mode && series.rotation_mode !== "none" && (
-                  editingHostId === o.occurrence_id ? (
+                  isOrganizer && editingHostId === o.occurrence_id ? (
                     <input
                       type="text"
                       className="form-input form-input-sm upcoming-host-input"
@@ -1236,23 +1215,16 @@ export function SeriesView() {
                     />
                   ) : (
                     <span
-                      className="upcoming-host upcoming-host-clickable"
-                      onClick={() => {
+                      className={`upcoming-host${isOrganizer ? " upcoming-host-clickable" : ""}`}
+                      onClick={isOrganizer ? () => {
                         setEditingHostId(o.occurrence_id);
                         setEditingHostValue(o.host ?? "");
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          setEditingHostId(o.occurrence_id);
-                          setEditingHostValue(o.host ?? "");
-                        }
-                      }}
-                      tabIndex={0}
-                      role="button"
-                      title="Click to edit host"
+                      } : undefined}
+                      tabIndex={isOrganizer ? 0 : undefined}
+                      role={isOrganizer ? "button" : undefined}
+                      title={isOrganizer ? "Click to edit host" : undefined}
                     >
-                      {o.host ? `Host: ${o.host}` : "Set host"}
+                      {o.host ? `Host: ${o.host}` : (isOrganizer ? "Set host" : "")}
                     </span>
                   )
                 )}

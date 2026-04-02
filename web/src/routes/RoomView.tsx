@@ -310,7 +310,7 @@ export function RoomView() {
         <div className="page-header-top">
           <Link to="/dashboard" className="back-link">&larr; Dashboard</Link>
         </div>
-        {editingTitle ? (
+        {isOrganizer && editingTitle ? (
           <form
             className="inline-edit-title"
             onSubmit={async (e) => {
@@ -340,9 +340,9 @@ export function RoomView() {
           </form>
         ) : (
           <h1
-            className="page-title page-title-editable"
-            onClick={() => { setEditTitleValue(room?.title ?? ""); setEditingTitle(true); }}
-            title="Click to rename"
+            className={`page-title${isOrganizer ? " page-title-editable" : ""}`}
+            onClick={isOrganizer ? () => { setEditTitleValue(room?.title ?? ""); setEditingTitle(true); } : undefined}
+            title={isOrganizer ? "Click to rename" : undefined}
           >
             {room?.title}
           </h1>
@@ -355,7 +355,7 @@ export function RoomView() {
       <section className="section">
         <div className="section-header">
           <h2>Recurring Series</h2>
-          {!showForm && (
+          {isOrganizer && !showForm && (
             <button
               className="btn btn-secondary btn-sm"
               onClick={() => setShowForm(true)}
