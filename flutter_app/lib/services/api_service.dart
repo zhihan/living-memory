@@ -351,21 +351,4 @@ class ApiService {
     return data as Map<String, dynamic>;
   }
 
-  // --- Public (no auth) ---
-
-  Future<Map<String, dynamic>> getPublicOccurrenceSummary(String id) async {
-    final uri = Uri.parse('$_baseUrl/v2/public/occurrences/$id/summary');
-    final response = await _client.get(uri, headers: {'Content-Type': 'application/json'});
-    if (response.statusCode >= 400) {
-      String message;
-      try {
-        final decoded = jsonDecode(response.body);
-        message = decoded['detail'] ?? response.body;
-      } catch (_) {
-        message = response.body;
-      }
-      throw ApiException(statusCode: response.statusCode, message: message);
-    }
-    return jsonDecode(response.body) as Map<String, dynamic>;
-  }
 }

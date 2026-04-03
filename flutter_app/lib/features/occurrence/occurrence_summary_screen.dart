@@ -1,21 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../models/occurrence.dart';
+import '../../models/series.dart';
 import '../../services/api_service.dart';
 
 class OccurrenceSummaryScreen extends StatefulWidget {
   final String occurrenceId;
-  final String? inviteId;
-  const OccurrenceSummaryScreen({
-    super.key,
-    required this.occurrenceId,
-    this.inviteId,
-  });
+  const OccurrenceSummaryScreen({super.key, required this.occurrenceId});
 
   @override
   State<OccurrenceSummaryScreen> createState() =>
@@ -23,7 +18,8 @@ class OccurrenceSummaryScreen extends StatefulWidget {
 }
 
 class _OccurrenceSummaryScreenState extends State<OccurrenceSummaryScreen> {
-  Map<String, dynamic>? _summary;
+  Occurrence? _occurrence;
+  Series? _series;
   bool _loading = true;
   String? _error;
   bool _copied = false;
@@ -41,8 +37,14 @@ class _OccurrenceSummaryScreenState extends State<OccurrenceSummaryScreen> {
     });
     try {
       final api = context.read<ApiService>();
-      final data = await api.getPublicOccurrenceSummary(widget.occurrenceId);
-      if (mounted) setState(() => _summary = data);
+      final occ = await api.getOccurrence(widget.occurrenceId);
+      final series = await api.getSeries(occ.seriesId);
+      if (mounted) {
+        setState(() {
+          _occurrence = occ;
+          _series = series;
+        });
+      }
     } catch (e) {
       debugPrint('ERROR: Failed to load occurrence summary: $e');
       if (mounted) setState(() => _error = e.toString());
@@ -87,28 +89,17 @@ class _OccurrenceSummaryScreenState extends State<OccurrenceSummaryScreen> {
       );
     }
 
-    final data = _summary!;
-    final scheduledFor = data['scheduled_for'] as String;
-    final dt = DateTime.parse(scheduledFor).toLocal();
-    final status = data['status'] as String? ?? 'scheduled';
-    final overrides = data['overrides'] as Map<String, dynamic>?;
-    final seriesTitle = data['series_title'] as String? ?? 'Meeting';
-
-    final effectiveTitle = overrides?['title'] as String? ?? seriesTitle;
-    final effectiveLocation = (data['location'] as String?) ??
-        (overrides?['location'] as String?) ??
-        (data['default_location'] as String?);
-    final effectiveLink = (overrides?['online_link'] as String?) ??
-        (data['default_online_link'] as String?);
-    final effectiveNotes = overrides?['notes'] as String?;
-    final duration = (overrides?['duration_minutes'] as num?)?.toInt() ??
-        (data['default_duration_minutes'] as num?)?.toInt();
-
-    final isCancelled = status == 'cancelled' || status == 'skipped';
-
-    final inviteUrl = widget.inviteId != null
-        ? 'https://small-group.ai/invites/${widget.inviteId}'
-        : null;
+    final occ = _occurrence!;
+    final series = _series!;
+    final dt = occ.scheduledDateTime.toLocal();
+    final effectiveTitle = occ.overrides?.title ?? series.title;
+    final effectiveLocation = series.hasLocation
+        ? (occ.location ?? occ.overrides?.location ?? series.defaultLocation)
+        : (occ.location ?? occ.overrides?.location);
+    final effectiveLink = occ.overrides?.onlineLink ?? series.defaultOnlineLink;
+    final effectiveNotes = occ.overrides?.notes;
+    final duration = occ.overrides?.durationMinutes ?? series.defaultDurationMinutes;
+    final isCancelled = occ.status == 'cancelled' || occ.status == 'skipped';
 
     return Scaffold(
       appBar: AppBar(title: const Text('Meeting Summary')),
@@ -125,7 +116,7 @@ class _OccurrenceSummaryScreenState extends State<OccurrenceSummaryScreen> {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                'This meeting has been $status.',
+                'This meeting has been ${occ.status}.',
                 style: TextStyle(
                     color: Colors.orange.shade800,
                     fontWeight: FontWeight.w500),
@@ -156,7 +147,7 @@ class _OccurrenceSummaryScreenState extends State<OccurrenceSummaryScreen> {
                             fontSize: 13, color: cs.onSurfaceVariant)),
                   ],
                   const SizedBox(height: 4),
-                  Text(seriesTitle,
+                  Text(series.title,
                       style: TextStyle(
                           fontSize: 13, color: cs.onSurfaceVariant)),
                 ],
@@ -213,36 +204,6 @@ class _OccurrenceSummaryScreenState extends State<OccurrenceSummaryScreen> {
                     const SizedBox(height: 6),
                     Text(effectiveNotes,
                         style: const TextStyle(fontSize: 14)),
-                  ],
-                ),
-              ),
-            ),
-          ],
-
-          // Invite / QR code
-          if (inviteUrl != null) ...[
-            const SizedBox(height: 16),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  children: [
-                    Text('Join this group',
-                        style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: cs.onSurfaceVariant)),
-                    const SizedBox(height: 12),
-                    QrImageView(
-                      data: inviteUrl,
-                      version: QrVersions.auto,
-                      size: 160,
-                    ),
-                    const SizedBox(height: 12),
-                    FilledButton(
-                      onPressed: () => context.push('/invites/${widget.inviteId}'),
-                      child: const Text('Join this group'),
-                    ),
                   ],
                 ),
               ),

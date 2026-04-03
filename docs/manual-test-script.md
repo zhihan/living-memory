@@ -438,21 +438,21 @@ which surface to test on. Unless noted otherwise, test both.
 
 **Expected:** The meeting URL opens in a new tab / external browser.
 
-### 9.4 View summary while signed out
+### 9.4 View summary while signed out (Web only)
 
 1. Sign out (or open an incognito / private window).
 2. Navigate directly to an occurrence summary URL (`/occurrences/{id}/summary`).
 
-**Expected:** The page loads without requiring sign-in. All read-only fields (title, date, duration, location, link, notes) display correctly.
+**Expected:** The page loads without requiring sign-in. All read-only fields (title, date, duration, location, link, notes) display correctly. (The app still requires sign-in for the summary screen.)
 
-### 9.5 Summary with invite link — join button and QR code
+### 9.5 Summary with invite link — join button and QR code (Web only)
 
 1. Create an invite link for the room.
 2. Open the summary URL with the invite query param: `/occurrences/{id}/summary?invite={inviteId}`.
 
 **Expected:** The summary page shows a **Join this group** button and a QR code. Tapping the button navigates to the invite acceptance flow. The QR code encodes the invite URL.
 
-### 9.6 Summary without invite link — no join controls
+### 9.6 Summary without invite link — no join controls (Web only)
 
 1. Open the summary URL without an `?invite=` query param.
 

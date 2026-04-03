@@ -17,9 +17,8 @@ GoRouter buildRouter(AuthService auth) {
       final signedIn = auth.isSignedIn;
       final goingToSignIn = state.matchedLocation == '/sign-in';
 
-      final isPublicRoute = state.matchedLocation.startsWith('/invites/') ||
-          state.matchedLocation.endsWith('/summary');
-      if (!signedIn && !goingToSignIn && !isPublicRoute) {
+      if (!signedIn && !goingToSignIn &&
+          !state.matchedLocation.startsWith('/invites/')) {
         return '/sign-in';
       }
       if (signedIn && goingToSignIn) {
@@ -54,10 +53,7 @@ GoRouter buildRouter(AuthService auth) {
       GoRoute(
         path: '/occurrences/:id/summary',
         builder: (context, state) =>
-            OccurrenceSummaryScreen(
-              occurrenceId: state.pathParameters['id']!,
-              inviteId: state.uri.queryParameters['invite'],
-            ),
+            OccurrenceSummaryScreen(occurrenceId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '/invites/:id',
