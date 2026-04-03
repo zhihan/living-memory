@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -31,6 +32,13 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
   String? _error;
   String _deviceTz = 'UTC';
 
+  // Share state
+  bool _shareOpen = false;
+  bool _includeInvite = false;
+  String? _inviteId;
+  bool _inviteLoading = false;
+  bool _shareCopied = false;
+
   @override
   void initState() {
     super.initState();
@@ -58,6 +66,55 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
     if (room == null) return false;
     final role = room.memberRoles[_uid];
     return role == 'organizer' || role == 'teacher';
+  }
+
+  bool get _isOrganizer {
+    final room = _room;
+    if (room == null) return false;
+    return room.memberRoles[_uid] == 'organizer';
+  }
+
+  String get _shareUrl {
+    final base = 'https://small-group.ai/occurrences/${widget.occurrenceId}/summary';
+    return _inviteId != null ? '$base?invite=$_inviteId' : base;
+  }
+
+  Future<void> _toggleInvite() async {
+    if (_includeInvite) {
+      setState(() {
+        _includeInvite = false;
+        _inviteId = null;
+      });
+      return;
+    }
+    setState(() => _inviteLoading = true);
+    try {
+      final api = context.read<ApiService>();
+      final invite = await api.createInvite(_room!.roomId, 'participant');
+      if (mounted) {
+        setState(() {
+          _inviteId = invite['invite_id'] as String;
+          _includeInvite = true;
+        });
+      }
+    } catch (e) {
+      debugPrint('ERROR: Failed to create invite: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to create invite: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _inviteLoading = false);
+    }
+  }
+
+  Future<void> _copyShareLink() async {
+    await Clipboard.setData(ClipboardData(text: _shareUrl));
+    setState(() => _shareCopied = true);
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _shareCopied = false);
+    });
   }
 
   Future<void> _load() async {
@@ -755,35 +812,95 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
               ),
             ],
 
-            // Participant summary link (matching web)
+            // Share
             if (effectiveLocation != null || effectiveLink != null) ...[
               const SizedBox(height: 16),
-              _sectionLabel('Participant Summary', cs),
-              const SizedBox(height: 6),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Share the summary link with participants for meeting details.',
-                        style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
-                      ),
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: () => context.push(
-                              '/occurrences/${widget.occurrenceId}/summary'),
-                          icon: const Icon(Icons.share, size: 16),
-                          label: const Text('View shareable page'),
-                        ),
-                      ),
-                    ],
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _sectionLabel('Share', cs),
+                  OutlinedButton(
+                    onPressed: () => setState(() => _shareOpen = !_shareOpen),
+                    child: Text(_shareOpen ? 'Close' : 'Share'),
+                  ),
+                ],
+              ),
+              if (!_shareOpen)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    'Share meeting details with participants.',
+                    style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
                   ),
                 ),
-              ),
+              if (_shareOpen) ...[
+                const SizedBox(height: 6),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // URL + copy
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                _shareUrl,
+                                style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            OutlinedButton(
+                              onPressed: _copyShareLink,
+                              child: Text(_shareCopied ? 'Copied!' : 'Copy'),
+                            ),
+                          ],
+                        ),
+                        // Include invite toggle (organizer only)
+                        if (_isOrganizer) ...[
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              SizedBox(
+                                height: 24,
+                                width: 24,
+                                child: _inviteLoading
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                      )
+                                    : Checkbox(
+                                        value: _includeInvite,
+                                        onChanged: (_) => _toggleInvite(),
+                                      ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Include invite link (joins as participant)',
+                                style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+                              ),
+                            ],
+                          ),
+                        ],
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () => context.push(
+                                '/occurrences/${widget.occurrenceId}/summary'),
+                            icon: const Icon(Icons.open_in_new, size: 16),
+                            label: const Text('Preview'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ],
           ],
         ),

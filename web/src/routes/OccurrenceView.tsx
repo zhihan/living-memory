@@ -11,6 +11,7 @@ import {
   deleteCheckIn,
   deleteOccurrence,
   regenerateRotationFrom,
+  createRoomInvite,
   type OccurrenceSummary,
   type SeriesSummary,
   type CheckInSummary,
@@ -45,7 +46,12 @@ export function OccurrenceView() {
   // Rotation prompt after host change
   const [showRotationPrompt, setShowRotationPrompt] = useState(false);
 
-
+  // Share panel state
+  const [shareOpen, setShareOpen] = useState(false);
+  const [includeInvite, setIncludeInvite] = useState(false);
+  const [inviteId, setInviteId] = useState<string | null>(null);
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
 
   const load = useCallback(async () => {
     if (!occurrenceId) return;
@@ -191,9 +197,42 @@ export function OccurrenceView() {
   const effectiveDuration = occ.overrides?.duration_minutes ?? series?.default_duration_minutes;
   const role = user?.uid ? room?.member_roles[user.uid] : undefined;
   const isManager = role === "organizer" || role === "teacher";
+  const isOrganizer = role === "organizer";
   const isPracticeDay = occ.enable_check_in;
   const myCheckIn = checkIns.find((c) => c.user_id === user?.uid);
 
+  const shareUrl = inviteId
+    ? `${window.location.origin}/occurrences/${occurrenceId}/summary?invite=${inviteId}`
+    : `${window.location.origin}/occurrences/${occurrenceId}/summary`;
+
+  async function handleToggleInvite() {
+    if (includeInvite) {
+      setIncludeInvite(false);
+      setInviteId(null);
+      return;
+    }
+    setInviteLoading(true);
+    try {
+      const invite = await createRoomInvite(occ.room_id, "participant");
+      setInviteId(invite.invite_id);
+      setIncludeInvite(true);
+    } catch (err) {
+      console.error("Failed to create invite:", err);
+      alert(err instanceof Error ? err.message : "Failed to create invite");
+    } finally {
+      setInviteLoading(false);
+    }
+  }
+
+  async function handleCopyShareLink() {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+    } catch (err) {
+      console.warn("Clipboard write failed:", err);
+    }
+  }
 
   return (
     <div className="room-view">
@@ -557,21 +596,64 @@ export function OccurrenceView() {
         </section>
       )}
 
-      {/* Shareable participant summary */}
+      {/* Share */}
       {(effectiveLocation || effectiveLink) && (
         <section className="section">
           <div className="section-header">
-            <h2>Participant Summary</h2>
-            <Link
-              to={`/occurrences/${occurrenceId}/summary`}
+            <h2>Share</h2>
+            <button
+              type="button"
               className="btn btn-secondary btn-sm"
+              onClick={() => setShareOpen(!shareOpen)}
             >
-              View shareable page
-            </Link>
+              {shareOpen ? "Close" : "Share"}
+            </button>
           </div>
-          <p className="placeholder-sm">
-            Share the summary link with participants for Zoom and location details.
-          </p>
+          {!shareOpen && (
+            <p className="placeholder-sm">
+              Share meeting details with participants.
+            </p>
+          )}
+          {shareOpen && (
+            <div className="share-panel">
+              <div className="share-url-row">
+                <input
+                  type="text"
+                  className="share-url-input"
+                  value={shareUrl}
+                  readOnly
+                  onFocus={(e) => e.target.select()}
+                />
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={handleCopyShareLink}
+                >
+                  {shareCopied ? "Copied!" : "Copy"}
+                </button>
+              </div>
+              {isOrganizer && (
+                <label className="share-invite-toggle">
+                  <input
+                    type="checkbox"
+                    checked={includeInvite}
+                    disabled={inviteLoading}
+                    onChange={handleToggleInvite}
+                  />
+                  <span>Include invite link (joins as participant)</span>
+                </label>
+              )}
+              <div className="share-actions">
+                <Link
+                  to={`/occurrences/${occurrenceId}/summary${inviteId ? `?invite=${inviteId}` : ""}`}
+                  className="btn btn-secondary btn-sm"
+                  target="_blank"
+                >
+                  Preview
+                </Link>
+              </div>
+            </div>
+          )}
         </section>
       )}
     </div>

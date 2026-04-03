@@ -1,20 +1,20 @@
 import { useEffect, useState, useCallback } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import {
-  getOccurrence,
-  getSeries,
-  type OccurrenceSummary,
-  type SeriesSummary,
+  getPublicOccurrenceSummary,
+  type PublicOccurrenceSummary,
 } from "../api";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { formatDate } from "../dateFormat";
+import { QRCodeSVG } from "qrcode.react";
 
 export function OccurrenceSummaryPage() {
   const { occurrenceId } = useParams<{ occurrenceId: string }>();
+  const [searchParams] = useSearchParams();
+  const inviteId = searchParams.get("invite");
 
-  const [occurrence, setOccurrence] = useState<OccurrenceSummary | null>(null);
-  const [series, setSeries] = useState<SeriesSummary | null>(null);
+  const [summary, setSummary] = useState<PublicOccurrenceSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [copied, setCopied] = useState(false);
@@ -24,10 +24,8 @@ export function OccurrenceSummaryPage() {
     setLoading(true);
     setError(null);
     try {
-      const occ = await getOccurrence(occurrenceId);
-      const s = await getSeries(occ.series_id);
-      setOccurrence(occ);
-      setSeries(s);
+      const data = await getPublicOccurrenceSummary(occurrenceId);
+      setSummary(data);
     } catch (err) {
       setError(err as Error);
     } finally {
@@ -50,14 +48,18 @@ export function OccurrenceSummaryPage() {
   if (loading) return <LoadingSpinner message="Loading meeting details..." />;
   if (error) return <ErrorMessage error={error} onRetry={load} />;
 
-  const occ = occurrence!;
-  const effectiveTitle = occ.overrides?.title ?? series?.title ?? "Meeting";
-  const effectiveLocation = occ.location ?? occ.overrides?.location ?? series?.default_location;
-  const effectiveLink = occ.overrides?.online_link ?? series?.default_online_link;
+  const occ = summary!;
+  const effectiveTitle = occ.overrides?.title ?? occ.series_title ?? "Meeting";
+  const effectiveLocation = occ.location ?? occ.overrides?.location ?? occ.default_location;
+  const effectiveLink = occ.overrides?.online_link ?? occ.default_online_link;
   const effectiveNotes = occ.overrides?.notes;
-  const effectiveDuration = occ.overrides?.duration_minutes ?? series?.default_duration_minutes;
+  const effectiveDuration = occ.overrides?.duration_minutes ?? occ.default_duration_minutes;
 
   const isCancelled = occ.status === "cancelled" || occ.status === "skipped";
+
+  const inviteUrl = inviteId
+    ? `${window.location.origin}/invites/${inviteId}`
+    : null;
 
   return (
     <div className="summary-page">
@@ -73,9 +75,7 @@ export function OccurrenceSummaryPage() {
         {effectiveDuration && (
           <p className="summary-duration">{effectiveDuration} minutes</p>
         )}
-        {series && (
-          <p className="summary-series">{series.title}</p>
-        )}
+        <p className="summary-series">{occ.series_title}</p>
       </div>
 
       {(effectiveLocation || effectiveLink) && (
@@ -106,6 +106,18 @@ export function OccurrenceSummaryPage() {
         <div className="summary-section">
           <h2 className="summary-section-title">Notes</h2>
           <p className="summary-notes">{effectiveNotes}</p>
+        </div>
+      )}
+
+      {inviteUrl && (
+        <div className="summary-section summary-invite">
+          <h2 className="summary-section-title">Join this group</h2>
+          <div className="summary-qr">
+            <QRCodeSVG value={inviteUrl} size={160} />
+          </div>
+          <a href={inviteUrl} className="btn btn-primary btn-sm">
+            Join this group
+          </a>
         </div>
       )}
 

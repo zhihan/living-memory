@@ -1636,3 +1636,30 @@ def cancel_action(
 
     update_pending_action_status(action_id, 'cancelled')
     return {'status': 'cancelled', 'action_id': action_id}
+
+
+# ---------------------------------------------------------------------------
+# Public endpoints (no auth required)
+# ---------------------------------------------------------------------------
+
+@router.get("/public/occurrences/{occurrence_id}/summary")
+def get_public_occurrence_summary(occurrence_id: str) -> dict:
+    """Return read-only summary data for a single occurrence. No auth required."""
+    occ = series_storage.get_occurrence(occurrence_id)
+    if occ is None:
+        raise HTTPException(status_code=404, detail="Occurrence not found")
+    s = series_storage.get_series(occ.series_id)
+    if s is None:
+        raise HTTPException(status_code=404, detail="Series not found")
+
+    return {
+        "occurrence_id": occ.occurrence_id,
+        "scheduled_for": occ.scheduled_for,
+        "status": occ.status,
+        "location": occ.location,
+        "overrides": occ.overrides.to_dict() if occ.overrides else None,
+        "series_title": s.title,
+        "default_duration_minutes": s.default_duration_minutes,
+        "default_location": s.default_location,
+        "default_online_link": s.default_online_link,
+    }
