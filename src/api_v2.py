@@ -470,7 +470,18 @@ def list_rooms(
         series = series_storage.list_series_for_room(rm.room_id)
         d["series_count"] = len(series)
         if len(series) == 1:
-            d["series_schedule"] = series[0].to_dict().get("schedule_rule")
+            schedule = series[0].to_dict().get("schedule_rule")
+            # Ensure weekdays is populated for weekly series so the
+            # client can display the day name (e.g. "Weekly on Sun").
+            if schedule and schedule.get("frequency") in ("weekly", "custom"):
+                wds = schedule.get("weekdays") or []
+                if not wds:
+                    occs = series_storage.list_occurrences_for_series(
+                        series[0].series_id, limit=1,
+                    )
+                    if occs:
+                        schedule["weekdays"] = [occs[0].scheduled_for.isoweekday()]
+            d["series_schedule"] = schedule
             d["series_default_time"] = series[0].default_time
         results.append(d)
     return {"rooms": results}

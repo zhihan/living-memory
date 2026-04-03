@@ -124,15 +124,19 @@ def delete_occurrence(occurrence_id: str) -> None:
 def list_occurrences_for_series(
     series_id: str,
     status: str | None = None,
+    limit: int | None = None,
 ) -> list[Occurrence]:
     """Return Occurrences for a Series, optionally filtered by status."""
     db = _get_client()
     query = db.collection(OCCURRENCES_COLLECTION).where("series_id", "==", series_id)
     if status is not None:
         query = query.where("status", "==", status)
+    if limit is not None:
+        query = query.order_by("scheduled_for").limit(limit)
     docs = query.stream()
     results = [Occurrence.from_dict(doc.to_dict()) for doc in docs]
-    results.sort(key=lambda o: o.scheduled_for)
+    if limit is None:
+        results.sort(key=lambda o: o.scheduled_for)
     return results
 
 

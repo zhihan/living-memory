@@ -81,7 +81,7 @@ class Room {
       } else if (freq == 'weekly') {
         final weekdays = (seriesSchedule!['weekdays'] as List?)?.cast<int>() ?? [];
         if (weekdays.isNotEmpty) {
-          const dayMap = {1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat', 7: 'Sun'};
+          const dayMap = {0: 'Sun', 1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat', 7: 'Sun'};
           text = 'Weekly on ${weekdays.map((d) => dayMap[d] ?? '$d').join(', ')}';
         } else {
           text = 'Weekly';

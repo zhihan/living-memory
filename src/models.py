@@ -144,7 +144,8 @@ class ScheduleRule:
         weekdays: list[int] = []
         for d in raw_days:
             if isinstance(d, int):
-                weekdays.append(d)
+                # Normalize JS-style 0=Sunday to ISO 7=Sunday
+                weekdays.append(7 if d == 0 else d)
             elif isinstance(d, str):
                 upper = d.strip().upper()
                 if upper in _DAY_MAP:
