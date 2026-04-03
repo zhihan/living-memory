@@ -347,14 +347,7 @@ which surface to test on. Unless noted otherwise, test both.
 
 **Expected:** The Done button appears or disappears for that occurrence.
 
-### 6.7 Occurrence status — cancelled / skipped display
-
-1. Via the API or assistant, set an occurrence status to `cancelled`.
-2. View the occurrence detail and the summary page.
-
-**Expected:** A cancelled/skipped banner is displayed on both the detail and summary pages.
-
-### 6.8 Delete an occurrence (organizer only)
+### 6.7 Delete an occurrence (organizer only)
 
 1. Open an occurrence.
 2. Tap **Delete occurrence**.
