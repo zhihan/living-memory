@@ -103,6 +103,11 @@ export async function getPublicInviteInfo(
 // Rooms, Series, Occurrences, CheckIns
 // ============================================================
 
+export interface ResourceLink {
+  label: string;
+  url: string;
+}
+
 export interface RoomSummary {
   room_id: string;
   title: string;
@@ -110,6 +115,7 @@ export interface RoomSummary {
   owner_uids: string[];
   member_roles: Record<string, string>;
   description: string | null;
+  links: ResourceLink[] | null;
   created_at: string;
   updated_at: string;
   series_count?: number;
@@ -137,6 +143,7 @@ export interface SeriesSummary {
   host_rotation?: string[];
   host_addresses?: Record<string, string>;
   status: string;
+  links: ResourceLink[] | null;
   created_at: string;
   updated_at: string;
 }
@@ -161,6 +168,7 @@ export interface OccurrenceSummary {
   host?: string;
   overrides: OccurrenceOverrides;
   enable_check_in: boolean;
+  links: ResourceLink[] | null;
   prev_occurrence_id?: string | null;
   next_occurrence_id?: string | null;
   created_at: string;
@@ -217,7 +225,7 @@ export async function getMyRooms(): Promise<RoomSummary[]> {
 
 export async function patchRoom(
   id: string,
-  updates: { title?: string; timezone?: string },
+  updates: { title?: string; timezone?: string; links?: ResourceLink[] },
 ): Promise<RoomSummary> {
   const resp = await apiFetch(`/v2/rooms/${id}`, {
     method: "PATCH",
@@ -297,6 +305,7 @@ export async function patchSeries(
     schedule_rule: ScheduleRule;
     schedule_mode: "adjust" | "regenerate";
     status: string;
+    links: ResourceLink[];
   }>,
 ): Promise<SeriesSummary> {
   const resp = await apiFetch(`/v2/series/${seriesId}`, {
@@ -355,6 +364,7 @@ export async function patchOccurrence(
     host?: string | null;
     overrides?: OccurrenceOverrides;
     enable_check_in?: boolean;
+    links?: ResourceLink[];
   },
 ): Promise<OccurrenceSummary> {
   const resp = await apiFetch(`/v2/occurrences/${occurrenceId}`, {

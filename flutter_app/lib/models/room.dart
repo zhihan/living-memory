@@ -7,6 +7,7 @@ class Room {
   final Map<String, String> memberRoles;
   final Map<String, Map<String, String?>> memberProfiles;
   final String? description;
+  final List<Map<String, String>>? links;
   final int seriesCount;
   final Map<String, dynamic>? seriesSchedule;
   final String? seriesDefaultTime;
@@ -21,6 +22,7 @@ class Room {
     required this.memberRoles,
     required this.memberProfiles,
     this.description,
+    this.links,
     this.seriesCount = 0,
     this.seriesSchedule,
     this.seriesDefaultTime,
@@ -57,6 +59,9 @@ class Room {
       memberRoles: roles,
       memberProfiles: profiles,
       description: json['description'] as String?,
+      links: (json['links'] as List?)
+          ?.map((e) => Map<String, String>.from(e as Map))
+          .toList(),
       seriesCount: json['series_count'] as int? ?? 0,
       seriesSchedule: json['series_schedule'] as Map<String, dynamic>?,
       seriesDefaultTime: json['series_default_time'] as String?,

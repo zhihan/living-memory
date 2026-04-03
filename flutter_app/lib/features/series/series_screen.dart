@@ -12,6 +12,7 @@ import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 import '../../shared/formatting/timezone_helpers.dart';
 import '../../shared/widgets/check_in_report.dart';
+import '../../shared/widgets/resource_links.dart';
 
 class SeriesScreen extends StatefulWidget {
   final String seriesId;
@@ -748,6 +749,18 @@ class _SeriesScreenState extends State<SeriesScreen> {
                   ],
                 ),
               ),
+            ),
+
+            // Resources
+            const SizedBox(height: 12),
+            ResourceLinksSection(
+              links: series.links,
+              canEdit: _canManage,
+              onSave: (links) async {
+                await context.read<ApiService>().updateSeries(
+                    widget.seriesId, {'links': links});
+                _load();
+              },
             ),
 
             // Last meeting

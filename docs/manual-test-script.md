@@ -85,6 +85,65 @@ which surface to test on. Unless noted otherwise, test both.
 
 ---
 
+## 2a Resources
+
+### 2a.1 Add resources to a room (organizer only)
+
+| | Web | App |
+|---|---|---|
+| Surface | Room view | Room screen |
+
+1. Open a room you organize.
+2. In the **Resources** section, tap **+ Add** (web) or the **Add** button (app).
+3. Add a label (e.g., "Meeting Notes") and URL (e.g., `https://docs.google.com/...`).
+4. Add a second resource (e.g., label "YouTube Playlist", URL `https://youtube.com/playlist?list=...`).
+5. Save.
+
+**Expected:** Both resources appear as clickable links. Tapping a link opens it in a new tab (web) or external browser (app).
+
+### 2a.2 Edit resources on a room (organizer only)
+
+1. Open a room with existing resources.
+2. Tap **Edit** on the Resources section.
+3. Change a label, change a URL, and remove one resource.
+4. Save.
+
+**Expected:** Changes are reflected. The removed resource no longer appears.
+
+### 2a.3 Participant cannot edit resources
+
+1. Sign in as a **participant**.
+2. Open a room with resources.
+
+**Expected:** Resources are displayed as clickable links. No Edit or Add button is visible.
+
+### 2a.4 Add resources to a series (organizer only)
+
+1. Open a series (as organizer).
+2. In the **Resources** section, tap **+ Add** or **Add**.
+3. Add a label and URL. Save.
+
+**Expected:** The resource appears on the series view as a clickable link.
+
+### 2a.5 Add resources to an occurrence (organizer only)
+
+1. Open an occurrence (as organizer).
+2. In the **Resources** section, tap **+ Add** or **Add**.
+3. Add a label and URL. Save.
+
+**Expected:** The resource appears on the occurrence view as a clickable link.
+
+### 2a.6 Resources are independent per level
+
+1. Add a resource to a room.
+2. Open a series in that room — verify the room's resource does not appear on the series.
+3. Add a different resource to the series.
+4. Open an occurrence — verify neither the room's nor the series' resource appears on the occurrence.
+
+**Expected:** Resources on rooms, series, and occurrences are independent. Each level only shows its own resources.
+
+---
+
 ## 3 Membership
 
 ### 3.1 Create and share an invite link (organizer only)

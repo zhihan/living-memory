@@ -11,6 +11,7 @@ import '../../models/room.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 import '../../shared/formatting/timezone_helpers.dart';
+import '../../shared/widgets/resource_links.dart';
 import 'create_series_dialog.dart';
 
 class RoomScreen extends StatefulWidget {
@@ -343,6 +344,18 @@ class _RoomScreenState extends State<RoomScreen> {
                 ),
               ),
             ],
+
+            // Resources
+            const SizedBox(height: 12),
+            ResourceLinksSection(
+              links: room.links,
+              canEdit: _isOrganizer(room),
+              onSave: (links) async {
+                await context.read<ApiService>().updateRoom(
+                    widget.roomId, {'links': links});
+                _load();
+              },
+            ),
 
             // Series section (before Members, matching web layout)
             const SizedBox(height: 16),

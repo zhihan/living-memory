@@ -262,6 +262,7 @@ class UpdateRoomRequest(BaseModel):
     title: Optional[str] = None
     timezone: Optional[str] = None
     description: Optional[str] = None
+    links: Optional[list[dict]] = None
 
 
 class AddMemberRequest(BaseModel):
@@ -288,6 +289,7 @@ class CreateSeriesRequest(BaseModel):
     host_rotation: Optional[list[str]] = None
     host_addresses: Optional[dict[str, str]] = None
     description: Optional[str] = None
+    links: Optional[list[dict]] = None
 
     @field_validator('location_type')
     @classmethod
@@ -336,6 +338,7 @@ class UpdateSeriesRequest(BaseModel):
     check_in_weekdays: Optional[list[int]] = None
     schedule_rule: Optional[ScheduleRuleIn] = None
     schedule_mode: Optional[str] = None  # "adjust" or "regenerate"
+    links: Optional[list[dict]] = None
 
     @field_validator('location_type')
     @classmethod
@@ -386,6 +389,7 @@ class UpdateOccurrenceRequest(BaseModel):
     host: Optional[str] = None
     overrides: Optional[OccurrenceOverridesIn] = None
     enable_check_in: Optional[bool] = None
+    links: Optional[list[dict]] = None
 
 
 class CreateOccurrenceRequest(BaseModel):
@@ -639,6 +643,7 @@ def create_series(
         host_addresses=body.host_addresses,
         description=body.description,
         created_by=token["uid"],
+        links=body.links,
     )
     series_storage.create_series(series)
     return series.to_dict()
@@ -706,7 +711,7 @@ def update_series(
                   "default_location", "default_online_link", "location_type",
                   "enable_done", "rotation_mode",
                   "host_rotation", "host_addresses", "status", "description",
-                  "check_in_weekdays"):
+                  "check_in_weekdays", "links"):
         val = getattr(body, field)
         if val is not None:
             updates[field] = val
@@ -891,6 +896,8 @@ def update_occurrence_endpoint(
         updates["host"] = body.host
     if body.enable_check_in is not None:
         updates["enable_check_in"] = body.enable_check_in
+    if body.links is not None:
+        updates["links"] = body.links
 
     if body.status == "cancelled":
         result = skip_occurrence(occurrence_id)

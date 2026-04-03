@@ -52,6 +52,7 @@ class Series {
   final List<String>? hostRotation;
   final bool enableDone;
   final Map<String, String>? hostAddresses;
+  final List<Map<String, String>>? links;
 
   const Series({
     required this.seriesId,
@@ -73,6 +74,7 @@ class Series {
     this.hostRotationMode = 'none',
     this.hostRotation,
     this.hostAddresses,
+    this.links,
   });
 
   factory Series.fromJson(Map<String, dynamic> json) {
@@ -114,6 +116,9 @@ class Series {
           ? List<String>.from(json['host_rotation'])
           : null,
       hostAddresses: addresses,
+      links: (json['links'] as List?)
+          ?.map((e) => Map<String, String>.from(e as Map))
+          .toList(),
     );
   }
 
