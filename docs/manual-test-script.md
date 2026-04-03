@@ -677,6 +677,24 @@ which surface to test on. Unless noted otherwise, test both.
 
 **Expected:** The assistant proposes an `update_occurrence` action (batch of 3) mapping each host pair to the correct occurrence. After confirmation, the three occurrences show their updated hosts.
 
+### 12.7 Add resource links via assistant
+
+1. Open the assistant chat for a room (web or Telegram bot in read-write mode).
+2. Send: "Add a resource link to the room: label 'Meeting Notes', URL https://docs.google.com/example."
+3. Review the proposed action.
+4. Tap **Confirm**.
+
+**Expected:** The assistant proposes an `update_room` action with the correct links payload. After confirmation, the resource link appears in the room's Resources section.
+
+### 12.8 Update series fields via assistant
+
+1. Open the assistant chat for a room with an existing series.
+2. Send: "Change the meeting location for [series name] to Room 303."
+3. Review the proposed action.
+4. Tap **Confirm**.
+
+**Expected:** The assistant proposes an `update_series` action with the correct `default_location`. After confirmation, the series shows the updated location.
+
 ---
 
 ## 13 Cross-Cutting Concerns
