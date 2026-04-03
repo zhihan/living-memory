@@ -751,18 +751,6 @@ class _SeriesScreenState extends State<SeriesScreen> {
               ),
             ),
 
-            // Resources
-            const SizedBox(height: 12),
-            ResourceLinksSection(
-              links: series.links,
-              canEdit: _canManage,
-              onSave: (links) async {
-                await context.read<ApiService>().updateSeries(
-                    widget.seriesId, {'links': links});
-                _load();
-              },
-            ),
-
             // Last meeting
             if (past.isNotEmpty) ...[
               const SizedBox(height: 12),
@@ -868,6 +856,18 @@ class _SeriesScreenState extends State<SeriesScreen> {
                 ),
               ),
             ],
+
+            // Resources (below upcoming)
+            const SizedBox(height: 12),
+            ResourceLinksSection(
+              links: series.links,
+              canEdit: _canManage,
+              onSave: (links) async {
+                await context.read<ApiService>().updateSeries(
+                    widget.seriesId, {'links': links});
+                _load();
+              },
+            ),
 
             // Completion report — only when Done is enabled
             if (_canManage && series.enableDone) ...[

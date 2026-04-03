@@ -637,18 +637,6 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
               ),
             ],
 
-            // Resources
-            const SizedBox(height: 12),
-            ResourceLinksSection(
-              links: occ.links,
-              canEdit: _canManage,
-              onSave: (links) async {
-                await context.read<ApiService>().updateOccurrence(
-                    widget.occurrenceId, {'links': links});
-                _load();
-              },
-            ),
-
             // Notes
             if (occ.effectiveNotes != null &&
                 occ.effectiveNotes!.isNotEmpty) ...[
@@ -683,6 +671,18 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
                 ),
               ),
             ],
+
+            // Resources (below notes)
+            const SizedBox(height: 12),
+            ResourceLinksSection(
+              links: occ.links,
+              canEdit: _canManage,
+              onSave: (links) async {
+                await context.read<ApiService>().updateOccurrence(
+                    widget.occurrenceId, {'links': links});
+                _load();
+              },
+            ),
 
             // Check-in section
             if (occ.enableCheckIn) ...[

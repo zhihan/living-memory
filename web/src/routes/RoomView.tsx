@@ -76,6 +76,11 @@ export function RoomView() {
   const [editingTitle, setEditingTitle] = useState(false);
   const [editTitleValue, setEditTitleValue] = useState("");
 
+  // Notes (room description)
+  const [editingNotes, setEditingNotes] = useState(false);
+  const [editNotesValue, setEditNotesValue] = useState("");
+  const [notesSubmitting, setNotesSubmitting] = useState(false);
+
   // Members
   const [members, setMembers] = useState<Record<string, string> | null>(null);
   const [memberDetails, setMemberDetails] = useState<Record<string, { display_name: string | null; email: string | null }>>({});
@@ -368,15 +373,66 @@ export function RoomView() {
         )}
       </div>
 
-      <ResourceLinks
-        links={room?.links ?? null}
-        canEdit={!!isOrganizer}
-        onSave={async (links) => {
-          if (!roomId) return;
-          const updated = await patchRoom(roomId, { links });
-          setRoom(updated);
-        }}
-      />
+      {/* Notes (room description) */}
+      <section className="section">
+        {editingNotes ? (
+          <>
+            <div className="section-header"><h2>Notes</h2></div>
+            <div className="inline-edit-row" style={{ flexDirection: "column", alignItems: "stretch" }}>
+              <textarea
+                className="form-input form-textarea"
+                value={editNotesValue}
+                onChange={(e) => setEditNotesValue(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Escape") setEditingNotes(false); }}
+                rows={3}
+                placeholder="Add a description, resources, or notes for this room."
+                disabled={notesSubmitting}
+                autoFocus
+              />
+              <div className="form-actions">
+                <button
+                  className="btn btn-primary btn-sm"
+                  disabled={notesSubmitting}
+                  onClick={async () => {
+                    if (!roomId) return;
+                    setNotesSubmitting(true);
+                    try {
+                      const updated = await patchRoom(roomId, { description: editNotesValue.trim() || "" });
+                      setRoom(updated);
+                      setEditingNotes(false);
+                    } catch (err) {
+                      console.error("Failed to update room notes:", err);
+                      alert(err instanceof Error ? err.message : "Failed to save");
+                    } finally {
+                      setNotesSubmitting(false);
+                    }
+                  }}
+                >Save</button>
+                <button className="btn btn-secondary btn-sm" onClick={() => setEditingNotes(false)} disabled={notesSubmitting}>Cancel</button>
+              </div>
+            </div>
+          </>
+        ) : room?.description ? (
+          <>
+            <div className="section-header"><h2>Notes</h2></div>
+            <div
+              className={isOrganizer ? "page-title-editable" : ""}
+              onClick={isOrganizer ? () => { setEditNotesValue(room.description ?? ""); setEditingNotes(true); } : undefined}
+              title={isOrganizer ? "Click to edit notes" : undefined}
+            >
+              <Markdown text={room.description} />
+            </div>
+          </>
+        ) : isOrganizer ? (
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => { setEditNotesValue(""); setEditingNotes(true); }}
+          >
+            + Add notes
+          </button>
+        ) : null}
+      </section>
 
       <section className="section">
         <div className="section-header">
@@ -637,6 +693,16 @@ export function RoomView() {
           )
         )}
       </section>
+
+      <ResourceLinks
+        links={room?.links ?? null}
+        canEdit={!!isOrganizer}
+        onSave={async (links) => {
+          if (!roomId) return;
+          const updated = await patchRoom(roomId, { links });
+          setRoom(updated);
+        }}
+      />
 
       {/* Members */}
       <section className="section">

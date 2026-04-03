@@ -495,16 +495,6 @@ export function OccurrenceView() {
         </section>
       )}
 
-      <ResourceLinks
-        links={occ.links ?? null}
-        canEdit={isManager}
-        onSave={async (links) => {
-          if (!occurrenceId) return;
-          const updated = await patchOccurrence(occurrenceId, { links });
-          setOccurrence(updated);
-        }}
-      />
-
       {/* Notes */}
       <section className="section">
         {editingField === "notes" ? (
@@ -551,7 +541,15 @@ export function OccurrenceView() {
         ) : null}
       </section>
 
-
+      <ResourceLinks
+        links={occ.links ?? null}
+        canEdit={isManager}
+        onSave={async (links) => {
+          if (!occurrenceId) return;
+          const updated = await patchOccurrence(occurrenceId, { links });
+          setOccurrence(updated);
+        }}
+      />
 
       {/* Check-in section — shown on practice/study days (no location and no online link) */}
       {isPracticeDay && (

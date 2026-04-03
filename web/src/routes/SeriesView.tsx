@@ -421,16 +421,6 @@ export function SeriesView() {
         )}
       </div>
 
-      <ResourceLinks
-        links={series?.links ?? null}
-        canEdit={!!isOrganizer}
-        onSave={async (links) => {
-          if (!seriesId) return;
-          const updated = await patchSeries(seriesId, { links });
-          setSeries(updated);
-        }}
-      />
-
       {editing && (
         <form className="create-page-form" onSubmit={handleSaveEdit}>
           <div className="form-field">
@@ -1242,6 +1232,16 @@ export function SeriesView() {
           </div>
         )}
       </section>
+
+      <ResourceLinks
+        links={series?.links ?? null}
+        canEdit={!!isOrganizer}
+        onSave={async (links) => {
+          if (!seriesId) return;
+          const updated = await patchSeries(seriesId, { links });
+          setSeries(updated);
+        }}
+      />
 
       {/* Completion Report — only shown when Done is enabled */}
       {series?.enable_done && <section className="section">

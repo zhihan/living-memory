@@ -225,7 +225,7 @@ export async function getMyRooms(): Promise<RoomSummary[]> {
 
 export async function patchRoom(
   id: string,
-  updates: { title?: string; timezone?: string; links?: ResourceLink[] },
+  updates: { title?: string; timezone?: string; description?: string; links?: ResourceLink[] },
 ): Promise<RoomSummary> {
   const resp = await apiFetch(`/v2/rooms/${id}`, {
     method: "PATCH",

@@ -128,6 +128,43 @@ class _RoomScreenState extends State<RoomScreen> {
     }
   }
 
+  Future<void> _editNotes(Room room) async {
+    if (!_isOrganizer(room)) return;
+    final controller = TextEditingController(text: room.description ?? '');
+    final newNotes = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Edit Notes'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLines: 5,
+          decoration: const InputDecoration(
+            hintText: 'Add a description, resources, or notes for this room.',
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, controller.text),
+              child: const Text('Save')),
+        ],
+      ),
+    );
+    if (newNotes == null || newNotes.trim() == (room.description ?? '')) return;
+    try {
+      await context.read<ApiService>().updateRoom(
+          widget.roomId, {'description': newNotes.trim()});
+      _load();
+    } catch (e) {
+      debugPrint('ERROR: Failed to edit room notes: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
   Future<void> _createInvite() async {
     try {
       final invite = await context
@@ -337,25 +374,32 @@ class _RoomScreenState extends State<RoomScreen> {
             if (room.description != null && room.description!.isNotEmpty) ...[
               const SizedBox(height: 8),
               Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Text(room.description!,
-                      style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+                child: InkWell(
+                  onTap: _isOrganizer(room) ? () => _editNotes(room) : null,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(room.description!,
+                              style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+                        ),
+                        if (_isOrganizer(room))
+                          Icon(Icons.edit, size: 16, color: cs.onSurfaceVariant),
+                      ],
+                    ),
+                  ),
                 ),
               ),
+            ] else if (_isOrganizer(room)) ...[
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: () => _editNotes(room),
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Add notes'),
+              ),
             ],
-
-            // Resources
-            const SizedBox(height: 12),
-            ResourceLinksSection(
-              links: room.links,
-              canEdit: _isOrganizer(room),
-              onSave: (links) async {
-                await context.read<ApiService>().updateRoom(
-                    widget.roomId, {'links': links});
-                _load();
-              },
-            ),
 
             // Series section (before Members, matching web layout)
             const SizedBox(height: 16),
@@ -381,6 +425,18 @@ class _RoomScreenState extends State<RoomScreen> {
                   padding: const EdgeInsets.only(bottom: 8),
                   child: _seriesCard(s, cs),
                 )),
+
+            // Resources (below series)
+            const SizedBox(height: 12),
+            ResourceLinksSection(
+              links: room.links,
+              canEdit: _isOrganizer(room),
+              onSave: (links) async {
+                await context.read<ApiService>().updateRoom(
+                    widget.roomId, {'links': links});
+                _load();
+              },
+            ),
 
             // Members section
             const SizedBox(height: 16),
