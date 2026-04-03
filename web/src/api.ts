@@ -53,6 +53,35 @@ export class ApiError extends Error {
 }
 
 // ============================================================
+// Public (no auth)
+// ============================================================
+
+export interface PublicOccurrenceSummary {
+  occurrence_id: string;
+  scheduled_for: string;
+  status: string;
+  location: string | null;
+  overrides: OccurrenceOverrides | null;
+  series_title: string;
+  default_duration_minutes: number | null;
+  default_location: string | null;
+  default_online_link: string | null;
+}
+
+export async function getPublicOccurrenceSummary(
+  occurrenceId: string,
+): Promise<PublicOccurrenceSummary> {
+  const resp = await fetch(
+    `${BASE_URL}/v2/public/occurrences/${occurrenceId}/summary`,
+  );
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => ({ detail: resp.statusText }));
+    throw new ApiError(body.detail ?? resp.statusText, resp.status);
+  }
+  return resp.json();
+}
+
+// ============================================================
 // Rooms, Series, Occurrences, CheckIns
 // ============================================================
 
