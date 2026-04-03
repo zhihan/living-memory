@@ -649,48 +649,41 @@ which surface to test on. Unless noted otherwise, test both.
 
 **Expected:** No edit, delete, invite, or management controls are visible. Only "Done", "Leave", and read-only content is accessible.
 
-### 13.4 Role-based access control — teacher
-
-1. Sign in as a user with **teacher** role.
-2. Visit a room, series, and occurrence.
-
-**Expected:** Teacher can edit series, edit occurrences, toggle check-in, view completion report and check-in list. Teacher **cannot** manage room settings, members, invites, or delete the room.
-
-### 13.5 Deep links / direct URL navigation (web)
+### 13.4 Deep links / direct URL navigation (web)
 
 1. Copy the URL of an occurrence and open it in a new tab.
 2. Copy an invite link and open it in a new incognito window.
 
 **Expected:** The correct screen loads (with sign-in redirect if needed).
 
-### 13.6 Deep links / invite links (app)
+### 13.5 Deep links / invite links (app)
 
 1. Open an invite link (`https://small-group.ai/invites/{id}`) on a device with the app installed.
 
 **Expected:** The app opens to the accept-invite screen. If not signed in, the user signs in first, then accepts.
 
-### 13.7 Session restore on app launch (app only)
+### 13.6 Session restore on app launch (app only)
 
 1. Sign in to the app.
 2. Force-close and reopen the app.
 
 **Expected:** The user is automatically signed in and lands on the dashboard without needing to sign in again.
 
-### 13.8 Markdown rendering
+### 13.7 Markdown rendering
 
 1. Add markdown content to a series description or occurrence notes (e.g., `**bold**`, `[link](https://example.com)`, bullet lists).
 2. View the series or occurrence.
 
 **Expected:** Markdown renders correctly. Links are tappable and open externally.
 
-### 13.9 Timezone display — same timezone (hidden)
+### 13.8 Timezone display — same timezone (hidden)
 
 1. Create a room with timezone matching your current device/browser timezone (e.g., if you are in `America/New_York`, set the room to `America/New_York`).
 2. View the room, series, and occurrence screens.
 
 **Expected:** No timezone indicator is shown anywhere. The room view does **not** display the timezone label beneath the title. Dates show a single formatted time (e.g., "Fri, Jan 3, 7:00 PM") with no timezone abbreviation.
 
-### 13.10 Timezone display — different timezone (dual format)
+### 13.9 Timezone display — different timezone (dual format)
 
 1. Create a room with timezone set to a **different** timezone from your device (e.g., create a room in `Asia/Tokyo` while your device is in `America/New_York`).
 2. View the series view and occurrence detail.
@@ -701,7 +694,7 @@ which surface to test on. Unless noted otherwise, test both.
 - **App — Room view:** The timezone globe icon and label are shown.
 - **App — Series & occurrence dates:** Dates include the timezone abbreviation (e.g., "Jan 3, 2025  19:00 (JST)") and a secondary line shows "Room: Tokyo".
 
-### 13.11 Timezone — equivalent IANA zones
+### 13.10 Timezone — equivalent IANA zones
 
 1. Create a room with timezone `Asia/Taipei`.
 2. Set your device timezone to `Asia/Shanghai` (both are UTC+8 year-round).
@@ -709,20 +702,20 @@ which surface to test on. Unless noted otherwise, test both.
 
 **Expected:** Timezone is treated as matching — no dual display, no timezone label shown. The comparison normalizes IANA zone names rather than comparing strings directly.
 
-### 13.12 Long input validation
+### 13.11 Long input validation
 
 1. Try creating a room/series with an empty title.
 
 **Expected:** Validation prevents submission (title is required).
 
-### 13.13 Concurrent editing
+### 13.12 Concurrent editing
 
 1. Open the same series in two browser tabs (as organizer).
 2. Edit the host on one occurrence in tab A, then edit the same occurrence in tab B.
 
 **Expected:** The second save succeeds (last-write-wins). Refreshing either tab shows the final state.
 
-### 13.14 Error logging
+### 13.13 Error logging
 
 1. Open the browser console (web) or debug log (app).
 2. Disconnect from the network.
