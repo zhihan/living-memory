@@ -87,11 +87,17 @@ class _RoomScreenState extends State<RoomScreen> {
         });
       }
       // Load telegram bot (non-blocking)
-      api.getTelegramBot(widget.roomId).then((bot) {
-        if (mounted) setState(() => _tgBot = bot);
-      }).catchError((e) { debugPrint('Failed to load Telegram bot: $e'); }).whenComplete(() {
-        if (mounted) setState(() => _tgLoading = false);
-      });
+      api
+          .getTelegramBot(widget.roomId)
+          .then((bot) {
+            if (mounted) setState(() => _tgBot = bot);
+          })
+          .catchError((e) {
+            debugPrint('Failed to load Telegram bot: $e');
+          })
+          .whenComplete(() {
+            if (mounted) setState(() => _tgLoading = false);
+          });
     } catch (e) {
       debugPrint('ERROR: Failed to load room: $e');
       if (mounted) setState(() => _error = e.toString());
@@ -108,14 +114,26 @@ class _RoomScreenState extends State<RoomScreen> {
 
     // Timezone list
     const defaultZones = [
-      'America/New_York', 'America/Chicago', 'America/Denver',
-      'America/Los_Angeles', 'America/Toronto', 'America/Vancouver',
-      'Europe/London', 'Europe/Paris', 'Europe/Berlin',
-      'Asia/Tokyo', 'Asia/Shanghai', 'Asia/Taipei',
-      'Asia/Singapore', 'Asia/Kolkata', 'Asia/Seoul',
-      'Australia/Sydney', 'Pacific/Auckland',
+      'America/New_York',
+      'America/Chicago',
+      'America/Denver',
+      'America/Los_Angeles',
+      'America/Toronto',
+      'America/Vancouver',
+      'Europe/London',
+      'Europe/Paris',
+      'Europe/Berlin',
+      'Asia/Tokyo',
+      'Asia/Shanghai',
+      'Asia/Taipei',
+      'Asia/Singapore',
+      'Asia/Kolkata',
+      'Asia/Seoul',
+      'Australia/Sydney',
+      'Pacific/Auckland',
     ];
-    final zones = <String>{...defaultZones, room.timezone, _deviceTz}.toList()..sort();
+    final zones = <String>{...defaultZones, room.timezone, _deviceTz}.toList()
+      ..sort();
     var selectedTz = room.timezone;
 
     final result = await showDialog<Map<String, String>>(
@@ -137,10 +155,14 @@ class _RoomScreenState extends State<RoomScreen> {
                   value: selectedTz,
                   decoration: const InputDecoration(labelText: 'Timezone'),
                   isExpanded: true,
-                  items: zones.map((tz) => DropdownMenuItem(
-                    value: tz,
-                    child: Text(tz, style: const TextStyle(fontSize: 14)),
-                  )).toList(),
+                  items: zones
+                      .map(
+                        (tz) => DropdownMenuItem(
+                          value: tz,
+                          child: Text(tz, style: const TextStyle(fontSize: 14)),
+                        ),
+                      )
+                      .toList(),
                   onChanged: (v) {
                     if (v != null) setDialogState(() => selectedTz = v);
                   },
@@ -158,7 +180,10 @@ class _RoomScreenState extends State<RoomScreen> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
             FilledButton(
               onPressed: () => Navigator.pop(ctx, {
                 'title': titleCtrl.text,
@@ -174,8 +199,10 @@ class _RoomScreenState extends State<RoomScreen> {
     if (result == null) return;
     final updates = <String, dynamic>{};
     final newTitle = result['title']?.trim() ?? '';
-    if (newTitle.isNotEmpty && newTitle != room.title) updates['title'] = newTitle;
-    if (result['timezone'] != room.timezone) updates['timezone'] = result['timezone'];
+    if (newTitle.isNotEmpty && newTitle != room.title)
+      updates['title'] = newTitle;
+    if (result['timezone'] != room.timezone)
+      updates['timezone'] = result['timezone'];
     final newDesc = result['description']?.trim() ?? '';
     if (newDesc != (room.description ?? '')) updates['description'] = newDesc;
     if (updates.isEmpty) return;
@@ -185,8 +212,9 @@ class _RoomScreenState extends State<RoomScreen> {
     } catch (e) {
       debugPrint('ERROR: Failed to edit room: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
@@ -207,45 +235,77 @@ class _RoomScreenState extends State<RoomScreen> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(ctx, controller.text),
-              child: const Text('Save')),
+            onPressed: () => Navigator.pop(ctx, controller.text),
+            child: const Text('Save'),
+          ),
         ],
       ),
     );
     if (newNotes == null || newNotes.trim() == (room.description ?? '')) return;
     try {
-      await context.read<ApiService>().updateRoom(
-          widget.roomId, {'description': newNotes.trim()});
+      await context.read<ApiService>().updateRoom(widget.roomId, {
+        'description': newNotes.trim(),
+      });
       _load();
     } catch (e) {
       debugPrint('ERROR: Failed to edit room notes: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
 
   Future<void> _createInvite() async {
+    final role = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.person_add_alt_1_outlined),
+              title: const Text('Participant'),
+              subtitle: const Text('Default invite role'),
+              onTap: () => Navigator.pop(ctx, 'participant'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.admin_panel_settings_outlined),
+              title: const Text('Organizer'),
+              onTap: () => Navigator.pop(ctx, 'organizer'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (role == null) return;
+
     try {
-      final invite = await context
-          .read<ApiService>()
-          .createInvite(widget.roomId, 'participant');
+      final invite = await context.read<ApiService>().createInvite(
+        widget.roomId,
+        role,
+      );
       final inviteId = invite['invite_id'];
-      final link =
-          'https://small-group.ai/invites/$inviteId';
+      final link = 'https://small-group.ai/invites/$inviteId';
       if (mounted) {
         await Clipboard.setData(ClipboardData(text: link));
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Invite link copied!')));
+          SnackBar(content: Text('Invite link copied! (as $role)')),
+        );
       }
     } catch (e) {
       debugPrint('WARN: Failed to create invite: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
@@ -262,38 +322,44 @@ class _RoomScreenState extends State<RoomScreen> {
     } catch (e) {
       debugPrint('ERROR: Failed to create series: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
 
   Future<void> _connectTelegramBot(String token, String mode) async {
     try {
-      final bot = await context
-          .read<ApiService>()
-          .connectTelegramBot(widget.roomId, token, mode: mode);
+      final bot = await context.read<ApiService>().connectTelegramBot(
+        widget.roomId,
+        token,
+        mode: mode,
+      );
       if (mounted) setState(() => _tgBot = bot);
     } catch (e) {
       debugPrint('WARN: Failed to connect Telegram bot: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
 
   Future<void> _updateTelegramBotMode(String mode) async {
     try {
-      final bot = await context
-          .read<ApiService>()
-          .updateTelegramBotMode(widget.roomId, mode);
+      final bot = await context.read<ApiService>().updateTelegramBotMode(
+        widget.roomId,
+        mode,
+      );
       if (mounted) setState(() => _tgBot = bot);
     } catch (e) {
       debugPrint('ERROR: Failed to update Telegram bot mode: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
@@ -306,12 +372,16 @@ class _RoomScreenState extends State<RoomScreen> {
         content: const Text('Chat linking will stop.'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
           TextButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Disconnect',
-                  style: TextStyle(color: Colors.red))),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              'Disconnect',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
         ],
       ),
     );
@@ -329,17 +399,18 @@ class _RoomScreenState extends State<RoomScreen> {
     } catch (e) {
       debugPrint('ERROR: Failed to disconnect Telegram bot: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
 
   Future<void> _generateLinkCode() async {
     try {
-      final result = await context
-          .read<ApiService>()
-          .generateTelegramLinkCode(widget.roomId);
+      final result = await context.read<ApiService>().generateTelegramLinkCode(
+        widget.roomId,
+      );
       if (mounted) {
         setState(() {
           _tgLinkCode = result['code'] as String;
@@ -361,8 +432,9 @@ class _RoomScreenState extends State<RoomScreen> {
     } catch (e) {
       debugPrint('WARN: Failed to generate Telegram link code: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
@@ -382,7 +454,10 @@ class _RoomScreenState extends State<RoomScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              Text(
+                _error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
               const SizedBox(height: 8),
               FilledButton(onPressed: _load, child: const Text('Retry')),
             ],
@@ -423,8 +498,13 @@ class _RoomScreenState extends State<RoomScreen> {
                     children: [
                       Icon(Icons.public, size: 16, color: cs.onSurfaceVariant),
                       const SizedBox(width: 8),
-                      Text(room.timezone,
-                          style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+                      Text(
+                        room.timezone,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -441,11 +521,20 @@ class _RoomScreenState extends State<RoomScreen> {
                     child: Row(
                       children: [
                         Expanded(
-                          child: Text(room.description!,
-                              style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+                          child: Text(
+                            room.description!,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
                         ),
                         if (_isOrganizer(room))
-                          Icon(Icons.edit, size: 16, color: cs.onSurfaceVariant),
+                          Icon(
+                            Icons.edit,
+                            size: 16,
+                            color: cs.onSurfaceVariant,
+                          ),
                       ],
                     ),
                   ),
@@ -471,19 +560,30 @@ class _RoomScreenState extends State<RoomScreen> {
                   child: Center(
                     child: Column(
                       children: [
-                        Icon(Icons.event_note, size: 32, color: cs.onSurfaceVariant),
+                        Icon(
+                          Icons.event_note,
+                          size: 32,
+                          color: cs.onSurfaceVariant,
+                        ),
                         const SizedBox(height: 8),
-                        Text('No series yet',
-                            style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13)),
+                        Text(
+                          'No series yet',
+                          style: TextStyle(
+                            color: cs.onSurfaceVariant,
+                            fontSize: 13,
+                          ),
+                        ),
                       ],
                     ),
                   ),
                 ),
               ),
-            ...series.map((s) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: _seriesCard(s, cs),
-                )),
+            ...series.map(
+              (s) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _seriesCard(s, cs),
+              ),
+            ),
 
             // Resources (below series)
             const SizedBox(height: 12),
@@ -491,8 +591,9 @@ class _RoomScreenState extends State<RoomScreen> {
               links: room.links,
               canEdit: _isOrganizer(room),
               onSave: (links) async {
-                await context.read<ApiService>().updateRoom(
-                    widget.roomId, {'links': links});
+                await context.read<ApiService>().updateRoom(widget.roomId, {
+                  'links': links,
+                });
                 _load();
               },
             ),
@@ -526,62 +627,76 @@ class _RoomScreenState extends State<RoomScreen> {
               ),
             ),
             if (_membersExpanded) ...[
-            const SizedBox(height: 6),
-            Card(
-              clipBehavior: Clip.antiAlias,
-              child: Column(
-                children: [
-                  ...room.memberRoles.entries.toList().asMap().entries.map((entry) {
-                    final e = entry.value;
-                    final isLast = entry.key == room.memberRoles.length - 1;
-                    final profile = room.memberProfiles[e.key];
-                    final name = profile?['display_name'] ?? e.key.substring(0, 8);
-                    final isMe = e.key == _uid;
-                    return Column(
-                      children: [
-                        ListTile(
-                          leading: CircleAvatar(
-                            radius: 16,
-                            backgroundColor: cs.primaryContainer,
-                            child: Text(
-                              (name as String).isNotEmpty ? name[0].toUpperCase() : '?',
-                              style: TextStyle(
+              const SizedBox(height: 6),
+              Card(
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                  children: [
+                    ...room.memberRoles.entries.toList().asMap().entries.map((
+                      entry,
+                    ) {
+                      final e = entry.value;
+                      final isLast = entry.key == room.memberRoles.length - 1;
+                      final profile = room.memberProfiles[e.key];
+                      final name =
+                          profile?['display_name'] ?? e.key.substring(0, 8);
+                      final isMe = e.key == _uid;
+                      return Column(
+                        children: [
+                          ListTile(
+                            leading: CircleAvatar(
+                              radius: 16,
+                              backgroundColor: cs.primaryContainer,
+                              child: Text(
+                                (name as String).isNotEmpty
+                                    ? name[0].toUpperCase()
+                                    : '?',
+                                style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
-                                  color: cs.onPrimaryContainer),
+                                  color: cs.onPrimaryContainer,
+                                ),
+                              ),
                             ),
-                          ),
-                          title: Text(isMe ? '$name (You)' : name,
-                              style: const TextStyle(fontSize: 14)),
-                          trailing: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: e.value == 'organizer'
-                                  ? cs.primaryContainer
-                                  : cs.surfaceContainerHighest,
-                              borderRadius: BorderRadius.circular(12),
+                            title: Text(
+                              isMe ? '$name (You)' : name,
+                              style: const TextStyle(fontSize: 14),
                             ),
-                            child: Text(e.value,
+                            trailing: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: e.value == 'organizer'
+                                    ? cs.primaryContainer
+                                    : cs.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                e.value,
                                 style: TextStyle(
-                                    fontSize: 11,
-                                    color: e.value == 'organizer'
-                                        ? cs.onPrimaryContainer
-                                        : cs.onSurfaceVariant)),
+                                  fontSize: 11,
+                                  color: e.value == 'organizer'
+                                      ? cs.onPrimaryContainer
+                                      : cs.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
-                        if (!isLast)
-                          Divider(height: 1, indent: 56,
-                              color: cs.outlineVariant.withValues(alpha: 0.4)),
-                      ],
-                    );
-                  }),
-                ],
+                          if (!isLast)
+                            Divider(
+                              height: 1,
+                              indent: 56,
+                              color: cs.outlineVariant.withValues(alpha: 0.4),
+                            ),
+                        ],
+                      );
+                    }),
+                  ],
+                ),
               ),
-            ),
-
             ], // end _membersExpanded
-
             // Leave room (non-organizers)
             if (!_isOrganizer(room)) ...[
               const SizedBox(height: 12),
@@ -589,15 +704,15 @@ class _RoomScreenState extends State<RoomScreen> {
                 child: TextButton.icon(
                   icon: const Icon(Icons.logout, size: 18),
                   label: const Text('Leave room'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: cs.error,
-                  ),
+                  style: TextButton.styleFrom(foregroundColor: cs.error),
                   onPressed: () async {
                     final confirmed = await showDialog<bool>(
                       context: context,
                       builder: (ctx) => AlertDialog(
                         title: const Text('Leave room?'),
-                        content: const Text('You will lose access to this room.'),
+                        content: const Text(
+                          'You will lose access to this room.',
+                        ),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.pop(ctx, false),
@@ -605,7 +720,9 @@ class _RoomScreenState extends State<RoomScreen> {
                           ),
                           FilledButton(
                             onPressed: () => Navigator.pop(ctx, true),
-                            style: FilledButton.styleFrom(backgroundColor: cs.error),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: cs.error,
+                            ),
                             child: const Text('Leave'),
                           ),
                         ],
@@ -613,13 +730,17 @@ class _RoomScreenState extends State<RoomScreen> {
                     );
                     if (confirmed != true) return;
                     try {
-                      await context.read<ApiService>().removeMember(room.roomId, _uid);
+                      await context.read<ApiService>().removeMember(
+                        room.roomId,
+                        _uid,
+                      );
                       if (mounted) context.go('/');
                     } catch (e) {
                       debugPrint('ERROR: Failed to leave room: $e');
                       if (mounted) {
-                        ScaffoldMessenger.of(context)
-                            .showSnackBar(SnackBar(content: Text('Error: $e')));
+                        ScaffoldMessenger.of(
+                          context,
+                        ).showSnackBar(SnackBar(content: Text('Error: $e')));
                       }
                     }
                   },
@@ -631,7 +752,8 @@ class _RoomScreenState extends State<RoomScreen> {
             if (_isOrganizer(room)) ...[
               const SizedBox(height: 16),
               GestureDetector(
-                onTap: () => setState(() => _telegramExpanded = !_telegramExpanded),
+                onTap: () =>
+                    setState(() => _telegramExpanded = !_telegramExpanded),
                 child: _SectionHeader(
                   icon: Icons.smart_toy_outlined,
                   title: 'AI Assistant (Telegram)',
@@ -648,11 +770,12 @@ class _RoomScreenState extends State<RoomScreen> {
                     child: Padding(
                       padding: EdgeInsets.all(20),
                       child: Center(
-                          child: SizedBox(
-                              width: 20,
-                              height: 20,
-                              child:
-                                  CircularProgressIndicator(strokeWidth: 2))),
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ),
                     ),
                   )
                 else if (_tgBot != null)
@@ -668,30 +791,37 @@ class _RoomScreenState extends State<RoomScreen> {
               Card(
                 child: ListTile(
                   leading: const Icon(Icons.delete_outline, color: Colors.red),
-                  title: const Text('Delete room',
-                      style: TextStyle(color: Colors.red)),
+                  title: const Text(
+                    'Delete room',
+                    style: TextStyle(color: Colors.red),
+                  ),
                   onTap: () async {
                     final confirmed = await showDialog<bool>(
                       context: context,
                       builder: (ctx) => AlertDialog(
                         title: const Text('Delete room?'),
                         content: const Text(
-                            'This will delete the room and all its data. This cannot be undone.'),
+                          'This will delete the room and all its data. This cannot be undone.',
+                        ),
                         actions: [
                           TextButton(
-                              onPressed: () => Navigator.pop(ctx, false),
-                              child: const Text('Cancel')),
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: const Text('Cancel'),
+                          ),
                           TextButton(
-                              onPressed: () => Navigator.pop(ctx, true),
-                              child: const Text('Delete',
-                                  style: TextStyle(color: Colors.red))),
+                            onPressed: () => Navigator.pop(ctx, true),
+                            child: const Text(
+                              'Delete',
+                              style: TextStyle(color: Colors.red),
+                            ),
+                          ),
                         ],
                       ),
                     );
                     if (confirmed == true && mounted) {
-                      await context
-                          .read<ApiService>()
-                          .deleteRoom(widget.roomId);
+                      await context.read<ApiService>().deleteRoom(
+                        widget.roomId,
+                      );
                       if (mounted) context.go('/');
                     }
                   },
@@ -727,21 +857,23 @@ class _RoomScreenState extends State<RoomScreen> {
                 enabled: !connecting,
               ),
               const SizedBox(height: 12),
-              Text('Mode',
-                  style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+              Text(
+                'Mode',
+                style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+              ),
               const SizedBox(height: 4),
               SegmentedButton<String>(
                 segments: const [
+                  ButtonSegment(value: 'read_only', label: Text('Read-only')),
                   ButtonSegment(
-                      value: 'read_only', label: Text('Read-only')),
-                  ButtonSegment(
-                      value: 'read_write', label: Text('Read & Write')),
+                    value: 'read_write',
+                    label: Text('Read & Write'),
+                  ),
                 ],
                 selected: {selectedMode},
                 onSelectionChanged: connecting
                     ? null
-                    : (sel) =>
-                        setLocalState(() => selectedMode = sel.first),
+                    : (sel) => setLocalState(() => selectedMode = sel.first),
               ),
               const SizedBox(height: 12),
               FilledButton(
@@ -750,7 +882,9 @@ class _RoomScreenState extends State<RoomScreen> {
                     : () async {
                         setLocalState(() => connecting = true);
                         await _connectTelegramBot(
-                            tokenController.text.trim(), selectedMode);
+                          tokenController.text.trim(),
+                          selectedMode,
+                        );
                         if (mounted) {
                           setLocalState(() => connecting = false);
                         }
@@ -779,46 +913,53 @@ class _RoomScreenState extends State<RoomScreen> {
               children: [
                 InkWell(
                   onTap: () => launchUrl(
-                      Uri.parse('https://t.me/$username'),
-                      mode: LaunchMode.externalApplication),
-                  child: Text('@$username',
-                      style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: cs.primary)),
+                    Uri.parse('https://t.me/$username'),
+                    mode: LaunchMode.externalApplication,
+                  ),
+                  child: Text(
+                    '@$username',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: cs.primary,
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 2),
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: active
                         ? Colors.green.withValues(alpha: 0.1)
                         : cs.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Text(active ? 'active' : 'inactive',
-                      style: TextStyle(
-                          fontSize: 11,
-                          color: active
-                              ? Colors.green
-                              : cs.onSurfaceVariant)),
+                  child: Text(
+                    active ? 'active' : 'inactive',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: active ? Colors.green : cs.onSurfaceVariant,
+                    ),
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 12),
-            Text('Mode',
-                style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+            Text(
+              'Mode',
+              style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+            ),
             const SizedBox(height: 4),
             SegmentedButton<String>(
               segments: const [
                 ButtonSegment(value: 'read_only', label: Text('Read-only')),
-                ButtonSegment(
-                    value: 'read_write', label: Text('Read & Write')),
+                ButtonSegment(value: 'read_write', label: Text('Read & Write')),
               ],
               selected: {mode},
-              onSelectionChanged: (sel) =>
-                  _updateTelegramBotMode(sel.first),
+              onSelectionChanged: (sel) => _updateTelegramBotMode(sel.first),
             ),
             const SizedBox(height: 4),
             Text(
@@ -828,8 +969,10 @@ class _RoomScreenState extends State<RoomScreen> {
               style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
             ),
             const SizedBox(height: 12),
-            Text('Link a Telegram chat',
-                style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+            Text(
+              'Link a Telegram chat',
+              style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+            ),
             const SizedBox(height: 4),
             if (_tgLinkCode != null) ...[
               Row(
@@ -837,26 +980,31 @@ class _RoomScreenState extends State<RoomScreen> {
                   Expanded(
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         border: Border.all(color: cs.outlineVariant),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: SelectableText(_tgLinkCode!,
-                          style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              fontFamily: 'monospace')),
+                      child: SelectableText(
+                        _tgLinkCode!,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
                   IconButton(
                     icon: const Icon(Icons.copy, size: 20),
                     onPressed: () {
-                      Clipboard.setData(
-                          ClipboardData(text: _tgLinkCode!));
+                      Clipboard.setData(ClipboardData(text: _tgLinkCode!));
                       ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Code copied!')));
+                        const SnackBar(content: Text('Code copied!')),
+                      );
                     },
                   ),
                 ],
@@ -866,8 +1014,7 @@ class _RoomScreenState extends State<RoomScreen> {
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(
                     'Send this code in a private chat with your bot. Expires in ${_tgLinkExpiry ~/ 60}:${(_tgLinkExpiry % 60).toString().padLeft(2, '0')}',
-                    style: TextStyle(
-                        fontSize: 11, color: cs.onSurfaceVariant),
+                    style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
                   ),
                 ),
             ] else
@@ -879,8 +1026,10 @@ class _RoomScreenState extends State<RoomScreen> {
             TextButton.icon(
               onPressed: _disconnectTelegramBot,
               icon: const Icon(Icons.link_off, size: 16, color: Colors.red),
-              label: const Text('Disconnect bot',
-                  style: TextStyle(color: Colors.red)),
+              label: const Text(
+                'Disconnect bot',
+                style: TextStyle(color: Colors.red),
+              ),
             ),
           ],
         ),
@@ -901,11 +1050,19 @@ class _RoomScreenState extends State<RoomScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: Text(s.title,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 15)),
+                    child: Text(
+                      s.title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
+                    ),
                   ),
-                  Icon(Icons.chevron_right, size: 20, color: cs.onSurfaceVariant),
+                  Icon(
+                    Icons.chevron_right,
+                    size: 20,
+                    color: cs.onSurfaceVariant,
+                  ),
                 ],
               ),
               const SizedBox(height: 4),
@@ -913,15 +1070,23 @@ class _RoomScreenState extends State<RoomScreen> {
                 children: [
                   Icon(Icons.schedule, size: 14, color: cs.onSurfaceVariant),
                   const SizedBox(width: 4),
-                  Text(s.scheduleDescription,
-                      style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+                  Text(
+                    s.scheduleDescription,
+                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                  ),
                   if (s.defaultTime != null) ...[
-                    Text(' at ${s.defaultTime}',
-                        style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+                    Text(
+                      ' at ${s.defaultTime}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
                   ],
                 ],
               ),
-              if ((s.hasLocation && s.defaultLocation != null) || s.defaultOnlineLink != null) ...[
+              if ((s.hasLocation && s.defaultLocation != null) ||
+                  s.defaultOnlineLink != null) ...[
                 const SizedBox(height: 4),
                 Row(
                   children: [
@@ -936,7 +1101,10 @@ class _RoomScreenState extends State<RoomScreen> {
                     Expanded(
                       child: Text(
                         s.defaultLocation ?? 'Online',
-                        style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: cs.onSurfaceVariant,
+                        ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -945,10 +1113,12 @@ class _RoomScreenState extends State<RoomScreen> {
               ],
               if (s.description != null && s.description!.isNotEmpty) ...[
                 const SizedBox(height: 6),
-                Text(s.description!,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+                Text(
+                  s.description!,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+                ),
               ],
             ],
           ),
@@ -978,13 +1148,15 @@ class _SectionHeader extends StatelessWidget {
         children: [
           Icon(icon, size: 16, color: cs.onSurfaceVariant),
           const SizedBox(width: 6),
-          Text(title,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.5,
-                color: cs.onSurfaceVariant,
-              )),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.5,
+              color: cs.onSurfaceVariant,
+            ),
+          ),
           const Spacer(),
           if (trailing != null) trailing!,
         ],

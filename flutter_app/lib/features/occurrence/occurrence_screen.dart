@@ -76,8 +76,34 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
   }
 
   String get _shareUrl {
-    final base = 'https://small-group.ai/occurrences/${widget.occurrenceId}/summary';
+    final base =
+        'https://small-group.ai/occurrences/${widget.occurrenceId}/summary';
     return _inviteId != null ? '$base?invite=$_inviteId' : base;
+  }
+
+  Future<String?> _pickInviteRole() {
+    return showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.person_add_alt_1_outlined),
+              title: const Text('Participant'),
+              subtitle: const Text('Default invite role'),
+              onTap: () => Navigator.pop(ctx, 'participant'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.admin_panel_settings_outlined),
+              title: const Text('Organizer'),
+              onTap: () => Navigator.pop(ctx, 'organizer'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _toggleInvite() async {
@@ -88,10 +114,13 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
       });
       return;
     }
+    final role = await _pickInviteRole();
+    if (role == null) return;
+
     setState(() => _inviteLoading = true);
     try {
       final api = context.read<ApiService>();
-      final invite = await api.createInvite(_room!.roomId, 'participant');
+      final invite = await api.createInvite(_room!.roomId, role);
       if (mounted) {
         setState(() {
           _inviteId = invite['invite_id'] as String;
@@ -101,9 +130,9 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
     } catch (e) {
       debugPrint('ERROR: Failed to create invite: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to create invite: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to create invite: $e')));
       }
     } finally {
       if (mounted) setState(() => _inviteLoading = false);
@@ -157,13 +186,16 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
   Future<void> _checkIn() async {
     try {
       await context.read<ApiService>().upsertCheckIn(
-          widget.occurrenceId, 'confirmed');
+        widget.occurrenceId,
+        'confirmed',
+      );
       _load();
     } catch (e) {
       debugPrint('WARN: Failed to check in: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
@@ -177,22 +209,25 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
     } catch (e) {
       debugPrint('WARN: Failed to undo check-in: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
 
   Future<void> _toggleCheckIn(bool enable) async {
     try {
-      await context.read<ApiService>().updateOccurrence(
-          widget.occurrenceId, {'enable_check_in': enable});
+      await context.read<ApiService>().updateOccurrence(widget.occurrenceId, {
+        'enable_check_in': enable,
+      });
       _load();
     } catch (e) {
       debugPrint('ERROR: Failed to toggle check-in: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
@@ -200,14 +235,14 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
   Future<void> _editOverrides() async {
     final occ = _occurrence;
     if (occ == null) return;
-    final titleCtrl =
-        TextEditingController(text: occ.overrides?.title ?? '');
-    final locationCtrl =
-        TextEditingController(text: occ.effectiveLocation ?? '');
-    final linkCtrl =
-        TextEditingController(text: occ.overrides?.onlineLink ?? '');
-    final notesCtrl =
-        TextEditingController(text: occ.overrides?.notes ?? '');
+    final titleCtrl = TextEditingController(text: occ.overrides?.title ?? '');
+    final locationCtrl = TextEditingController(
+      text: occ.effectiveLocation ?? '',
+    );
+    final linkCtrl = TextEditingController(
+      text: occ.overrides?.onlineLink ?? '',
+    );
+    final notesCtrl = TextEditingController(text: occ.overrides?.notes ?? '');
 
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
@@ -218,56 +253,64 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
-                  controller: titleCtrl,
-                  decoration: const InputDecoration(labelText: 'Title')),
+                controller: titleCtrl,
+                decoration: const InputDecoration(labelText: 'Title'),
+              ),
               const SizedBox(height: 12),
               TextField(
-                  controller: locationCtrl,
-                  decoration: const InputDecoration(labelText: 'Location')),
+                controller: locationCtrl,
+                decoration: const InputDecoration(labelText: 'Location'),
+              ),
               const SizedBox(height: 12),
               TextField(
-                  controller: linkCtrl,
-                  decoration: const InputDecoration(labelText: 'Online Link')),
+                controller: linkCtrl,
+                decoration: const InputDecoration(labelText: 'Online Link'),
+              ),
               const SizedBox(height: 12),
               TextField(
-                  controller: notesCtrl,
-                  decoration: const InputDecoration(labelText: 'Notes'),
-                  maxLines: 3),
+                controller: notesCtrl,
+                decoration: const InputDecoration(labelText: 'Notes'),
+                maxLines: 3,
+              ),
             ],
           ),
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
-              onPressed: () {
-                Navigator.pop(ctx, {
-                  'location': locationCtrl.text.trim().isNotEmpty
-                      ? locationCtrl.text.trim()
-                      : null,
-                  'overrides': {
-                    'title': titleCtrl.text,
-                    'online_link': linkCtrl.text,
-                    'notes': notesCtrl.text,
-                  },
-                });
-              },
-              child: const Text('Save')),
+            onPressed: () {
+              Navigator.pop(ctx, {
+                'location': locationCtrl.text.trim().isNotEmpty
+                    ? locationCtrl.text.trim()
+                    : null,
+                'overrides': {
+                  'title': titleCtrl.text,
+                  'online_link': linkCtrl.text,
+                  'notes': notesCtrl.text,
+                },
+              });
+            },
+            child: const Text('Save'),
+          ),
         ],
       ),
     );
     if (result == null) return;
     try {
-      await context
-          .read<ApiService>()
-          .updateOccurrence(widget.occurrenceId, result);
+      await context.read<ApiService>().updateOccurrence(
+        widget.occurrenceId,
+        result,
+      );
       _load();
     } catch (e) {
       debugPrint('ERROR: Failed to update occurrence overrides: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
@@ -288,8 +331,7 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
             if (rotationList.isEmpty) return const Iterable<String>.empty();
             final query = textEditingValue.text.toLowerCase();
             if (query.isEmpty) return rotationList;
-            return rotationList.where(
-                (h) => h.toLowerCase().contains(query));
+            return rotationList.where((h) => h.toLowerCase().contains(query));
           },
           fieldViewBuilder: (ctx, controller, focusNode, onSubmitted) {
             return TextField(
@@ -328,7 +370,8 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
         'host': trimmed.isNotEmpty ? trimmed : null,
       };
       // Auto-sync location in host_and_location mode
-      if (series?.hostRotationMode == 'host_and_location' && trimmed.isNotEmpty) {
+      if (series?.hostRotationMode == 'host_and_location' &&
+          trimmed.isNotEmpty) {
         final address = series?.hostAddresses?[trimmed];
         updates['location'] = address ?? series?.defaultLocation;
       }
@@ -349,8 +392,9 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
     } catch (e) {
       debugPrint('ERROR: Failed to edit host: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
@@ -430,8 +474,9 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
     } catch (e) {
       debugPrint('ERROR: Failed to repopulate rotation: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
@@ -440,8 +485,9 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
   Widget build(BuildContext context) {
     if (_loading) {
       return Scaffold(
-          appBar: AppBar(),
-          body: const Center(child: CircularProgressIndicator()));
+        appBar: AppBar(),
+        body: const Center(child: CircularProgressIndicator()),
+      );
     }
     if (_error != null) {
       return Scaffold(
@@ -450,9 +496,10 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(_error!,
-                  style:
-                      TextStyle(color: Theme.of(context).colorScheme.error)),
+              Text(
+                _error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
               const SizedBox(height: 8),
               FilledButton(onPressed: _load, child: const Text('Retry')),
             ],
@@ -470,454 +517,563 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
     final effectiveLocation = series.hasLocation
         ? (occ.effectiveLocation ?? series.defaultLocation)
         : occ.overrides?.location;
-    final effectiveLink =
-        occ.effectiveOnlineLink ?? series.defaultOnlineLink;
+    final effectiveLink = occ.effectiveOnlineLink ?? series.defaultOnlineLink;
     final duration =
         occ.overrides?.durationMinutes ?? series.defaultDurationMinutes;
     return Scaffold(
       appBar: AppBar(
-        title: Text(occ.effectiveTitle.isNotEmpty
-            ? occ.effectiveTitle
-            : series.title),
+        title: Text(
+          occ.effectiveTitle.isNotEmpty ? occ.effectiveTitle : series.title,
+        ),
         actions: [
           if (occ.prevOccurrenceId != null)
             IconButton(
               icon: const Icon(Icons.chevron_left),
-              onPressed: () => context.go('/occurrences/${occ.prevOccurrenceId}'),
+              onPressed: () =>
+                  context.go('/occurrences/${occ.prevOccurrenceId}'),
             ),
           if (occ.nextOccurrenceId != null)
             IconButton(
               icon: const Icon(Icons.chevron_right),
-              onPressed: () => context.go('/occurrences/${occ.nextOccurrenceId}'),
+              onPressed: () =>
+                  context.go('/occurrences/${occ.nextOccurrenceId}'),
             ),
           if (_canManage)
-            IconButton(
-                onPressed: _editOverrides, icon: const Icon(Icons.edit)),
+            IconButton(onPressed: _editOverrides, icon: const Icon(Icons.edit)),
         ],
       ),
       body: GestureDetector(
         onHorizontalDragEnd: (details) {
           if (details.primaryVelocity != null) {
-            if (details.primaryVelocity! < -200 && occ.nextOccurrenceId != null) {
+            if (details.primaryVelocity! < -200 &&
+                occ.nextOccurrenceId != null) {
               context.go('/occurrences/${occ.nextOccurrenceId}');
-            } else if (details.primaryVelocity! > 200 && occ.prevOccurrenceId != null) {
+            } else if (details.primaryVelocity! > 200 &&
+                occ.prevOccurrenceId != null) {
               context.go('/occurrences/${occ.prevOccurrenceId}');
             }
           }
         },
         child: RefreshIndicator(
-        onRefresh: _load,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
-          children: [
-            // Date hero card
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 52,
-                      height: 52,
-                      decoration: BoxDecoration(
-                        color: cs.primaryContainer,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(DateFormat('d').format(dt),
+          onRefresh: _load,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
+            children: [
+              // Date hero card
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 52,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          color: cs.primaryContainer,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              DateFormat('d').format(dt),
                               style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 20,
-                                  color: cs.onPrimaryContainer)),
-                          Text(DateFormat('MMM').format(dt),
+                                fontWeight: FontWeight.w700,
+                                fontSize: 20,
+                                color: cs.onPrimaryContainer,
+                              ),
+                            ),
+                            Text(
+                              DateFormat('MMM').format(dt),
                               style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                  color: cs.onPrimaryContainer)),
-                        ],
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                color: cs.onPrimaryContainer,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(DateFormat('EEEE').format(dt),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              DateFormat('EEEE').format(dt),
                               style: const TextStyle(
-                                  fontWeight: FontWeight.w600, fontSize: 15)),
-                          Text(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15,
+                              ),
+                            ),
+                            Text(
                               showDualTz
                                   ? '${DateFormat('MMM d, yyyy  HH:mm').format(dt)} (${dt.timeZoneName})'
                                   : DateFormat('MMM d, yyyy  HH:mm').format(dt),
                               style: TextStyle(
-                                  fontSize: 13, color: cs.onSurfaceVariant)),
-                          if (showDualTz)
-                            Text(
+                                fontSize: 13,
+                                color: cs.onSurfaceVariant,
+                              ),
+                            ),
+                            if (showDualTz)
+                              Text(
                                 'Room: ${room.timezone.split('/').last.replaceAll('_', ' ')}',
                                 style: TextStyle(
-                                    fontSize: 11, color: cs.onSurfaceVariant)),
-                          if (duration != null)
-                            Text('$duration min',
+                                  fontSize: 11,
+                                  color: cs.onSurfaceVariant,
+                                ),
+                              ),
+                            if (duration != null)
+                              Text(
+                                '$duration min',
                                 style: TextStyle(
-                                    fontSize: 12, color: cs.onSurfaceVariant)),
-                        ],
-                      ),
-                    ),
-                    // status badge hidden – issue #114
-                  ],
-                ),
-              ),
-            ),
-
-            // Host card
-            if (occ.host != null || (_canManage && series.hostRotation != null && series.hostRotation!.isNotEmpty)) ...[
-              const SizedBox(height: 8),
-              Card(
-                child: ListTile(
-                  leading: CircleAvatar(
-                    radius: 20,
-                    backgroundColor: cs.primaryContainer,
-                    child: Icon(Icons.person, size: 20, color: cs.onPrimaryContainer),
-                  ),
-                  title: const Text('Host', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                  subtitle: Text(
-                    occ.host ?? 'Set host',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: occ.host != null ? null : cs.onSurfaceVariant,
-                    ),
-                  ),
-                  trailing: _canManage
-                      ? IconButton(
-                          icon: const Icon(Icons.edit, size: 18),
-                          onPressed: () => _editHost(occ),
-                        )
-                      : null,
-                ),
-              ),
-            ],
-
-            // Location & link
-            if (effectiveLocation != null || effectiveLink != null) ...[
-              const SizedBox(height: 8),
-              Card(
-                child: Column(
-                  children: [
-                    if (effectiveLocation != null)
-                      ListTile(
-                        leading: Icon(Icons.location_on_outlined, size: 20,
-                            color: cs.onSurfaceVariant),
-                        title: Text(effectiveLocation,
-                            style: const TextStyle(fontSize: 14)),
-                      ),
-                    if (effectiveLocation != null && effectiveLink != null)
-                      Divider(height: 1, indent: 56,
-                          color: cs.outlineVariant.withValues(alpha: 0.4)),
-                    if (effectiveLink != null)
-                      ListTile(
-                        leading: Icon(Icons.videocam_outlined, size: 20,
-                            color: cs.primary),
-                        title: Text('Join online meeting',
-                            style: TextStyle(fontSize: 14, color: cs.primary)),
-                        trailing: Icon(Icons.open_in_new, size: 16,
-                            color: cs.onSurfaceVariant),
-                        onTap: () => launchUrl(Uri.parse(effectiveLink)),
-                      ),
-                  ],
-                ),
-              ),
-            ] else if (!series.hasLocation && effectiveLocation == null && _canManage) ...[
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                onPressed: _editOverrides,
-                icon: const Icon(Icons.add_location_alt, size: 18),
-                label: const Text('+ Add location'),
-              ),
-            ],
-
-            // Notes
-            if (occ.effectiveNotes != null &&
-                occ.effectiveNotes!.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.notes, size: 16, color: cs.onSurfaceVariant),
-                          const SizedBox(width: 8),
-                          Text('Notes',
-                              style: TextStyle(
                                   fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: cs.onSurfaceVariant)),
-                        ],
+                                  color: cs.onSurfaceVariant,
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 6),
-                      MarkdownBody(
-                        data: occ.effectiveNotes!,
-                        softLineBreak: true,
-                        onTapLink: (text, href, title) {
-                          if (href != null) launchUrl(Uri.parse(href));
-                        },
-                      ),
+                      // status badge hidden – issue #114
                     ],
                   ),
                 ),
               ),
-            ],
 
-            // Resources (below notes)
-            const SizedBox(height: 12),
-            ResourceLinksSection(
-              links: occ.links,
-              canEdit: _canManage,
-              onSave: (links) async {
-                await context.read<ApiService>().updateOccurrence(
-                    widget.occurrenceId, {'links': links});
-                _load();
-              },
-            ),
-
-            // Check-in section
-            if (occ.enableCheckIn) ...[
-              const SizedBox(height: 12),
-              if (_myCheckIn == null || _myCheckIn!.status != 'confirmed')
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    onPressed: _checkIn,
-                    icon: const Icon(Icons.check_circle_outline),
-                    label: const Text('Done'),
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size.fromHeight(44),
-                    ),
-                  ),
-                )
-              else
+              // Host card
+              if (occ.host != null ||
+                  (_canManage &&
+                      series.hostRotation != null &&
+                      series.hostRotation!.isNotEmpty)) ...[
+                const SizedBox(height: 8),
                 Card(
-                  color: Colors.green.shade50,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 10),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.check_circle,
-                            color: Colors.green, size: 22),
-                        const SizedBox(width: 10),
-                        const Expanded(
-                          child: Text('Done ✓',
-                              style: TextStyle(
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.green)),
-                        ),
-                        TextButton(
-                            onPressed: _undoCheckIn,
-                            child: const Text('Undo')),
-                      ],
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      radius: 20,
+                      backgroundColor: cs.primaryContainer,
+                      child: Icon(
+                        Icons.person,
+                        size: 20,
+                        color: cs.onPrimaryContainer,
+                      ),
                     ),
+                    title: const Text(
+                      'Host',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    subtitle: Text(
+                      occ.host ?? 'Set host',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: occ.host != null ? null : cs.onSurfaceVariant,
+                      ),
+                    ),
+                    trailing: _canManage
+                        ? IconButton(
+                            icon: const Icon(Icons.edit, size: 18),
+                            onPressed: () => _editHost(occ),
+                          )
+                        : null,
                   ),
                 ),
-            ],
+              ],
 
-            // Manager controls
-            if (_canManage) ...[
-              const SizedBox(height: 16),
-              _sectionLabel('Manage', cs),
-              const SizedBox(height: 6),
-              Card(
-                child: Column(
-                  children: [
-                    if (series.enableDone)
-                      SwitchListTile(
-                        title: const Text('Show "Done" button',
-                            style: TextStyle(fontSize: 14)),
-                        value: occ.enableCheckIn,
-                        onChanged: (v) => _toggleCheckIn(v),
-                      ),
-                    if (series.hostRotationMode != 'none' &&
-                        occ.host != null &&
-                        (series.hostRotation ?? []).contains(occ.host)) ...[
-                      const Divider(height: 1),
-                      ListTile(
-                        leading: Icon(Icons.refresh, color: cs.primary),
-                        title: const Text('Re-populate rotation from here',
-                            style: TextStyle(fontSize: 14)),
-                        subtitle: const Text(
-                            'Update upcoming occurrences to continue rotation from this host',
-                            style: TextStyle(fontSize: 12)),
-                        onTap: () => _repopulateRotation(occ),
-                      ),
-                    ],
-                    const Divider(height: 1),
-                    ListTile(
-                      leading: const Icon(Icons.delete_outline, color: Colors.red),
-                      title: const Text('Delete occurrence',
-                          style: TextStyle(color: Colors.red)),
-                      onTap: () async {
-                        final confirmed = await showDialog<bool>(
-                          context: context,
-                          builder: (ctx) => AlertDialog(
-                            title: const Text('Delete occurrence?'),
-                            content: const Text('This cannot be undone.'),
-                            actions: [
-                              TextButton(
-                                  onPressed: () => Navigator.pop(ctx, false),
-                                  child: const Text('Cancel')),
-                              TextButton(
-                                  onPressed: () => Navigator.pop(ctx, true),
-                                  child: const Text('Delete',
-                                      style: TextStyle(color: Colors.red))),
-                            ],
-                          ),
-                        );
-                        if (confirmed == true && mounted) {
-                          await context
-                              .read<ApiService>()
-                              .deleteOccurrence(widget.occurrenceId);
-                          if (mounted) Navigator.pop(context);
-                        }
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ],
-
-            // All check-ins (organizer/teacher)
-            if (_canManage && _allCheckIns != null && _allCheckIns!.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              _sectionLabel('Completions (${_allCheckIns!.length})', cs),
-              const SizedBox(height: 6),
-              Card(
-                clipBehavior: Clip.antiAlias,
-                child: Column(
-                  children: _allCheckIns!.asMap().entries.map((entry) {
-                    final ci = entry.value;
-                    final isLast = entry.key == _allCheckIns!.length - 1;
-                    return Column(
-                      children: [
+              // Location & link
+              if (effectiveLocation != null || effectiveLink != null) ...[
+                const SizedBox(height: 8),
+                Card(
+                  child: Column(
+                    children: [
+                      if (effectiveLocation != null)
                         ListTile(
-                          leading: _checkInIcon(ci.status),
+                          leading: Icon(
+                            Icons.location_on_outlined,
+                            size: 20,
+                            color: cs.onSurfaceVariant,
+                          ),
                           title: Text(
-                              ci.displayName ?? ci.userId.substring(0, 8),
-                              style: const TextStyle(fontSize: 14)),
-                          subtitle: ci.note != null
-                              ? Text(ci.note!,
-                                  style: const TextStyle(fontSize: 12))
-                              : null,
-                          trailing: Text(ci.status,
-                              style: TextStyle(
-                                  fontSize: 12, color: cs.onSurfaceVariant)),
+                            effectiveLocation,
+                            style: const TextStyle(fontSize: 14),
+                          ),
                         ),
-                        if (!isLast)
-                          Divider(height: 1, indent: 56,
-                              color: cs.outlineVariant.withValues(alpha: 0.4)),
-                      ],
-                    );
-                  }).toList(),
+                      if (effectiveLocation != null && effectiveLink != null)
+                        Divider(
+                          height: 1,
+                          indent: 56,
+                          color: cs.outlineVariant.withValues(alpha: 0.4),
+                        ),
+                      if (effectiveLink != null)
+                        ListTile(
+                          leading: Icon(
+                            Icons.videocam_outlined,
+                            size: 20,
+                            color: cs.primary,
+                          ),
+                          title: Text(
+                            'Join online meeting',
+                            style: TextStyle(fontSize: 14, color: cs.primary),
+                          ),
+                          trailing: Icon(
+                            Icons.open_in_new,
+                            size: 16,
+                            color: cs.onSurfaceVariant,
+                          ),
+                          onTap: () => launchUrl(Uri.parse(effectiveLink)),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ] else if (!series.hasLocation &&
+                  effectiveLocation == null &&
+                  _canManage) ...[
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: _editOverrides,
+                  icon: const Icon(Icons.add_location_alt, size: 18),
+                  label: const Text('+ Add location'),
+                ),
+              ],
 
-            // Share
-            if (effectiveLocation != null || effectiveLink != null) ...[
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _sectionLabel('Share', cs),
-                  OutlinedButton(
-                    onPressed: () => setState(() => _shareOpen = !_shareOpen),
-                    child: Text(_shareOpen ? 'Close' : 'Share'),
-                  ),
-                ],
-              ),
-              if (!_shareOpen)
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Text(
-                    'Share meeting details with participants.',
-                    style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
-                  ),
-                ),
-              if (_shareOpen) ...[
-                const SizedBox(height: 6),
+              // Notes
+              if (occ.effectiveNotes != null &&
+                  occ.effectiveNotes!.isNotEmpty) ...[
+                const SizedBox(height: 8),
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(14),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // URL + copy
                         Row(
                           children: [
-                            Expanded(
-                              child: Text(
-                                _shareUrl,
-                                style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                            Icon(
+                              Icons.notes,
+                              size: 16,
+                              color: cs.onSurfaceVariant,
                             ),
                             const SizedBox(width: 8),
-                            OutlinedButton(
-                              onPressed: _copyShareLink,
-                              child: Text(_shareCopied ? 'Copied!' : 'Copy'),
+                            Text(
+                              'Notes',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: cs.onSurfaceVariant,
+                              ),
                             ),
                           ],
                         ),
-                        // Include invite toggle (organizer only)
-                        if (_isOrganizer) ...[
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              SizedBox(
-                                height: 24,
-                                width: 24,
-                                child: _inviteLoading
-                                    ? const SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: CircularProgressIndicator(strokeWidth: 2),
-                                      )
-                                    : Checkbox(
-                                        value: _includeInvite,
-                                        onChanged: (_) => _toggleInvite(),
-                                      ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Include invite link (joins as participant)',
-                                style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
-                              ),
-                            ],
-                          ),
-                        ],
-                        const SizedBox(height: 8),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: () => context.push(
-                                '/occurrences/${widget.occurrenceId}/summary'),
-                            icon: const Icon(Icons.open_in_new, size: 16),
-                            label: const Text('Preview'),
-                          ),
+                        const SizedBox(height: 6),
+                        MarkdownBody(
+                          data: occ.effectiveNotes!,
+                          softLineBreak: true,
+                          onTapLink: (text, href, title) {
+                            if (href != null) launchUrl(Uri.parse(href));
+                          },
                         ),
                       ],
                     ),
                   ),
                 ),
               ],
+
+              // Resources (below notes)
+              const SizedBox(height: 12),
+              ResourceLinksSection(
+                links: occ.links,
+                canEdit: _canManage,
+                onSave: (links) async {
+                  await context.read<ApiService>().updateOccurrence(
+                    widget.occurrenceId,
+                    {'links': links},
+                  );
+                  _load();
+                },
+              ),
+
+              // Check-in section
+              if (occ.enableCheckIn) ...[
+                const SizedBox(height: 12),
+                if (_myCheckIn == null || _myCheckIn!.status != 'confirmed')
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: _checkIn,
+                      icon: const Icon(Icons.check_circle_outline),
+                      label: const Text('Done'),
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size.fromHeight(44),
+                      ),
+                    ),
+                  )
+                else
+                  Card(
+                    color: Colors.green.shade50,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.check_circle,
+                            color: Colors.green,
+                            size: 22,
+                          ),
+                          const SizedBox(width: 10),
+                          const Expanded(
+                            child: Text(
+                              'Done ✓',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w500,
+                                color: Colors.green,
+                              ),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: _undoCheckIn,
+                            child: const Text('Undo'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+
+              // Manager controls
+              if (_canManage) ...[
+                const SizedBox(height: 16),
+                _sectionLabel('Manage', cs),
+                const SizedBox(height: 6),
+                Card(
+                  child: Column(
+                    children: [
+                      if (series.enableDone)
+                        SwitchListTile(
+                          title: const Text(
+                            'Show "Done" button',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                          value: occ.enableCheckIn,
+                          onChanged: (v) => _toggleCheckIn(v),
+                        ),
+                      if (series.hostRotationMode != 'none' &&
+                          occ.host != null &&
+                          (series.hostRotation ?? []).contains(occ.host)) ...[
+                        const Divider(height: 1),
+                        ListTile(
+                          leading: Icon(Icons.refresh, color: cs.primary),
+                          title: const Text(
+                            'Re-populate rotation from here',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                          subtitle: const Text(
+                            'Update upcoming occurrences to continue rotation from this host',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                          onTap: () => _repopulateRotation(occ),
+                        ),
+                      ],
+                      const Divider(height: 1),
+                      ListTile(
+                        leading: const Icon(
+                          Icons.delete_outline,
+                          color: Colors.red,
+                        ),
+                        title: const Text(
+                          'Delete occurrence',
+                          style: TextStyle(color: Colors.red),
+                        ),
+                        onTap: () async {
+                          final confirmed = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('Delete occurrence?'),
+                              content: const Text('This cannot be undone.'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx, false),
+                                  child: const Text('Cancel'),
+                                ),
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  child: const Text(
+                                    'Delete',
+                                    style: TextStyle(color: Colors.red),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (confirmed == true && mounted) {
+                            await context.read<ApiService>().deleteOccurrence(
+                              widget.occurrenceId,
+                            );
+                            if (mounted) Navigator.pop(context);
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
+              // All check-ins (organizer/teacher)
+              if (_canManage &&
+                  _allCheckIns != null &&
+                  _allCheckIns!.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                _sectionLabel('Completions (${_allCheckIns!.length})', cs),
+                const SizedBox(height: 6),
+                Card(
+                  clipBehavior: Clip.antiAlias,
+                  child: Column(
+                    children: _allCheckIns!.asMap().entries.map((entry) {
+                      final ci = entry.value;
+                      final isLast = entry.key == _allCheckIns!.length - 1;
+                      return Column(
+                        children: [
+                          ListTile(
+                            leading: _checkInIcon(ci.status),
+                            title: Text(
+                              ci.displayName ?? ci.userId.substring(0, 8),
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                            subtitle: ci.note != null
+                                ? Text(
+                                    ci.note!,
+                                    style: const TextStyle(fontSize: 12),
+                                  )
+                                : null,
+                            trailing: Text(
+                              ci.status,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: cs.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                          if (!isLast)
+                            Divider(
+                              height: 1,
+                              indent: 56,
+                              color: cs.outlineVariant.withValues(alpha: 0.4),
+                            ),
+                        ],
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
+
+              // Share
+              if (effectiveLocation != null || effectiveLink != null) ...[
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _sectionLabel('Share', cs),
+                    OutlinedButton(
+                      onPressed: () => setState(() => _shareOpen = !_shareOpen),
+                      child: Text(_shareOpen ? 'Close' : 'Share'),
+                    ),
+                  ],
+                ),
+                if (!_shareOpen)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      'Share meeting details with participants.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                if (_shareOpen) ...[
+                  const SizedBox(height: 6),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // URL + copy
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  _shareUrl,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: cs.onSurfaceVariant,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              OutlinedButton(
+                                onPressed: _copyShareLink,
+                                child: Text(_shareCopied ? 'Copied!' : 'Copy'),
+                              ),
+                            ],
+                          ),
+                          // Include invite toggle (organizer only)
+                          if (_isOrganizer) ...[
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                SizedBox(
+                                  height: 24,
+                                  width: 24,
+                                  child: _inviteLoading
+                                      ? const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : Checkbox(
+                                          value: _includeInvite,
+                                          onChanged: (_) => _toggleInvite(),
+                                        ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Include invite link (joins as participant)',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: cs.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: () => context.push(
+                                '/occurrences/${widget.occurrenceId}/summary',
+                              ),
+                              icon: const Icon(Icons.open_in_new, size: 16),
+                              label: const Text('Preview'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ],
-          ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -925,25 +1081,32 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
   Widget _sectionLabel(String text, ColorScheme cs) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Text(text,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.5,
-            color: cs.onSurfaceVariant,
-          )),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.5,
+          color: cs.onSurfaceVariant,
+        ),
+      ),
     );
   }
 
   Widget _checkInIcon(String status) {
     return switch (status) {
-      'confirmed' =>
-        const Icon(Icons.check_circle, color: Colors.green, size: 20),
+      'confirmed' => const Icon(
+        Icons.check_circle,
+        color: Colors.green,
+        size: 20,
+      ),
       'declined' => const Icon(Icons.cancel, color: Colors.red, size: 20),
-      'missed' =>
-        const Icon(Icons.remove_circle, color: Colors.orange, size: 20),
-      _ =>
-        const Icon(Icons.hourglass_empty, color: Colors.grey, size: 20),
+      'missed' => const Icon(
+        Icons.remove_circle,
+        color: Colors.orange,
+        size: 20,
+      ),
+      _ => const Icon(Icons.hourglass_empty, color: Colors.grey, size: 20),
     };
   }
 }

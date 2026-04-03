@@ -150,9 +150,10 @@ which surface to test on. Unless noted otherwise, test both.
 
 1. Open a room you organize.
 2. In the Members section, tap **Create Invite Link** (web) or **Invite** (app).
-3. Copy the generated link.
+3. In the app, verify a role picker appears with **Participant** and **Organizer**, then select a role.
+4. Copy the generated link.
 
-**Expected:** A URL is generated and can be copied to the clipboard.
+**Expected:** A URL is generated and can be copied to the clipboard. The generated invite uses the role selected in the picker.
 
 ### 3.2 Accept an invite
 
