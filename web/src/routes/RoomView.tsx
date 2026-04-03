@@ -24,6 +24,7 @@ import { useAuth } from "../auth";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { Markdown } from "../components/Markdown";
+import { ResourceLinks } from "../components/ResourceLinks";
 
 const FREQ_OPTIONS = [
   { value: "daily", label: "Daily" },
@@ -366,6 +367,16 @@ export function RoomView() {
           <p className="page-meta-tz">{room.timezone}</p>
         )}
       </div>
+
+      <ResourceLinks
+        links={room?.links ?? null}
+        canEdit={!!isOrganizer}
+        onSave={async (links) => {
+          if (!roomId) return;
+          const updated = await patchRoom(roomId, { links });
+          setRoom(updated);
+        }}
+      />
 
       <section className="section">
         <div className="section-header">

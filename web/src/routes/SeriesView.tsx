@@ -21,6 +21,7 @@ import { useAuth } from "../auth";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { Markdown } from "../components/Markdown";
+import { ResourceLinks } from "../components/ResourceLinks";
 import { Toast } from "../components/Toast";
 import { formatDate, formatShortDate } from "../dateFormat";
 
@@ -419,6 +420,16 @@ export function SeriesView() {
           </div>
         )}
       </div>
+
+      <ResourceLinks
+        links={series?.links ?? null}
+        canEdit={!!isOrganizer}
+        onSave={async (links) => {
+          if (!seriesId) return;
+          const updated = await patchSeries(seriesId, { links });
+          setSeries(updated);
+        }}
+      />
 
       {editing && (
         <form className="create-page-form" onSubmit={handleSaveEdit}>

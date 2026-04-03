@@ -13,6 +13,7 @@ import '../../models/room.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 import '../../shared/formatting/timezone_helpers.dart';
+import '../../shared/widgets/resource_links.dart';
 
 class OccurrenceScreen extends StatefulWidget {
   final String occurrenceId;
@@ -635,6 +636,18 @@ class _OccurrenceScreenState extends State<OccurrenceScreen> {
                 label: const Text('+ Add location'),
               ),
             ],
+
+            // Resources
+            const SizedBox(height: 12),
+            ResourceLinksSection(
+              links: occ.links,
+              canEdit: _canManage,
+              onSave: (links) async {
+                await context.read<ApiService>().updateOccurrence(
+                    widget.occurrenceId, {'links': links});
+                _load();
+              },
+            ),
 
             // Notes
             if (occ.effectiveNotes != null &&

@@ -27,6 +27,8 @@ from assistant_actions import (
     build_reschedule_occurrence_action,
     build_update_occurrence_action,
     build_update_occurrence_notes_action,
+    build_update_room_action,
+    build_update_series_action,
     save_pending_action,
 )
 
@@ -52,7 +54,9 @@ Available actions:
   create_series            — create a new recurring meeting series
   create_occurrence        — create a single new occurrence in an existing series
   reschedule_occurrence    — reschedule a single meeting occurrence
-  update_occurrence        — update fields (host, location, notes) on an existing occurrence
+  update_occurrence        — update fields (host, location, notes, links) on an existing occurrence
+  update_room              — update room-level fields (title, timezone, description, links)
+  update_series            — update series-level fields (title, description, time, duration, location, online link, links, etc.)
   draft_material           — draft meeting material (agenda, notes, announcement)
   generate_reminder_text   — generate a shareable reminder for participants
   general_question         — answer without performing any state change
@@ -84,7 +88,14 @@ Respond with a single JSON object (no markdown fences):
       //   location (optional), notes (optional agenda/notes text)
       // reschedule_occurrence: occurrence_id, new_scheduled_for (ISO 8601 UTC)
       // update_occurrence: occurrence_id, host (optional), location (optional),
-      //   notes (optional agenda/notes text) — use for updating any occurrence field
+      //   notes (optional agenda/notes text),
+      //   links (optional array of {label, url} resource links)
+      // update_room: title (optional), timezone (optional), description (optional),
+      //   links (optional array of {label, url} resource links)
+      // update_series: series_id, title (optional), description (optional),
+      //   default_time (optional), default_duration_minutes (optional),
+      //   default_location (optional), default_online_link (optional),
+      //   links (optional array of {label, url} resource links)
       // draft_material: title, material_kind, draft_text
       // generate_reminder_text: occurrence_id, series_id, reminder_text
     }
@@ -182,6 +193,8 @@ _ACTION_BUILDERS = {
     "generate_reminder_text": build_generate_reminder_text_action,
     "update_occurrence_notes": build_update_occurrence_notes_action,
     "update_occurrence": build_update_occurrence_action,
+    "update_room": build_update_room_action,
+    "update_series": build_update_series_action,
 }
 
 

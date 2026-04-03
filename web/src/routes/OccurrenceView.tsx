@@ -20,6 +20,7 @@ import {
 import { useAuth } from "../auth";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ErrorMessage } from "../components/ErrorMessage";
+import { ResourceLinks } from "../components/ResourceLinks";
 import { formatDate } from "../dateFormat";
 
 export function OccurrenceView() {
@@ -493,6 +494,16 @@ export function OccurrenceView() {
           </div>
         </section>
       )}
+
+      <ResourceLinks
+        links={occ.links ?? null}
+        canEdit={isManager}
+        onSave={async (links) => {
+          if (!occurrenceId) return;
+          const updated = await patchOccurrence(occurrenceId, { links });
+          setOccurrence(updated);
+        }}
+      />
 
       {/* Notes */}
       <section className="section">

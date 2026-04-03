@@ -1335,3 +1335,39 @@ body {
 .telegram-bot-username a:hover {
   text-decoration: underline;
 }
+
+/* Resource Links */
+.resource-links-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.resource-link-item a {
+  color: var(--primary);
+  text-decoration: none;
+  font-size: 0.95rem;
+}
+
+.resource-link-item a:hover {
+  text-decoration: underline;
+}
+
+.resource-links-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.resource-link-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.resource-link-row .form-input {
+  flex: 1;
+}

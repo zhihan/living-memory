@@ -29,6 +29,8 @@ ActionType = Literal[
     "generate_reminder_text",
     "update_occurrence_notes",
     "update_occurrence",
+    "update_room",
+    "update_series",
 ]
 
 ActionStatus = Literal["pending", "confirmed", "cancelled", "executed", "failed"]
@@ -406,6 +408,9 @@ def build_update_occurrence_action(
     if payload.get("notes"):
         preview = payload["notes"][:60]
         changes.append(f'notes to "{preview}"')
+    if payload.get("links") is not None:
+        n = len(payload["links"])
+        changes.append(f'{n} resource link{"s" if n != 1 else ""}')
     detail = ", ".join(changes) if changes else "fields"
     summary = f"Update {detail} for occurrence {occ_id}."
     return PendingAction(
@@ -437,6 +442,8 @@ def execute_update_occurrence(action: PendingAction) -> dict:
         overrides = occ.overrides.to_dict() if occ.overrides else {}
         overrides["notes"] = payload["notes"]
         updates["overrides"] = overrides
+    if "links" in payload:
+        updates["links"] = payload["links"]
 
     if updates:
         series_storage.update_occurrence(occ_id, updates)
@@ -447,6 +454,116 @@ def execute_update_occurrence(action: PendingAction) -> dict:
         action.action_id,
     )
     return {"updated": "occurrence", "occurrence_id": occ_id, "fields": list(updates.keys())}
+
+
+# ---------------------------------------------------------------------------
+# UpdateRoomAction
+# ---------------------------------------------------------------------------
+
+_UPDATE_ROOM_FIELDS = {"title", "timezone", "description", "links"}
+
+
+def build_update_room_action(
+    room_id: str, uid: str, payload: dict
+) -> PendingAction:
+    changes: list[str] = []
+    if payload.get("title"):
+        changes.append(f'title to "{payload["title"]}"')
+    if payload.get("timezone"):
+        changes.append(f'timezone to "{payload["timezone"]}"')
+    if payload.get("description") is not None:
+        changes.append("description")
+    if payload.get("links") is not None:
+        n = len(payload["links"])
+        changes.append(f'{n} resource link{"s" if n != 1 else ""}')
+    detail = ", ".join(changes) if changes else "fields"
+    summary = f"Update {detail} on room {room_id}."
+    return PendingAction(
+        action_id=str(uuid.uuid4()),
+        room_id=room_id,
+        requested_by_uid=uid,
+        action_type="update_room",
+        preview_summary=summary,
+        payload=payload,
+    )
+
+
+def execute_update_room(action: PendingAction) -> dict:
+    import room_storage
+
+    payload = action.payload
+    updates = {k: v for k, v in payload.items() if k in _UPDATE_ROOM_FIELDS}
+
+    if updates:
+        room_storage.update_room(action.room_id, updates)
+
+    logger.info(
+        "Updated room %s via assistant action %s",
+        action.room_id,
+        action.action_id,
+    )
+    return {"updated": "room", "room_id": action.room_id, "fields": list(updates.keys())}
+
+
+# ---------------------------------------------------------------------------
+# UpdateSeriesAction
+# ---------------------------------------------------------------------------
+
+_UPDATE_SERIES_FIELDS = {
+    "title", "kind", "description", "default_time", "default_duration_minutes",
+    "default_location", "default_online_link", "location_type", "enable_done",
+    "links",
+}
+
+
+def build_update_series_action(
+    room_id: str, uid: str, payload: dict
+) -> PendingAction:
+    series_id = payload.get("series_id", "?")
+    changes: list[str] = []
+    if payload.get("title"):
+        changes.append(f'title to "{payload["title"]}"')
+    if payload.get("description") is not None:
+        changes.append("description")
+    if payload.get("default_time"):
+        changes.append(f'time to {payload["default_time"]}')
+    if payload.get("default_duration_minutes"):
+        changes.append(f'duration to {payload["default_duration_minutes"]}min')
+    if payload.get("default_location"):
+        changes.append(f'location to "{payload["default_location"]}"')
+    if payload.get("default_online_link"):
+        changes.append("online link")
+    if payload.get("links") is not None:
+        n = len(payload["links"])
+        changes.append(f'{n} resource link{"s" if n != 1 else ""}')
+    detail = ", ".join(changes) if changes else "fields"
+    summary = f"Update {detail} on series {series_id}."
+    return PendingAction(
+        action_id=str(uuid.uuid4()),
+        room_id=room_id,
+        requested_by_uid=uid,
+        action_type="update_series",
+        preview_summary=summary,
+        payload=payload,
+    )
+
+
+def execute_update_series(action: PendingAction) -> dict:
+    import series_storage
+
+    payload = action.payload
+    series_id = payload["series_id"]
+    updates = {k: v for k, v in payload.items() if k in _UPDATE_SERIES_FIELDS}
+
+    if updates:
+        series_storage.update_series(series_id, updates)
+
+    logger.info(
+        "Updated series %s via assistant action %s",
+        series_id,
+        action.action_id,
+    )
+    return {"updated": "series", "series_id": series_id, "fields": list(updates.keys())}
 
 
 # ---------------------------------------------------------------------------
@@ -463,6 +580,8 @@ def execute_action(action: PendingAction) -> dict:
         "generate_reminder_text": execute_generate_reminder_text,
         "update_occurrence_notes": execute_update_occurrence_notes,
         "update_occurrence": execute_update_occurrence,
+        "update_room": execute_update_room,
+        "update_series": execute_update_series,
     }
     fn = dispatch.get(action.action_type)
     if fn is None:

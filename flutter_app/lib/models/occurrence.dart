@@ -49,6 +49,7 @@ class Occurrence {
   final String? host;
   final String? prevOccurrenceId;
   final String? nextOccurrenceId;
+  final List<Map<String, String>>? links;
 
   const Occurrence({
     required this.occurrenceId,
@@ -63,6 +64,7 @@ class Occurrence {
     this.host,
     this.prevOccurrenceId,
     this.nextOccurrenceId,
+    this.links,
   });
 
   factory Occurrence.fromJson(Map<String, dynamic> json) {
@@ -82,6 +84,9 @@ class Occurrence {
       host: json['host'] as String?,
       prevOccurrenceId: json['prev_occurrence_id'] as String?,
       nextOccurrenceId: json['next_occurrence_id'] as String?,
+      links: (json['links'] as List?)
+          ?.map((e) => Map<String, String>.from(e as Map))
+          .toList(),
     );
   }
 

@@ -58,6 +58,7 @@ class Room:
     created_at: datetime | None = None
     updated_at: datetime | None = None
     description: str | None = None
+    links: list[dict] | None = None
 
     def to_dict(self) -> dict:
         now = _utcnow()
@@ -72,6 +73,7 @@ class Room:
             "created_at": self.created_at or now,
             "updated_at": self.updated_at or now,
             "description": self.description,
+            "links": self.links,
         }
 
     @classmethod
@@ -87,6 +89,7 @@ class Room:
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),
             description=data.get("description"),
+            links=data.get("links"),
         )
 
 
@@ -193,6 +196,7 @@ class Series:
     description: str | None = None
     # UID of the user who created this series
     created_by: str | None = None
+    links: list[dict] | None = None
 
     def to_dict(self) -> dict:
         now = _utcnow()
@@ -218,6 +222,7 @@ class Series:
             "updated_at": self.updated_at or now,
             "description": self.description,
             "created_by": self.created_by,
+            "links": self.links,
         }
 
     @classmethod
@@ -251,6 +256,7 @@ class Series:
             updated_at=data.get("updated_at"),
             description=data.get("description"),
             created_by=data.get("created_by"),
+            links=data.get("links"),
         )
 
 
@@ -321,6 +327,7 @@ class Occurrence:
     sequence_index: int | None = None
     # Whether participants can check in on this occurrence
     enable_check_in: bool = False
+    links: list[dict] | None = None
 
     def to_dict(self) -> dict:
         now = _utcnow()
@@ -338,6 +345,7 @@ class Occurrence:
             "updated_at": self.updated_at or now,
             "sequence_index": self.sequence_index,
             "enable_check_in": self.enable_check_in,
+            "links": self.links,
         }
 
     @classmethod
@@ -357,6 +365,7 @@ class Occurrence:
             updated_at=data.get("updated_at"),
             sequence_index=data.get("sequence_index"),
             enable_check_in=bool(data.get("enable_check_in", False)),
+            links=data.get("links"),
         )
 
 
