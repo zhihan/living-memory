@@ -81,6 +81,24 @@ export async function getPublicOccurrenceSummary(
   return resp.json();
 }
 
+export interface PublicInviteInfo {
+  invite_id: string;
+  room_id: string;
+  room_title: string | null;
+  role: string;
+}
+
+export async function getPublicInviteInfo(
+  inviteId: string,
+): Promise<PublicInviteInfo> {
+  const resp = await fetch(`${BASE_URL}/v2/public/invites/${inviteId}`);
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => ({ detail: resp.statusText }));
+    throw new ApiError(body.detail ?? resp.statusText, resp.status);
+  }
+  return resp.json();
+}
+
 // ============================================================
 // Rooms, Series, Occurrences, CheckIns
 // ============================================================

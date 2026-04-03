@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { acceptInvite } from "../api";
+import { acceptInvite, getPublicInviteInfo } from "../api";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 
 const ACCEPT_INVITE_TIMEOUT_MS = 15000;
@@ -10,6 +10,14 @@ export function AcceptInvite() {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [started, setStarted] = useState(false);
+  const [roomTitle, setRoomTitle] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!inviteId) return;
+    getPublicInviteInfo(inviteId)
+      .then((info) => setRoomTitle(info.room_title))
+      .catch(() => {}); // non-critical, fall back to generic text
+  }, [inviteId]);
 
   async function doAccept() {
     if (!inviteId) return;
@@ -55,7 +63,11 @@ export function AcceptInvite() {
     return (
       <div className="invite-page">
         <h2>You've been invited!</h2>
-        <p>Click below to join this room.</p>
+        <p>
+          {roomTitle
+            ? <>Click below to join <strong>{roomTitle}</strong>.</>
+            : "Click below to join this room."}
+        </p>
         <button className="btn btn-primary" onClick={doAccept}>
           Accept Invite
         </button>

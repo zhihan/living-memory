@@ -1663,3 +1663,20 @@ def get_public_occurrence_summary(occurrence_id: str) -> dict:
         "default_location": s.default_location,
         "default_online_link": s.default_online_link,
     }
+
+
+@router.get("/public/invites/{invite_id}")
+def get_public_invite_info(invite_id: str) -> dict:
+    """Return basic invite info including room name. No auth required."""
+    invite = room_storage.find_room_invite(invite_id)
+    if invite is None:
+        raise HTTPException(status_code=404, detail="Invite not found")
+    room_id = invite.get("room_id") or invite.get("workspace_id")
+    rm = room_storage.get_room(room_id)
+    room_title = rm.title if rm else None
+    return {
+        "invite_id": invite_id,
+        "room_id": room_id,
+        "room_title": room_title,
+        "role": invite.get("role", "participant"),
+    }

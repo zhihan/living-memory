@@ -16,6 +16,23 @@ class AcceptInviteScreen extends StatefulWidget {
 class _AcceptInviteScreenState extends State<AcceptInviteScreen> {
   bool _loading = false;
   String? _error;
+  String? _roomTitle;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadInviteInfo();
+  }
+
+  Future<void> _loadInviteInfo() async {
+    try {
+      final api = context.read<ApiService>();
+      final info = await api.getPublicInviteInfo(widget.inviteId);
+      if (mounted) setState(() => _roomTitle = info['room_title'] as String?);
+    } catch (_) {
+      // non-critical, fall back to generic text
+    }
+  }
 
   Future<void> _accept() async {
     final auth = context.read<AuthService>();
@@ -61,7 +78,11 @@ class _AcceptInviteScreenState extends State<AcceptInviteScreen> {
             children: [
               const Icon(Icons.mail_outline, size: 48),
               const SizedBox(height: 16),
-              const Text('You have been invited to join a room.'),
+              Text(
+                _roomTitle != null
+                    ? 'You have been invited to join $_roomTitle.'
+                    : 'You have been invited to join a room.',
+              ),
               const SizedBox(height: 24),
               if (_loading)
                 const CircularProgressIndicator()
