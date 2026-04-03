@@ -460,10 +460,19 @@ def execute_update_occurrence(action: PendingAction) -> dict:
 # UpdateRoomAction
 # ---------------------------------------------------------------------------
 
+_UPDATE_ROOM_FIELDS = {"title", "timezone", "description", "links"}
+
+
 def build_update_room_action(
     room_id: str, uid: str, payload: dict
 ) -> PendingAction:
     changes: list[str] = []
+    if payload.get("title"):
+        changes.append(f'title to "{payload["title"]}"')
+    if payload.get("timezone"):
+        changes.append(f'timezone to "{payload["timezone"]}"')
+    if payload.get("description") is not None:
+        changes.append("description")
     if payload.get("links") is not None:
         n = len(payload["links"])
         changes.append(f'{n} resource link{"s" if n != 1 else ""}')
@@ -483,9 +492,7 @@ def execute_update_room(action: PendingAction) -> dict:
     import room_storage
 
     payload = action.payload
-    updates: dict = {}
-    if "links" in payload:
-        updates["links"] = payload["links"]
+    updates = {k: v for k, v in payload.items() if k in _UPDATE_ROOM_FIELDS}
 
     if updates:
         room_storage.update_room(action.room_id, updates)
@@ -502,11 +509,30 @@ def execute_update_room(action: PendingAction) -> dict:
 # UpdateSeriesAction
 # ---------------------------------------------------------------------------
 
+_UPDATE_SERIES_FIELDS = {
+    "title", "kind", "description", "default_time", "default_duration_minutes",
+    "default_location", "default_online_link", "location_type", "enable_done",
+    "links",
+}
+
+
 def build_update_series_action(
     room_id: str, uid: str, payload: dict
 ) -> PendingAction:
     series_id = payload.get("series_id", "?")
     changes: list[str] = []
+    if payload.get("title"):
+        changes.append(f'title to "{payload["title"]}"')
+    if payload.get("description") is not None:
+        changes.append("description")
+    if payload.get("default_time"):
+        changes.append(f'time to {payload["default_time"]}')
+    if payload.get("default_duration_minutes"):
+        changes.append(f'duration to {payload["default_duration_minutes"]}min')
+    if payload.get("default_location"):
+        changes.append(f'location to "{payload["default_location"]}"')
+    if payload.get("default_online_link"):
+        changes.append("online link")
     if payload.get("links") is not None:
         n = len(payload["links"])
         changes.append(f'{n} resource link{"s" if n != 1 else ""}')
@@ -527,9 +553,7 @@ def execute_update_series(action: PendingAction) -> dict:
 
     payload = action.payload
     series_id = payload["series_id"]
-    updates: dict = {}
-    if "links" in payload:
-        updates["links"] = payload["links"]
+    updates = {k: v for k, v in payload.items() if k in _UPDATE_SERIES_FIELDS}
 
     if updates:
         series_storage.update_series(series_id, updates)
