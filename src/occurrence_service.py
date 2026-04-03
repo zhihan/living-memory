@@ -23,6 +23,7 @@ from models import (
 )
 from recurrence import generate_occurrences
 from series_storage import (
+    delete_occurrence,
     get_series,
     list_occurrences_for_series,
     save_occurrence,
@@ -211,13 +212,13 @@ def regenerate_series(
 
     for occ in existing:
         existing_times.add(occ.scheduled_for)
-        # Only auto-cancel scheduled occurrences that are no longer in the rule
+        # Delete scheduled occurrences that are no longer in the rule
         if (
             occ.status == "scheduled"
             and occ.scheduled_for not in new_time_set
             and _in_window(occ.scheduled_for, start_date, end_date, tz)
         ):
-            update_occurrence(occ.occurrence_id, {"status": "cancelled"})
+            delete_occurrence(occ.occurrence_id)
             cancelled += 1
 
     # Create new occurrences for times not yet in Firestore

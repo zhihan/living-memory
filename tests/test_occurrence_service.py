@@ -13,6 +13,7 @@ from occurrence_service import (
     create_single_occurrence,
     edit_occurrence,
     generate_and_save,
+    regenerate_series,
     reschedule_occurrence,
     skip_occurrence,
 )
@@ -189,3 +190,94 @@ class TestSkipComplete:
         saved = call_args[1]["overrides"]
         assert saved["location"] == "Room B"
         assert saved["time"] == "10:00"
+
+
+class TestRegenerateSeries:
+    """Tests for regenerate_series (adjust mode)."""
+
+    def _make_occ(self, occ_id, scheduled_for, status="scheduled"):
+        return Occurrence(
+            occurrence_id=occ_id, series_id="s-1", room_id="ws-1",
+            scheduled_for=scheduled_for, status=status,
+        )
+
+    def test_keeps_matching_deletes_non_matching(self):
+        """Occurrences matching the new schedule are kept; others are deleted."""
+        # Series changes from Monday to Wednesday
+        series = _make_series(
+            schedule_rule=ScheduleRule(frequency="weekly", weekdays=[3]),  # Wed
+        )
+        # Existing Monday occurrences (Apr 6, 13 are Mondays; Apr 8, 15 are Wednesdays)
+        existing = [
+            self._make_occ("occ-mon-6", "2026-04-06T09:00:00+00:00"),
+            self._make_occ("occ-wed-8", "2026-04-08T09:00:00+00:00"),
+            self._make_occ("occ-mon-13", "2026-04-13T09:00:00+00:00"),
+        ]
+        deleted_ids = []
+        batch_saved = []
+
+        with (
+            patch("occurrence_service.get_series", return_value=series),
+            patch("occurrence_service.list_occurrences_for_series", return_value=existing),
+            patch("occurrence_service.delete_occurrence", side_effect=lambda oid: deleted_ids.append(oid)),
+            patch("occurrence_service.save_occurrences_batch", side_effect=lambda lst: batch_saved.extend(lst)),
+        ):
+            result = regenerate_series("s-1", "UTC", date(2026, 4, 1), date(2026, 4, 30))
+
+        # Monday occurrences should be deleted (not in new Wed schedule)
+        assert "occ-mon-6" in deleted_ids
+        assert "occ-mon-13" in deleted_ids
+        # Wednesday occurrence should NOT be deleted
+        assert "occ-wed-8" not in deleted_ids
+        # New Wed occurrences created for dates not already existing
+        assert result["created"] >= 1
+        assert result["cancelled"] == 2
+
+    def test_preserves_completed_occurrences(self):
+        """Completed occurrences are never deleted, even if they don't match."""
+        series = _make_series(
+            schedule_rule=ScheduleRule(frequency="weekly", weekdays=[3]),  # Wed
+        )
+        existing = [
+            self._make_occ("occ-done", "2026-04-06T09:00:00+00:00", status="completed"),
+            self._make_occ("occ-sched", "2026-04-13T09:00:00+00:00", status="scheduled"),
+        ]
+        deleted_ids = []
+
+        with (
+            patch("occurrence_service.get_series", return_value=series),
+            patch("occurrence_service.list_occurrences_for_series", return_value=existing),
+            patch("occurrence_service.delete_occurrence", side_effect=lambda oid: deleted_ids.append(oid)),
+            patch("occurrence_service.save_occurrences_batch"),
+        ):
+            regenerate_series("s-1", "UTC", date(2026, 4, 1), date(2026, 4, 30))
+
+        assert "occ-done" not in deleted_ids
+        assert "occ-sched" in deleted_ids
+
+    def test_no_changes_when_schedule_unchanged(self):
+        """If the schedule hasn't actually changed, nothing is deleted or created."""
+        series = _make_series(
+            schedule_rule=ScheduleRule(frequency="weekly", weekdays=[1]),  # Mon
+        )
+        # Existing occurrences already match the Monday schedule
+        existing = [
+            self._make_occ("occ-6", "2026-04-06T09:00:00+00:00"),
+            self._make_occ("occ-13", "2026-04-13T09:00:00+00:00"),
+            self._make_occ("occ-20", "2026-04-20T09:00:00+00:00"),
+            self._make_occ("occ-27", "2026-04-27T09:00:00+00:00"),
+        ]
+        deleted_ids = []
+        batch_saved = []
+
+        with (
+            patch("occurrence_service.get_series", return_value=series),
+            patch("occurrence_service.list_occurrences_for_series", return_value=existing),
+            patch("occurrence_service.delete_occurrence", side_effect=lambda oid: deleted_ids.append(oid)),
+            patch("occurrence_service.save_occurrences_batch", side_effect=lambda lst: batch_saved.extend(lst)),
+        ):
+            result = regenerate_series("s-1", "UTC", date(2026, 4, 1), date(2026, 4, 30))
+
+        assert deleted_ids == []
+        assert result["created"] == 0
+        assert result["cancelled"] == 0

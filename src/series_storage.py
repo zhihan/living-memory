@@ -116,8 +116,18 @@ def update_occurrence(occurrence_id: str, updates: dict) -> Occurrence:
 
 
 def delete_occurrence(occurrence_id: str) -> None:
-    """Hard-delete an Occurrence document."""
+    """Hard-delete an Occurrence and its associated delivery logs and check-ins."""
     db = _get_client()
+    # Remove delivery logs tied to this occurrence
+    for doc in db.collection(DELIVERY_LOGS_COLLECTION).where(
+        "occurrence_id", "==", occurrence_id
+    ).stream():
+        doc.reference.delete()
+    # Remove check-ins tied to this occurrence
+    for doc in db.collection(CHECK_INS_COLLECTION).where(
+        "occurrence_id", "==", occurrence_id
+    ).stream():
+        doc.reference.delete()
     db.collection(OCCURRENCES_COLLECTION).document(occurrence_id).delete()
 
 

@@ -759,15 +759,28 @@ def update_series(
             counts = regenerate_series(series_id, rm.timezone, start_date, end_date)
             result["schedule_result"] = counts
         elif body.schedule_mode == "regenerate":
+            from recurrence import generate_occurrences as gen_occ_times
+
             now_iso = datetime.utcnow().isoformat()
-            cancelled_count = 0
+            # Compute new target timestamps so we can keep matching ones
+            new_times = gen_occ_times(
+                rule=updated.schedule_rule,
+                default_time=updated.default_time,
+                timezone=rm.timezone or "UTC",
+                start_date=start_date,
+                end_date=end_date,
+            )
+            new_time_set = {dt.isoformat() for dt in new_times}
+            deleted_count = 0
             for occ in existing_occs:
                 if occ.status == "scheduled" and occ.scheduled_for >= now_iso:
-                    series_storage.update_occurrence(occ.occurrence_id, {"status": "cancelled"})
-                    cancelled_count += 1
+                    if occ.scheduled_for not in new_time_set:
+                        series_storage.delete_occurrence(occ.occurrence_id)
+                        deleted_count += 1
+            # generate_and_save skips timestamps that already exist
             new_occs = generate_and_save(updated, rm.timezone, start_date, end_date)
             result["schedule_result"] = {
-                "cancelled": cancelled_count,
+                "deleted": deleted_count,
                 "created": len(new_occs),
             }
 

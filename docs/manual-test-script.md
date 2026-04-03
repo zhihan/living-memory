@@ -219,7 +219,7 @@ which surface to test on. Unless noted otherwise, test both.
 1. Edit a series and change the day-of-week selection.
 2. On the confirmation dialog, choose **Adjust schedule**.
 
-**Expected:** Existing occurrences are kept; new pattern applies going forward.
+**Expected:** Future occurrences that no longer match the new schedule are deleted; matching ones are kept. New occurrences are created for the updated pattern.
 
 3. Repeat, but choose **Leave existing as-is**.
 
@@ -227,7 +227,7 @@ which surface to test on. Unless noted otherwise, test both.
 
 4. Repeat, but choose **Delete future & regenerate**.
 
-**Expected:** Unmodified future occurrences are deleted and new ones are created matching the new schedule.
+**Expected:** Future occurrences that no longer match the new schedule are deleted. Occurrences whose timestamp still matches the new schedule are kept (preserving their overrides, delivery logs, and check-ins). New occurrences are created for any new timestamps. Deleted occurrences do not appear in the past section.
 
 ### 4.4 Delete a series
 
