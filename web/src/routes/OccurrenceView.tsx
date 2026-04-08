@@ -380,7 +380,7 @@ export function OccurrenceView() {
                 onClick={isOrganizer ? () => startInlineEdit("host", occurrence?.host ?? "") : undefined}
                 title={isOrganizer ? "Click to change host" : undefined}
               >
-                {occurrence?.host || "(none)"}
+                {occurrence?.host || ""}
               </span>
             )}
           </div>
