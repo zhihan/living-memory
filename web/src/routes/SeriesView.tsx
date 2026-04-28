@@ -400,7 +400,7 @@ export function SeriesView() {
         {series?.description && (
           <Markdown text={series.description} className="series-description" />
         )}
-        {series && series.location_type !== "none" && (series.default_location || series.default_online_link || (series.location_type === "rotation" && series.location_rotation?.length)) && (
+        {series && (series.default_online_link || (series.location_type !== "none" && (series.default_location || (series.location_type === "rotation" && series.location_rotation?.length)))) && (
           <div className="series-location-row">
             {series.location_type === "rotation" && series.location_rotation?.length ? (
               <span className="location-chip">Rotation: {series.location_rotation.join(" → ")}</span>

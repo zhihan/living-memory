@@ -313,6 +313,11 @@ which surface to test on. Unless noted otherwise, test both.
 
 **Expected:** No location field appears on occurrences (unless manually overridden).
 
+**No location with online link:**
+1. Create a series with location type **None** and an online link set.
+
+**Expected:** The online link appears on the series view and occurrence pages even though location type is None.
+
 ---
 
 ## 5 Host Rotation
